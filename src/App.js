@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, Droplet, Hospital, Users, Calendar, Heart, Activity, MapPin, Phone, Mail, ChevronRight, Menu, X } from 'lucide-react';
+import hero from "../src/assets/hero.jpg";
 
 // Homepage Component
 const Homepage = ({ onNavigate }) => {
@@ -17,7 +18,7 @@ const Homepage = ({ onNavigate }) => {
       title: "Save Lives, Donate Blood",
       subtitle: "Every Drop Counts",
       location: "Join Our Mission",
-      image: "linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)"
+      image: "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)"
     },
     {
       title: "Emergency Blood Requests",
@@ -66,67 +67,6 @@ const Homepage = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-                <Droplet className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-800">NBTS</span>
-            </div>
-
-            {/* Desktop Menu */}
-            <div className="hidden md:flex space-x-8">
-              <button className="text-gray-700 hover:text-red-600 font-medium">About Us</button>
-              <button className="text-gray-700 hover:text-red-600 font-medium">Services</button>
-              <button className="text-gray-700 hover:text-red-600 font-medium">Events & News</button>
-              <button className="text-gray-700 hover:text-red-600 font-medium">For Donors</button>
-              <button className="text-gray-700 hover:text-red-600 font-medium">Contact Us</button>
-            </div>
-
-            <div className="hidden md:flex space-x-4">
-              <button 
-                onClick={() => onNavigate('login')}
-                className="px-4 py-2 text-red-600 border border-red-600 rounded hover:bg-red-50 transition-colors"
-              >
-                Login
-              </button>
-              <button 
-                onClick={() => onNavigate('register')}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-              >
-                Register
-              </button>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden py-4 space-y-2">
-              <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">About Us</button>
-              <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">Services</button>
-              <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">Events & News</button>
-              <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">For Donors</button>
-              <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">Contact Us</button>
-              <div className="px-4 pt-2 space-y-2">
-                <button onClick={() => onNavigate('login')} className="block w-full px-4 py-2 text-red-600 border border-red-600 rounded">Login</button>
-                <button onClick={() => onNavigate('register')} className="block w-full px-4 py-2 bg-red-600 text-white rounded">Register</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </nav>
-
       {/* Hero Section with Slider */}
       <div className="relative h-96 md:h-[500px] overflow-hidden">
         {slides.map((slide, index) => (
@@ -477,6 +417,110 @@ const HospitalDashboard = ({ onNavigate, onLogout }) => {
   );
 };
 
+const Navbar = ({ onNavigate }) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  return (
+    <nav className="bg-white shadow-md sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
+
+          {/* Logo */}
+          <div className="flex items-center space-x-2">
+            <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
+              <Droplet className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-xl font-bold text-gray-800">NBTS</span>
+          </div>
+
+          {/* Desktop Menu */}
+          <div className="hidden md:flex space-x-8">
+            <button className="text-gray-700 hover:text-red-600 font-medium">
+              About Us
+            </button>
+            <button className="text-gray-700 hover:text-red-600 font-medium">
+              Services
+            </button>
+            <button className="text-gray-700 hover:text-red-600 font-medium">
+              Events & News
+            </button>
+            <button className="text-gray-700 hover:text-red-600 font-medium">
+              For Donors
+            </button>
+            <button className="text-gray-700 hover:text-red-600 font-medium">
+              Contact Us
+            </button>
+          </div>
+
+          {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex space-x-4">
+            <button
+              onClick={() => onNavigate('login')}
+              className="px-4 py-2 text-red-600 border border-red-600 rounded hover:bg-red-50 transition-colors"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => onNavigate('register')}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              Register
+            </button>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden py-4 space-y-2">
+            <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">
+              About Us
+            </button>
+            <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">
+              Services
+            </button>
+            <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">
+              Events & News
+            </button>
+            <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">
+              For Donors
+            </button>
+            <button className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">
+              Contact Us
+            </button>
+
+            <div className="px-4 pt-2 space-y-2">
+              <button
+                onClick={() => onNavigate('login')}
+                className="px-4 py-2 text-red-600 border border-red-600 rounded-xl hover:bg-red-50 transition-colors"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => onNavigate('register')}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl"
+              >
+                Register
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+};
+
 // Main App
 const App = () => {
   const [currentRoute, setCurrentRoute] = useState('home');
@@ -493,12 +537,23 @@ const App = () => {
   };
 
   const routes = {
-    'home': <Homepage onNavigate={setCurrentRoute} />,
-    'login': <LoginPage onLogin={handleLogin} onNavigate={setCurrentRoute} />,
-    'hospital-dashboard': <HospitalDashboard onNavigate={setCurrentRoute} onLogout={handleLogout} />
+    home: <Homepage onNavigate={setCurrentRoute} />,
+    login: <LoginPage onLogin={handleLogin} onNavigate={setCurrentRoute} />,
+    'hospital-dashboard': (
+      <HospitalDashboard onNavigate={setCurrentRoute} onLogout={handleLogout} />
+    ),
   };
 
-  return routes[currentRoute] || routes.home;
+  return (
+    <>
+      {/* Show Navbar only on public pages */}
+      {(currentRoute === 'home' || currentRoute === 'login' || currentRoute == 'register') && (
+        <Navbar onNavigate={setCurrentRoute} />
+      )}
+
+      {routes[currentRoute] || routes.home}
+    </>
+  );
 };
 
 export default App;
