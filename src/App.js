@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Menu, X, Droplet, ChevronRight, Heart, Award } from 'lucide-react';
 import AboutPage from './AboutPage';
 import ServicesPage from './ServicesPage';
+import heroImage from './assets/hero.jpg';
 import EventsNewsPage from './EventsNewsPage';
 import ForDonorsPage from './ForDonorsPage';
 import ContactUsPage from './ContactUsPage';
@@ -67,26 +68,56 @@ const Homepage = ({ onNavigate }) => {
   return (
     <div className="min-h-screen page-shell">
       {/* Hero Section */}
-      <div className="relative h-96 md:h-[500px] overflow-hidden">
-        {slides.map((slide, index) => (
-          <div key={index} className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`} style={{ background: slide.image }}>
-            <div className="max-w-7xl mx-auto px-4 h-full flex items-center">
-              <div className="text-white max-w-2xl">
-                <h1 className="text-4xl md:text-6xl font-bold mb-4">{slide.title}</h1>
-                <p className="text-xl md:text-2xl mb-2">{slide.subtitle}</p>
-                <p className="text-lg mb-6">{slide.location}</p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button onClick={() => onNavigate('register')} className="bg-white text-red-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 flex items-center justify-center">
-                    Become a Donor <ChevronRight className="w-5 h-5 ml-2" />
-                  </button>
-                  <button onClick={() => onNavigate('login')} className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-red-600 transition-all">
-                    Request Blood
-                  </button>
-                </div>
+      <div className="relative h-auto overflow-hidden bg-red-700 text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8">
+          <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 bg-red-800/90 px-4 py-2 rounded-full text-sm uppercase tracking-[0.2em] font-semibold">
+                <Droplet className="w-4 h-4" /> Emergency Blood Support
+              </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold leading-tight">Welcome to Blood Donation System</h1>
+                <p className="mt-4 text-lg text-red-100 max-w-2xl">A national platform for donors, hospitals, and blood banks to coordinate safe and timely blood supply across Sri Lanka.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={() => onNavigate('register')} className="bg-white text-red-700 px-8 py-3 rounded-lg font-semibold hover:bg-red-50 transition-all">
+                  Become a Donor <ChevronRight className="w-5 h-5 ml-2" />
+                </button>
+                <button onClick={() => onNavigate('login')} className="border border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-red-700 transition-all">
+                  Request Blood
+                </button>
               </div>
             </div>
+
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                {
+                  title: 'Blood Donation',
+                  description: 'Support patients in need with safe blood units.',
+                  image: heroImage,
+                },
+                {
+                  title: 'Emergency Requests',
+                  description: 'Immediate response for urgent transfusion needs.',
+                  image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80',
+                },
+                {
+                  title: 'Community Care',
+                  description: 'Connecting donors, hospitals and blood banks.',
+                  image: 'https://images.unsplash.com/photo-1542736667-069246bdbc60?auto=format&fit=crop&w=800&q=80',
+                },
+              ].map((item, index) => (
+                <div key={index} className="overflow-hidden rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-xl">
+                  <img src={item.image} alt={item.title} className="h-40 w-full object-cover brightness-90" loading="lazy" />
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+                    <p className="mt-2 text-sm text-red-100">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        </div>
       </div>
 
       {/* Stats Section */}
