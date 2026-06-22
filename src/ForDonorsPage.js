@@ -125,10 +125,12 @@ const ForDonorsPage = ({ onNavigate }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen page-shell">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
+        <div className="absolute -top-12 -left-12 w-80 h-80 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute bottom-4 right-4 w-72 h-72 rounded-full bg-red-500/20 blur-3xl" />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">For Donors</h1>
           <p className="text-lg text-red-100">Everything you need to know about blood donation and saving lives</p>
         </div>

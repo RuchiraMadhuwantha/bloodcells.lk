@@ -131,10 +131,12 @@ const ContactUsPage = ({ onNavigate }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen page-shell">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
+        <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full bg-white/15 blur-3xl" />
+        <div className="absolute bottom-0 -right-10 w-72 h-72 rounded-full bg-red-500/20 blur-3xl" />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Contact Us</h1>
           <p className="text-lg text-red-100">We're here to help. Get in touch with the right team</p>
         </div>
