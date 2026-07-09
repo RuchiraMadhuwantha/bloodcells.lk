@@ -4,6 +4,8 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card } from './components/UIComponents';
+import { HOSPITALS } from './data/mockHospitals';
+import { DISTRICTS } from './data/districts';
 import { BarChart } from './components/Charts';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -79,12 +81,9 @@ export const AppointmentBooking = ({ nav }) => {
   const [selectedCenter, setSelectedCenter] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [selectedDistrict, setSelectedDistrict] = useState('Colombo');
 
-  const centers = [
-    { name: 'NBTS Colombo', addr: 'Narahenpita, Colombo 05', dist: '2.1 km' },
-    { name: 'Kurunegala RBC', addr: 'Hospital Rd, Kurunegala', dist: '4.8 km' },
-    { name: 'Anuradhapura RBC', addr: 'Maithripala Rd', dist: '6.3 km' },
-  ];
+  const centers = HOSPITALS.filter(h => h.district === selectedDistrict);
   const slots = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00'];
   const days = Array.from({ length: 30 }, (_, i) => i + 1);
 
@@ -98,7 +97,7 @@ export const AppointmentBooking = ({ nav }) => {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Appointment Confirmed!</h2>
           <p className="text-gray-600 mb-6">We've reserved your slot and sent a confirmation to your email.</p>
           <div className="bg-gray-50 rounded-lg p-4 text-left text-sm space-y-2 mb-6">
-            <p className="flex justify-between"><span className="text-gray-500">Center</span><span className="font-medium">{centers[selectedCenter].name}</span></p>
+            <p className="flex justify-between"><span className="text-gray-500">Center</span><span className="font-medium">{centers[selectedCenter]?.name || '—'}</span></p>
             <p className="flex justify-between"><span className="text-gray-500">Date</span><span className="font-medium">Jun {selectedDate}, 2026</span></p>
             <p className="flex justify-between"><span className="text-gray-500">Time</span><span className="font-medium">{selectedSlot}</span></p>
           </div>
@@ -113,20 +112,32 @@ export const AppointmentBooking = ({ nav }) => {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <SectionCard title="Select Donation Center">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-sm text-gray-600">Your district</div>
+              <select value={selectedDistrict} onChange={e => { setSelectedDistrict(e.target.value); setSelectedCenter(0); }}
+                className="py-2 px-3 border rounded-lg text-sm bg-white">
+                {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+
             <div className="space-y-3">
-              {centers.map((c, i) => (
-                <button key={i} onClick={() => setSelectedCenter(i)}
-                  className={`w-full flex items-center justify-between border rounded-lg p-4 text-left transition-colors ${selectedCenter === i ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-red-300'}`}>
-                  <div className="flex items-center gap-3">
-                    <MapPin className={`w-5 h-5 ${selectedCenter === i ? 'text-red-600' : 'text-gray-400'}`} />
-                    <div>
-                      <p className="font-medium text-gray-800">{c.name}</p>
-                      <p className="text-xs text-gray-500">{c.addr}</p>
+              {centers.length === 0 ? (
+                <div className="border border-gray-100 rounded-lg p-4 text-center text-sm text-gray-500">No hospitals are currently available in your district.</div>
+              ) : (
+                centers.map((c, i) => (
+                  <button key={i} onClick={() => setSelectedCenter(i)}
+                    className={`w-full flex items-center justify-between border rounded-lg p-4 text-left transition-colors ${selectedCenter === i ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-red-300'}`}>
+                    <div className="flex items-center gap-3">
+                      <MapPin className={`w-5 h-5 ${selectedCenter === i ? 'text-red-600' : 'text-gray-400'}`} />
+                      <div>
+                        <p className="font-medium text-gray-800">{c.name}</p>
+                        <p className="text-xs text-gray-500">{c.addr}</p>
+                      </div>
                     </div>
-                  </div>
-                  <Badge color="gray">{c.dist}</Badge>
-                </button>
-              ))}
+                    <Badge color="gray">{c.dist}</Badge>
+                  </button>
+                ))
+              )}
             </div>
           </SectionCard>
 
@@ -164,7 +175,7 @@ export const AppointmentBooking = ({ nav }) => {
               <div className="flex justify-between"><span className="text-gray-500">Donor</span><span className="font-medium">Nimal Perera</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Blood Group</span><BloodTypeBadge group="O+" size="sm" /></div>
               <hr />
-              <div className="flex justify-between"><span className="text-gray-500">Center</span><span className="font-medium text-right">{centers[selectedCenter].name}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Center</span><span className="font-medium text-right">{centers[selectedCenter]?.name || '—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Date</span><span className="font-medium">Jun {selectedDate}, 2026</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Time</span><span className="font-medium">{selectedSlot || '—'}</span></div>
             </div>
