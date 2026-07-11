@@ -102,13 +102,17 @@ const Navbar = ({ onNavigate }) => {
 const App = () => {
   const [currentRoute, setCurrentRoute] = useState('home');
 
-  const handleLogin = (role) => {
+  const handleLogin = (role, token, user) => {
+    localStorage.setItem('authToken', token || '');
+    localStorage.setItem('authUser', JSON.stringify(user || {}));
+
     const landing = {
       donor: 'donor-dashboard',
       hospital: 'hospital-dashboard',
-      bloodbank: 'bank-dashboard',
+      blood_bank: 'bank-dashboard',
       admin: 'admin-dashboard',
     }[role] || 'donor-dashboard';
+
     setCurrentRoute(landing);
   };
   const handleLogout = () => setCurrentRoute('home');

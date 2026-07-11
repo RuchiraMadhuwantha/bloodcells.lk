@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, FileText, MapPin, Phone, Check, AlertCircle } from 'lucide-react';
 import { DISTRICTS } from '../../data/districts';
+import { buildHospitalRegistrationPayload } from '../../services/authMapping';
 
 export const HospitalRegistrationForm = ({ onCancel }) => {
   const [form, setForm] = useState({
@@ -44,11 +45,42 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    console.log('Hospital registration (frontend-only):', form);
-    setSubmitted(true);
+
+    try {
+      const payload = buildHospitalRegistrationPayload({
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        hospitalName: form.hospitalName,
+        hospitalCode: form.hospitalCode,
+        hospitalType: form.hospitalType,
+        district: form.district,
+        address: form.address,
+        contactNumber: form.contactNumber,
+        contactPersonName: form.contactPersonName,
+        contactPersonDesignation: form.contactPersonDesignation,
+        contactPersonPhone: form.contactPersonPhone,
+        contactPersonEmail: form.contactPersonEmail,
+      });
+
+      const response = await fetch('http://localhost:5000/api/auth/register/hospital', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Hospital registration failed.');
+      }
+
+      setSubmitted(true);
+    } catch (error) {
+      alert(error.message || 'Hospital registration failed.');
+    }
   };
 
   if (submitted) {

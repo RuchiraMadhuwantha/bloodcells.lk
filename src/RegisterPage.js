@@ -5,10 +5,12 @@ import {
 import RegistrationTypeSelector from './components/registration/RegistrationTypeSelector';
 import HospitalRegistrationForm from './components/registration/HospitalRegistrationForm';
 import { DISTRICTS } from './data/districts';
+import { buildDonorRegistrationPayload } from './services/authMapping';
 
 export const RegisterPage = ({ onNavigate }) => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
+    username: '',
     name: '',
     email: '',
     phone: '',
@@ -48,7 +50,7 @@ export const RegisterPage = ({ onNavigate }) => {
 
   const handleNext = () => {
     if (step === 1) {
-      if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password.trim()) {
+      if (!form.username.trim() || !form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password.trim()) {
         alert("Please fill in all fields to set up your account.");
         return;
       }
@@ -70,7 +72,7 @@ export const RegisterPage = ({ onNavigate }) => {
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!form.weight) {
       alert("Please enter your weight.");
       return;
@@ -88,8 +90,24 @@ export const RegisterPage = ({ onNavigate }) => {
       return;
     }
 
-    alert("Registration successful! Welcome to the National Blood Transfusion Service network.");
-    onNavigate('login');
+    try {
+      const payload = buildDonorRegistrationPayload(form);
+      const response = await fetch('http://localhost:5000/api/auth/register/donor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed.');
+      }
+
+      alert(data.message || 'Registration successful! Welcome to the National Blood Transfusion Service network.');
+      onNavigate('login');
+    } catch (error) {
+      alert(error.message || 'Registration failed.');
+    }
   };
 
   return (
@@ -146,6 +164,19 @@ export const RegisterPage = ({ onNavigate }) => {
             <div className="space-y-5">
               {step === 1 && (
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Username</label>
+                    <div className="relative">
+                      <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        value={form.username}
+                        onChange={e => setForm({ ...form, username: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        placeholder="Choose a username"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Full Name</label>
                     <div className="relative">
