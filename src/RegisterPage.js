@@ -27,6 +27,7 @@ export const RegisterPage = ({ onNavigate }) => {
 
   const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
   const [regType, setRegType] = useState('donor');
+  const [touched, setTouched] = useState({});
 
   const calculateAge = (dobString) => {
     if (!dobString) return 0;
@@ -48,24 +49,68 @@ export const RegisterPage = ({ onNavigate }) => {
   const newNicRegex = /^[0-9]{12}$/;
   const isNicValid = !form.nic || oldNicRegex.test(form.nic) || newNicRegex.test(form.nic);
 
+  const getValidationError = (field) => {
+    switch (field) {
+      case 'username':
+        if (!form.username.trim()) return 'Username is required.';
+        if (form.username.trim().length < 3) return 'Username must be at least 3 characters.';
+        return null;
+      case 'name':
+        if (!form.name.trim()) return 'Full name is required.';
+        return null;
+      case 'email':
+        if (!form.email.trim()) return 'Email address is required.';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return 'Please enter a valid email address.';
+        return null;
+      case 'phone':
+        if (!form.phone.trim()) return 'Phone number is required.';
+        if (!/^(?:\+94|0)?7[0-9]{8}$/.test(form.phone.trim())) return 'Please enter a valid Sri Lankan phone number (e.g. 0771234567).';
+        return null;
+      case 'password':
+        if (!form.password) return 'Password is required.';
+        if (form.password.length < 8) return 'Password must be at least 8 characters long.';
+        return null;
+      case 'dob':
+        if (!form.dob) return 'Date of birth is required.';
+        if (!isAgeValid) return `You are ${age} years old. Donors in Sri Lanka must be between 18 and 60 years old.`;
+        return null;
+      case 'nic':
+        if (!form.nic.trim()) return 'NIC number is required.';
+        if (!isNicValid) return 'Please enter a valid Sri Lankan NIC (9 digits + V/X or 12 digits).';
+        return null;
+      case 'weight':
+        if (!form.weight) return 'Weight is required.';
+        if (!isWeightValid) return 'You must weigh at least 50 kg to donate blood safely.';
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const handleBlur = (field) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
   const handleNext = () => {
     if (step === 1) {
-      if (!form.username.trim() || !form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password.trim()) {
-        alert("Please fill in all fields to set up your account.");
-        return;
-      }
-      if (!form.email.includes('@')) {
-        alert("Please enter a valid email address.");
+      const fields = ['username', 'name', 'email', 'phone', 'password'];
+      const nextTouched = {};
+      fields.forEach(f => { nextTouched[f] = true; });
+      setTouched(prev => ({ ...prev, ...nextTouched }));
+
+      const hasError = fields.some(f => getValidationError(f));
+      if (hasError) {
         return;
       }
       setStep(2);
     } else if (step === 2) {
-      if (!form.dob || !form.nic.trim() || !form.district) {
-        alert("Please fill in all demographic details.");
-        return;
-      }
-      if (!isNicValid) {
-        alert("Please enter a valid Sri Lankan NIC (9 digits + V/X or 12 digits).");
+      const fields = ['dob', 'nic'];
+      const nextTouched = {};
+      fields.forEach(f => { nextTouched[f] = true; });
+      setTouched(prev => ({ ...prev, ...nextTouched }));
+
+      const hasError = fields.some(f => getValidationError(f));
+      if (hasError) {
         return;
       }
       setStep(3);
@@ -73,16 +118,14 @@ export const RegisterPage = ({ onNavigate }) => {
   };
 
   const handleRegister = async () => {
-    if (!form.weight) {
-      alert("Please enter your weight.");
-      return;
-    }
-    if (!isAgeValid) {
-      alert("You must be between 18 and 60 years old to register as a donor.");
-      return;
-    }
-    if (!isWeightValid) {
-      alert("You must weigh at least 50 kg to register as a donor.");
+    const fields = ['username', 'name', 'email', 'phone', 'password', 'dob', 'nic', 'weight'];
+    const nextTouched = {};
+    fields.forEach(f => { nextTouched[f] = true; });
+    setTouched(prev => ({ ...prev, ...nextTouched }));
+
+    const hasError = fields.some(f => getValidationError(f));
+    if (hasError) {
+      alert("Please fix all errors before submitting.");
       return;
     }
     if (!form.declarationChecked) {
@@ -114,11 +157,11 @@ export const RegisterPage = ({ onNavigate }) => {
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4 py-12">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg border border-red-50/50">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mb-3 text-red-600">
-            <Droplet className="w-6 h-6 animate-pulse" />
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-red-600 rounded-full mb-3 shadow-md">
+            <Droplet className="w-6 h-6 text-white fill-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-800">Become a Life Saver</h1>
-          <p className="text-gray-500 text-sm mt-1">Register for the National Blood Transfusion Service</p>
+          <p className="text-gray-500 text-sm mt-1">Register with BloodCells<span className="text-red-500">.lk</span></p>
         </div>
 
         <div className="flex justify-center mb-6">
@@ -171,10 +214,18 @@ export const RegisterPage = ({ onNavigate }) => {
                       <input
                         value={form.username}
                         onChange={e => setForm({ ...form, username: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('username')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.username && getValidationError('username') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="Choose a username"
                       />
                     </div>
+                    {touched.username && getValidationError('username') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('username')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -184,10 +235,18 @@ export const RegisterPage = ({ onNavigate }) => {
                       <input
                         value={form.name}
                         onChange={e => setForm({ ...form, name: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('name')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.name && getValidationError('name') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="Enter your full name"
                       />
                     </div>
+                    {touched.name && getValidationError('name') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('name')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -198,10 +257,18 @@ export const RegisterPage = ({ onNavigate }) => {
                         type="email"
                         value={form.email}
                         onChange={e => setForm({ ...form, email: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('email')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.email && getValidationError('email') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="yourname@domain.com"
                       />
                     </div>
+                    {touched.email && getValidationError('email') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('email')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -212,10 +279,18 @@ export const RegisterPage = ({ onNavigate }) => {
                         type="tel"
                         value={form.phone}
                         onChange={e => setForm({ ...form, phone: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('phone')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.phone && getValidationError('phone') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="e.g. 0771234567"
                       />
                     </div>
+                    {touched.phone && getValidationError('phone') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('phone')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -226,10 +301,18 @@ export const RegisterPage = ({ onNavigate }) => {
                         type="password"
                         value={form.password}
                         onChange={e => setForm({ ...form, password: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('password')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.password && getValidationError('password') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="••••••••"
                       />
                     </div>
+                    {touched.password && getValidationError('password') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('password')}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex gap-3 mt-6">
@@ -261,17 +344,16 @@ export const RegisterPage = ({ onNavigate }) => {
                         type="date"
                         value={form.dob}
                         onChange={e => setForm({ ...form, dob: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('dob')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.dob && getValidationError('dob') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                       />
                     </div>
-                    {form.dob && !isAgeValid && (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-xs transition-all">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Age Restriction Alert</p>
-                          <p>You are {age} years old. Donors in Sri Lanka must be between 18 and 60 years old.</p>
-                        </div>
-                      </div>
+                    {touched.dob && getValidationError('dob') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('dob')}
+                      </p>
                     )}
                   </div>
 
@@ -302,18 +384,17 @@ export const RegisterPage = ({ onNavigate }) => {
                       <input
                         value={form.nic}
                         onChange={e => setForm({ ...form, nic: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('nic')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.nic && getValidationError('nic') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="e.g. 901234567V or 199012345678"
                       />
                     </div>
-                    {form.nic && !isNicValid && (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-xs">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Invalid NIC Format</p>
-                          <p>Use old format (9 digits + V/X) or new format (12 digits).</p>
-                        </div>
-                      </div>
+                    {touched.nic && getValidationError('nic') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('nic')}
+                      </p>
                     )}
                   </div>
 
@@ -383,18 +464,17 @@ export const RegisterPage = ({ onNavigate }) => {
                         type="number"
                         value={form.weight}
                         onChange={e => setForm({ ...form, weight: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50"
+                        onBlur={() => handleBlur('weight')}
+                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm bg-gray-50/50 ${
+                          touched.weight && getValidationError('weight') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                        }`}
                         placeholder="Enter weight in kilograms"
                       />
                     </div>
-                    {form.weight && !isWeightValid && (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-xs">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Weight Restriction Alert</p>
-                          <p>You must weigh at least 50 kg to donate blood safely.</p>
-                        </div>
-                      </div>
+                    {touched.weight && getValidationError('weight') && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {getValidationError('weight')}
+                      </p>
                     )}
                   </div>
 

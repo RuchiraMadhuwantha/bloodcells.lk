@@ -49,24 +49,50 @@ const ADMIN_NAV = [
 
 
 
-const Navbar = ({ onNavigate }) => {
+const Navbar = ({ onNavigate, activePage }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navLinks = [
+    { route: 'home',     label: 'Home'     },
+    { route: 'about',    label: 'About Us'  },
+    { route: 'services', label: 'Services'  },
+    { route: 'events',   label: 'Events'   },
+    { route: 'contact',  label: 'Contact'  },
+  ];
+
+  const linkClass = (route) =>
+    activePage === route
+      ? 'relative font-semibold text-red-600 after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-red-600 after:rounded-full'
+      : 'font-medium text-gray-600 hover:text-red-600 transition-colors';
+
+  const mobileLinkClass = (route) =>
+    activePage === route
+      ? 'flex items-center gap-2 w-full text-left text-red-600 font-semibold bg-red-50 px-3 py-2 rounded-lg'
+      : 'flex items-center gap-2 w-full text-left text-gray-700 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors';
+
   return (
     <nav className="bg-white/95 backdrop-blur-xl shadow-sm sticky top-0 z-50 border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <button onClick={() => onNavigate('home')} className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center"><Droplet className="w-6 h-6 text-white" /></div>
-            <span className="text-xl font-bold text-gray-800">NBTS</span>
+            <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center"><Droplet className="w-6 h-6 text-white fill-white" /></div>
+            <span className="text-xl font-bold text-gray-800">BloodCells<span className="text-red-600">.lk</span></span>
           </button>
-          <div className="hidden md:flex space-x-8">
-            <button onClick={() => onNavigate('about')} className="text-gray-700 hover:text-red-600 font-medium">About Us</button>
-            <button onClick={() => onNavigate('services')} className="text-gray-700 hover:text-red-600 font-medium">Services</button>
-            <button onClick={() => onNavigate('events')} className="text-gray-700 hover:text-red-600 font-medium">Events</button>
-            <button onClick={() => onNavigate('contact')} className="text-gray-700 hover:text-red-600 font-medium">Contact</button>
+          <div className="hidden md:flex items-center space-x-1">
+            {navLinks.map(({ route, label }) => (
+              <button
+                key={route}
+                onClick={() => onNavigate(route)}
+                className={`px-3 py-2 rounded-lg ${linkClass(route)}`}
+              >
+                {label}
+                {activePage === route && (
+                  <span className="ml-1.5 inline-block w-1.5 h-1.5 bg-red-500 rounded-full align-middle" />
+                )}
+              </button>
+            ))}
           </div>
           <div className="hidden md:flex items-center space-x-3">
-            
             <button onClick={() => onNavigate('register')} className="px-4 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium">Register</button>
             <button onClick={() => onNavigate('login')} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-1.5 shadow-sm shadow-red-100">
               <Calendar className="w-4 h-4" /> Login
@@ -76,14 +102,20 @@ const Navbar = ({ onNavigate }) => {
         </div>
       </div>
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-3 shadow-inner">
-          <button onClick={() => { onNavigate('about'); setMobileMenuOpen(false); }} className="block w-full text-left text-gray-700 hover:text-red-600 font-medium py-1">About Us</button>
-          <button onClick={() => { onNavigate('services'); setMobileMenuOpen(false); }} className="block w-full text-left text-gray-700 hover:text-red-600 font-medium py-1">Services</button>
-          <button onClick={() => { onNavigate('events'); setMobileMenuOpen(false); }} className="block w-full text-left text-gray-700 hover:text-red-600 font-medium py-1">Events</button>
-          <button onClick={() => { onNavigate('donors'); setMobileMenuOpen(false); }} className="block w-full text-left text-gray-700 hover:text-red-600 font-medium py-1">For Donors</button>
-          <button onClick={() => { onNavigate('contact'); setMobileMenuOpen(false); }} className="block w-full text-left text-gray-700 hover:text-red-600 font-medium py-1">Contact</button>
-          <hr className="border-gray-100" />
-          <div className="flex flex-col gap-2 pt-2">
+        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-1 shadow-inner">
+          {navLinks.map(({ route, label }) => (
+            <button
+              key={route}
+              onClick={() => { onNavigate(route); setMobileMenuOpen(false); }}
+              className={mobileLinkClass(route)}
+            >
+              {activePage === route && <span className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" />}
+              {label}
+            </button>
+          ))}
+          <button onClick={() => { onNavigate('donors'); setMobileMenuOpen(false); }} className={mobileLinkClass('donors')}>For Donors</button>
+          <hr className="border-gray-100 my-2" />
+          <div className="flex flex-col gap-2 pt-1">
             <button onClick={() => { onNavigate('login'); setMobileMenuOpen(false); }} className="w-full py-2 text-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 font-medium">Login</button>
             <button onClick={() => { onNavigate('register'); setMobileMenuOpen(false); }} className="w-full py-2 text-center bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center justify-center gap-1.5 shadow-sm">
               <Calendar className="w-4 h-4" /> Book Appointment
@@ -150,7 +182,7 @@ const App = () => {
 
   return (
     <>
-      {isPublic && <Navbar onNavigate={setCurrentRoute} />}
+      {isPublic && <Navbar onNavigate={setCurrentRoute} activePage={currentRoute} />}
       {publicRoutes[currentRoute] || dashboardRoutes[currentRoute] || publicRoutes.home}
     </>
   );

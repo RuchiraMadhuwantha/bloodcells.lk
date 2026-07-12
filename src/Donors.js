@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Droplet, Heart, Calendar, Award, LayoutDashboard, Clock, CheckCircle, MapPin, Phone, Mail, Edit
+  Droplet, Heart, Calendar, Award, LayoutDashboard, Clock, CheckCircle, MapPin, Phone, Mail, Edit,
+  Save, X, Loader2, AlertCircle
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card } from './components/UIComponents';
@@ -189,54 +190,219 @@ export const AppointmentBooking = ({ nav }) => {
   );
 };
 
-export const DonorProfile = ({ nav }) => (
-  <DashboardLayout {...nav} title="My Profile" userName="Nimal Perera" role="Donor · O+">
-    <div className="grid lg:grid-cols-3 gap-6">
-      <Card className="text-center">
-        <div className="w-24 h-24 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-3xl font-bold">NP</div>
-        <h2 className="text-xl font-bold text-gray-800">Nimal Perera</h2>
-        <p className="text-gray-500 text-sm">Donor since 2019</p>
-        <div className="flex justify-center my-4"><BloodTypeBadge group="O+" size="lg" /></div>
-        <Badge color="amber">Gold Tier Donor</Badge>
-        <Button variant="outline" icon={Edit} className="w-full mt-6">Edit Profile</Button>
-      </Card>
+export const DonorProfile = ({ nav }) => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [user, setUser] = useState(null);
+  const [form, setForm] = useState({});
+  const [saveError, setSaveError] = useState(null);
 
-      <div className="lg:col-span-2 space-y-6">
-        <div className="grid grid-cols-3 gap-4">
-          <StatCard icon={Droplet} value="12" label="Donations" accent="red" />
-          <StatCard icon={Heart} value="36" label="Lives Saved" accent="pink" />
-          <StatCard icon={Calendar} value="96d" label="Since Last" accent="blue" />
+  const token = localStorage.getItem('authToken');
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch('http://localhost:5000/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to load profile.');
+      setUser(data.user);
+      setProfile(data.profile);
+      setForm({
+        full_name: data.profile?.full_name || '',
+        email: data.user?.email || '',
+        phone: data.profile?.phone || '',
+        district: data.profile?.district || '',
+        gender: data.profile?.gender || '',
+        weight: data.profile?.weight ?? '',
+        date_of_birth: data.profile?.date_of_birth ? String(data.profile.date_of_birth).slice(0, 10) : '',
+        blood_group: data.profile?.blood_group || '',
+      });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => { loadProfile(); }, []);
+
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setSaveError(null);
+      const res = await fetch('http://localhost:5000/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update profile.');
+      setUser(data.user);
+      setProfile(data.profile);
+      setEditing(false);
+    } catch (e) {
+      setSaveError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout {...nav} title="My Profile" userName="Donor" role="Donor">
+        <div className="flex items-center justify-center py-20 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading profile…
         </div>
+      </DashboardLayout>
+    );
+  }
 
-        <SectionCard title="Personal Details">
-          <div className="grid sm:grid-cols-2 gap-4 text-sm">
-            {[
-              ['Full Name', 'Nimal Perera'], ['Date of Birth', '12 Mar 1990'],
-              ['Gender', 'Male'], ['NIC', '199012345678'],
-              ['Weight', '74 kg'], ['Height', '176 cm'],
-            ].map(([k, v]) => (
-              <div key={k}><p className="text-gray-400">{k}</p><p className="font-medium text-gray-800">{v}</p></div>
-            ))}
-          </div>
-        </SectionCard>
+  if (error) {
+    return (
+      <DashboardLayout {...nav} title="My Profile" userName="Donor" role="Donor">
+        <div className="bg-red-50 border border-red-100 text-red-700 rounded-lg p-6 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+          <p>{error}</p>
+          <Button variant="outline" className="mt-4" onClick={loadProfile}>Retry</Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-        <SectionCard title="Medical Information">
-          <div className="grid sm:grid-cols-2 gap-4 text-sm">
-            <div><p className="text-gray-400">Allergies</p><p className="font-medium text-gray-800">None reported</p></div>
-            <div><p className="text-gray-400">Chronic Conditions</p><p className="font-medium text-gray-800">None</p></div>
-            <div><p className="text-gray-400">Last Hemoglobin</p><p className="font-medium text-gray-800">14.6 g/dL</p></div>
-            <div><p className="text-gray-400">Eligibility</p><Badge color="green">Eligible</Badge></div>
-          </div>
-        </SectionCard>
+  const displayName = profile?.full_name || user?.username || 'Donor';
+  const initials = displayName.split(' ').map((s) => s[0]).join('').slice(0, 2).toUpperCase();
+  const genderOptions = ['Male', 'Female'];
 
-        <SectionCard title="Contact Details">
-          <div className="space-y-3 text-sm">
-            <p className="flex items-center gap-3 text-gray-700"><Phone className="w-4 h-4 text-red-600" /> +94 77 123 4567</p>
-            <p className="flex items-center gap-3 text-gray-700"><Mail className="w-4 h-4 text-red-600" /> nimal.perera@email.com</p>
-            <p className="flex items-center gap-3 text-gray-700"><MapPin className="w-4 h-4 text-red-600" /> 42 Galle Rd, Colombo 03</p>
+  const field = (label, value) => (
+    <div><p className="text-gray-400">{label}</p><p className="font-medium text-gray-800">{value || '—'}</p></div>
+  );
+
+  return (
+    <DashboardLayout {...nav} title="My Profile" userName={displayName} role={`Donor · ${profile?.blood_group || ''}`}>
+      <div className="flex justify-end mb-4">
+        {editing ? (
+          <div className="flex gap-2">
+            <Button variant="ghost" icon={X} onClick={() => { setEditing(false); setSaveError(null); loadProfile(); }} disabled={saving}>Cancel</Button>
+            <Button variant="primary" icon={Save} onClick={handleSave} disabled={saving}>
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : 'Save Changes'}
+            </Button>
           </div>
-        </SectionCard>
+        ) : (
+          <Button variant="outline" icon={Edit} onClick={() => setEditing(true)}>Edit Profile</Button>
+        )}
       </div>
-    </div>
-  </DashboardLayout>
-);
+
+      {saveError && (
+        <div className="bg-red-50 border border-red-100 text-red-700 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {saveError}
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <Card className="text-center">
+          <div className="w-24 h-24 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-3xl font-bold">{initials}</div>
+          <h2 className="text-xl font-bold text-gray-800">{displayName}</h2>
+          <p className="text-gray-500 text-sm">Username: {user?.username}</p>
+          <div className="flex justify-center my-4"><BloodTypeBadge group={profile?.blood_group || '—'} size="lg" /></div>
+          <Badge color={user?.account_status === 'active' ? 'green' : 'amber'}>
+            {user?.account_status === 'active' ? 'Active' : (user?.account_status || 'Pending')}
+          </Badge>
+        </Card>
+
+        <div className="lg:col-span-2 space-y-6">
+          <SectionCard title="Personal Details">
+            {editing ? (
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="block text-gray-400 mb-1">Full Name</label>
+                  <input name="full_name" value={form.full_name} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">NIC (cannot change)</label>
+                  <input value={profile?.nic || ''} disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">Date of Birth</label>
+                  <input type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">Gender</label>
+                  <select name="gender" value={form.gender} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+                    <option value="">Select</option>
+                    {genderOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">Weight (kg)</label>
+                  <input type="number" step="0.1" name="weight" value={form.weight} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">Blood Group</label>
+                  <select name="blood_group" value={form.blood_group} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+                    <option value="">Select</option>
+                    {BLOOD_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                {field('Full Name', profile?.full_name)}
+                {field('Date of Birth', profile?.date_of_birth ? String(profile.date_of_birth).slice(0, 10) : null)}
+                {field('Gender', profile?.gender)}
+                {field('NIC', profile?.nic)}
+                {field('Weight', profile?.weight ? `${profile.weight} kg` : null)}
+                {field('Blood Group', profile?.blood_group)}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Contact Details">
+            {editing ? (
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="block text-gray-400 mb-1">Email</label>
+                  <input name="email" value={form.email} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1">Phone</label>
+                  <input name="phone" value={form.phone} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-gray-400 mb-1">District</label>
+                  <select name="district" value={form.district} onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+                    <option value="">Select district</option>
+                    {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 text-sm">
+                <p className="flex items-center gap-3 text-gray-700"><Phone className="w-4 h-4 text-red-600" /> {profile?.phone || '—'}</p>
+                <p className="flex items-center gap-3 text-gray-700"><Mail className="w-4 h-4 text-red-600" /> {user?.email || '—'}</p>
+                <p className="flex items-center gap-3 text-gray-700"><MapPin className="w-4 h-4 text-red-600" /> {profile?.district || '—'}</p>
+              </div>
+            )}
+          </SectionCard>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+

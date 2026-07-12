@@ -10,6 +10,24 @@ const createDonorProfile = async ({ userId, fullName, nic, dateOfBirth, gender, 
   return result.insertId;
 };
 
+const getDonorByUserId = async (userId) => {
+  const [rows] = await pool.query('SELECT * FROM donors WHERE user_id = ?', [userId]);
+  return rows[0] || null;
+};
+
+const updateDonorProfile = async (userId, fields) => {
+  const columns = Object.keys(fields);
+  if (columns.length === 0) return;
+
+  const setClause = columns.map((col) => `${col} = ?`).join(', ');
+  const values = columns.map((col) => fields[col]);
+  values.push(userId);
+
+  await pool.query(`UPDATE donors SET ${setClause} WHERE user_id = ?`, values);
+};
+
 module.exports = {
   createDonorProfile,
+  getDonorByUserId,
+  updateDonorProfile,
 };

@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { findUserByUsernameOrEmail, createUser, findUserById } = require('../models/userModel');
-const { createDonorProfile } = require('../models/donorModel');
+const { createDonorProfile, getDonorByUserId } = require('../models/donorModel');
 const { createHospitalProfile } = require('../models/hospitalModel');
 
 const registerDonor = async (req, res, next) => {
@@ -143,6 +143,65 @@ const registerHospital = async (req, res, next) => {
   }
 };
 
+const updateProfile = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const userId = req.user.user_id;
+    const {
+      email,
+      full_name,
+      phone,
+      district,
+      gender,
+      weight,
+      date_of_birth,
+      blood_group,
+    } = req.body;
+
+    await connection.beginTransaction();
+
+    if (email) {
+      const existing = await connection.query('SELECT user_id FROM users WHERE email = ? AND user_id != ?', [email, userId]);
+      if (existing[0].length > 0) {
+        throw Object.assign(new Error('Email already in use.'), { statusCode: 409 });
+      }
+      await connection.query('UPDATE users SET email = ? WHERE user_id = ?', [email, userId]);
+    }
+
+    const fields = {};
+    if (full_name !== undefined) fields.full_name = full_name;
+    if (phone !== undefined) fields.phone = phone || null;
+    if (district !== undefined) fields.district = district || null;
+    if (gender !== undefined) fields.gender = gender || null;
+    if (weight !== undefined) fields.weight = weight === '' || weight === null ? null : weight;
+    if (date_of_birth !== undefined) fields.date_of_birth = date_of_birth || null;
+    if (blood_group !== undefined) fields.blood_group = blood_group;
+
+    if (Object.keys(fields).length > 0) {
+      const setClause = Object.keys(fields).map((col) => `${col} = ?`).join(', ');
+      await connection.query(`UPDATE donors SET ${setClause} WHERE user_id = ?`, [...Object.values(fields), userId]);
+    }
+
+    await connection.commit();
+
+    const user = await findUserById(userId);
+    const profile = await getDonorByUserId(userId);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user,
+      profile,
+    });
+  } catch (error) {
+    await connection.rollback();
+    next(error);
+  } finally {
+    connection.release();
+  }
+};
+
 const login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
@@ -217,4 +276,5 @@ module.exports = {
   registerHospital,
   login,
   getCurrentUser,
+  updateProfile,
 };

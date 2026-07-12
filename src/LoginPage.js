@@ -39,10 +39,10 @@ export const LoginPage = ({ onLogin, onNavigate }) => {
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
-            <Droplet className="text-red-600 w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-600 rounded-full mb-4 shadow-lg">
+            <Droplet className="text-white fill-white w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Welcome Back</h1>
+          <h1 className="text-2xl font-bold text-gray-800">BloodCells<span className="text-red-600">.lk</span></h1>
           <p className="text-gray-600 text-sm mt-1">Login to access your portal</p>
         </div>
         <div className="space-y-4">

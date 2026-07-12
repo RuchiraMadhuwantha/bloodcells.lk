@@ -3,7 +3,7 @@ import {
   Database, Clock, CheckCircle, AlertCircle, Stethoscope, ClipboardList, Plus, Send, LayoutDashboard
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
-import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, Table } from './components/UIComponents';
+import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, Table, ProgressBar } from './components/UIComponents';
 import { BarChart } from './components/Charts';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -64,8 +64,10 @@ export const HospitalDashboard = ({ nav }) => {
             <div key={a.group} className="border border-gray-100 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <BloodTypeBadge group={a.group} size="sm" />
-                <span className="text-sm font-bold text-gray-800">{a.units}</span>
+                <span className={`text-sm font-bold ${a.units < 15 ? 'text-red-600' : 'text-gray-800'}`}>{a.units}</span>
               </div>
+              <ProgressBar value={a.units} max={80} />
+              {a.units < 15 && <p className="text-[11px] text-red-600 mt-1">Low stock</p>}
             </div>
           ))}
         </div>

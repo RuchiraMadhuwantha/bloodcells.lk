@@ -22,6 +22,12 @@ const loginValidation = [
   body('password').trim().notEmpty().withMessage('Password is required.'),
 ];
 
+const profileUpdateValidation = [
+  body('email').optional().isEmail().withMessage('Please enter a valid email address.'),
+  body('blood_group').optional().isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).withMessage('Invalid blood group.'),
+  body('weight').optional().isFloat({ min: 0, max: 300 }).withMessage('Please enter a valid weight.'),
+];
+
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -39,5 +45,6 @@ module.exports = {
   donorRegisterValidation,
   hospitalRegisterValidation,
   loginValidation,
+  profileUpdateValidation,
   handleValidationErrors,
 };

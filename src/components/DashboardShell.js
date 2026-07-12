@@ -13,10 +13,10 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
       {/* Brand */}
       <div className="h-16 flex items-center gap-2 px-5 border-b border-gray-100">
         <div className="w-9 h-9 bg-red-600 rounded-full flex items-center justify-center">
-          <Droplet className="w-5 h-5 text-white" />
+          <Droplet className="w-5 h-5 text-white fill-white" />
         </div>
         <div className="leading-tight">
-          <p className="font-bold text-gray-800">NBTS</p>
+          <p className="font-bold text-gray-800">BloodCells<span className="text-red-600">.lk</span></p>
           <p className="text-[11px] text-gray-500">{portal}</p>
         </div>
       </div>

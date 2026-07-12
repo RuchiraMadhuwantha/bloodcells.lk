@@ -31,8 +31,8 @@ const AboutPage = ({ onNavigate }) => {
         <div className="absolute -top-12 -left-16 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-16 right-0 w-72 h-72 rounded-full bg-red-500/20 blur-3xl" />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">About PRAANA</h1>
-          <p className="text-lg text-red-100">National Blood Transfusion Service – Dedicated to Saving Lives</p>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">About BloodCells<span className="text-red-200">.lk</span></h1>
+          <p className="text-lg text-red-100">BloodCells.lk &ndash; Dedicated to Saving Lives Across Sri Lanka</p>
         </div>
       </section>
 
@@ -142,7 +142,7 @@ const AboutPage = ({ onNavigate }) => {
             <div>
               <MapPin className="w-8 h-8 mx-auto mb-3" />
               <p className="font-medium">Address</p>
-              <p className="text-red-100">National Blood Transfusion Service<br />Colombo, Sri Lanka</p>
+              <p className="text-red-100">BloodCells.lk<br />Colombo, Sri Lanka</p>
             </div>
             <div>
               <Phone className="w-8 h-8 mx-auto mb-3" />

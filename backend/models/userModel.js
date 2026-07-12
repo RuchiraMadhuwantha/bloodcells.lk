@@ -21,8 +21,19 @@ const findUserById = async (userId) => {
   return rows[0] || null;
 };
 
+const updateUserEmail = async (userId, email) => {
+  await pool.query('UPDATE users SET email = ? WHERE user_id = ?', [email, userId]);
+};
+
+const findUserByEmailExcluding = async (email, userId) => {
+  const [rows] = await pool.query('SELECT user_id FROM users WHERE email = ? AND user_id != ?', [email, userId]);
+  return rows[0] || null;
+};
+
 module.exports = {
   findUserByUsernameOrEmail,
   createUser,
   findUserById,
+  updateUserEmail,
+  findUserByEmailExcluding,
 };
