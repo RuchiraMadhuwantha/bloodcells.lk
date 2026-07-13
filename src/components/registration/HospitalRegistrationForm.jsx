@@ -144,16 +144,16 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
         </div>
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Registration Submitted</h2>
         <p className="text-gray-600 mb-4">Hospital accounts require verification and approval before access to the Hospital Dashboard is granted.</p>
-        <button onClick={onCancel} className="px-4 py-2 bg-red-600 text-white rounded-lg">Back</button>
+        <button onClick={onCancel} className="px-4 py-2 bg-brand-600 text-white rounded-lg">Back</button>
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-red-50/60 p-4 rounded-lg border border-red-100">
+      <div className="bg-brand-50/60 p-4 rounded-lg border border-brand-100">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600"><FileText className="w-5 h-5" /></div>
+          <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600"><FileText className="w-5 h-5" /></div>
           <div>
             <p className="font-semibold text-gray-800">Hospital accounts require verification</p>
             <p className="text-sm text-gray-600">Hospital accounts require verification and approval before access to the Hospital Dashboard is granted.</p>
@@ -171,10 +171,10 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
               <input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })}
                 onBlur={() => handleBlur('username')}
                 className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                  touched.username && getHospitalValidationError('username') ? 'border-red-500' : 'border-gray-200'
+                  touched.username && getHospitalValidationError('username') ? 'border-brand-500' : 'border-gray-200'
                 }`} />
             </div>
-            {touched.username && getHospitalValidationError('username') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('username')}</p>}
+            {touched.username && getHospitalValidationError('username') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('username')}</p>}
           </div>
 
           <div>
@@ -184,10 +184,10 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
               <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
                 onBlur={() => handleBlur('email')}
                 className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                  touched.email && getHospitalValidationError('email') ? 'border-red-500' : 'border-gray-200'
+                  touched.email && getHospitalValidationError('email') ? 'border-brand-500' : 'border-gray-200'
                 }`} />
             </div>
-            {touched.email && getHospitalValidationError('email') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('email')}</p>}
+            {touched.email && getHospitalValidationError('email') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('email')}</p>}
           </div>
 
           <div>
@@ -197,10 +197,10 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
               <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
                 onBlur={() => handleBlur('password')}
                 className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                  touched.password && getHospitalValidationError('password') ? 'border-red-500' : 'border-gray-200'
+                  touched.password && getHospitalValidationError('password') ? 'border-brand-500' : 'border-gray-200'
                 }`} />
             </div>
-            {touched.password && getHospitalValidationError('password') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('password')}</p>}
+            {touched.password && getHospitalValidationError('password') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('password')}</p>}
           </div>
 
           <div>
@@ -210,10 +210,10 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
               <input type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
                 onBlur={() => handleBlur('confirmPassword')}
                 className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                  touched.confirmPassword && getHospitalValidationError('confirmPassword') ? 'border-red-500' : 'border-gray-200'
+                  touched.confirmPassword && getHospitalValidationError('confirmPassword') ? 'border-brand-500' : 'border-gray-200'
                 }`} />
             </div>
-            {touched.confirmPassword && getHospitalValidationError('confirmPassword') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('confirmPassword')}</p>}
+            {touched.confirmPassword && getHospitalValidationError('confirmPassword') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('confirmPassword')}</p>}
           </div>
         </div>
       </div>
@@ -226,9 +226,9 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <input value={form.hospitalName} onChange={e => setForm({ ...form, hospitalName: e.target.value })}
               onBlur={() => handleBlur('hospitalName')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.hospitalName && getHospitalValidationError('hospitalName') ? 'border-red-500' : 'border-gray-200'
+                touched.hospitalName && getHospitalValidationError('hospitalName') ? 'border-brand-500' : 'border-gray-200'
               }`} />
-            {touched.hospitalName && getHospitalValidationError('hospitalName') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('hospitalName')}</p>}
+            {touched.hospitalName && getHospitalValidationError('hospitalName') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('hospitalName')}</p>}
           </div>
 
           <div>
@@ -236,9 +236,9 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <input value={form.hospitalCode} onChange={e => setForm({ ...form, hospitalCode: e.target.value })}
               onBlur={() => handleBlur('hospitalCode')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.hospitalCode && getHospitalValidationError('hospitalCode') ? 'border-red-500' : 'border-gray-200'
+                touched.hospitalCode && getHospitalValidationError('hospitalCode') ? 'border-brand-500' : 'border-gray-200'
               }`} />
-            {touched.hospitalCode && getHospitalValidationError('hospitalCode') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('hospitalCode')}</p>}
+            {touched.hospitalCode && getHospitalValidationError('hospitalCode') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('hospitalCode')}</p>}
           </div>
 
           <div>
@@ -246,12 +246,12 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <select value={form.hospitalType} onChange={e => setForm({ ...form, hospitalType: e.target.value })}
               onBlur={() => handleBlur('hospitalType')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.hospitalType && getHospitalValidationError('hospitalType') ? 'border-red-500' : 'border-gray-200'
+                touched.hospitalType && getHospitalValidationError('hospitalType') ? 'border-brand-500' : 'border-gray-200'
               }`}>
               <option value="">Select type</option>
               {HOSPITAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            {touched.hospitalType && getHospitalValidationError('hospitalType') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('hospitalType')}</p>}
+            {touched.hospitalType && getHospitalValidationError('hospitalType') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('hospitalType')}</p>}
           </div>
 
           <div>
@@ -267,9 +267,9 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <textarea value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
               onBlur={() => handleBlur('address')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.address && getHospitalValidationError('address') ? 'border-red-500' : 'border-gray-200'
+                touched.address && getHospitalValidationError('address') ? 'border-brand-500' : 'border-gray-200'
               }`} rows={3} />
-            {touched.address && getHospitalValidationError('address') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('address')}</p>}
+            {touched.address && getHospitalValidationError('address') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('address')}</p>}
           </div>
 
           <div>
@@ -279,10 +279,10 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
               <input value={form.contactNumber} onChange={e => setForm({ ...form, contactNumber: e.target.value })}
                 onBlur={() => handleBlur('contactNumber')}
                 className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                  touched.contactNumber && getHospitalValidationError('contactNumber') ? 'border-red-500' : 'border-gray-200'
+                  touched.contactNumber && getHospitalValidationError('contactNumber') ? 'border-brand-500' : 'border-gray-200'
                 }`} />
             </div>
-            {touched.contactNumber && getHospitalValidationError('contactNumber') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('contactNumber')}</p>}
+            {touched.contactNumber && getHospitalValidationError('contactNumber') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('contactNumber')}</p>}
           </div>
         </div>
       </div>
@@ -295,9 +295,9 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <input value={form.contactPersonName} onChange={e => setForm({ ...form, contactPersonName: e.target.value })}
               onBlur={() => handleBlur('contactPersonName')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.contactPersonName && getHospitalValidationError('contactPersonName') ? 'border-red-500' : 'border-gray-200'
+                touched.contactPersonName && getHospitalValidationError('contactPersonName') ? 'border-brand-500' : 'border-gray-200'
               }`} />
-            {touched.contactPersonName && getHospitalValidationError('contactPersonName') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('contactPersonName')}</p>}
+            {touched.contactPersonName && getHospitalValidationError('contactPersonName') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('contactPersonName')}</p>}
           </div>
 
           <div>
@@ -305,12 +305,12 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <select value={form.contactPersonDesignation} onChange={e => setForm({ ...form, contactPersonDesignation: e.target.value })}
               onBlur={() => handleBlur('contactPersonDesignation')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.contactPersonDesignation && getHospitalValidationError('contactPersonDesignation') ? 'border-red-500' : 'border-gray-200'
+                touched.contactPersonDesignation && getHospitalValidationError('contactPersonDesignation') ? 'border-brand-500' : 'border-gray-200'
               }`}>
               <option value="">Select designation</option>
               {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
-            {touched.contactPersonDesignation && getHospitalValidationError('contactPersonDesignation') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('contactPersonDesignation')}</p>}
+            {touched.contactPersonDesignation && getHospitalValidationError('contactPersonDesignation') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('contactPersonDesignation')}</p>}
           </div>
 
           <div>
@@ -318,9 +318,9 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
             <input value={form.contactPersonPhone} onChange={e => setForm({ ...form, contactPersonPhone: e.target.value })}
               onBlur={() => handleBlur('contactPersonPhone')}
               className={`w-full px-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                touched.contactPersonPhone && getHospitalValidationError('contactPersonPhone') ? 'border-red-500' : 'border-gray-200'
+                touched.contactPersonPhone && getHospitalValidationError('contactPersonPhone') ? 'border-brand-500' : 'border-gray-200'
               }`} />
-            {touched.contactPersonPhone && getHospitalValidationError('contactPersonPhone') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('contactPersonPhone')}</p>}
+            {touched.contactPersonPhone && getHospitalValidationError('contactPersonPhone') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('contactPersonPhone')}</p>}
           </div>
 
           <div>
@@ -330,17 +330,17 @@ export const HospitalRegistrationForm = ({ onCancel }) => {
               <input value={form.contactPersonEmail} onChange={e => setForm({ ...form, contactPersonEmail: e.target.value })}
                 onBlur={() => handleBlur('contactPersonEmail')}
                 className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm bg-gray-50/50 ${
-                  touched.contactPersonEmail && getHospitalValidationError('contactPersonEmail') ? 'border-red-500' : 'border-gray-200'
+                  touched.contactPersonEmail && getHospitalValidationError('contactPersonEmail') ? 'border-brand-500' : 'border-gray-200'
                 }`} />
             </div>
-            {touched.contactPersonEmail && getHospitalValidationError('contactPersonEmail') && <p className="text-xs text-red-600 mt-1">{getHospitalValidationError('contactPersonEmail')}</p>}
+            {touched.contactPersonEmail && getHospitalValidationError('contactPersonEmail') && <p className="text-xs text-brand-600 mt-1">{getHospitalValidationError('contactPersonEmail')}</p>}
           </div>
         </div>
       </div>
 
       <div className="flex gap-3">
         <button type="button" onClick={onCancel} className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-        <button type="submit" className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors">Submit Registration</button>
+        <button type="submit" className="flex-1 bg-brand-600 text-white py-3 rounded-lg hover:bg-brand-700 transition-colors">Submit Registration</button>
       </div>
     </form>
   );

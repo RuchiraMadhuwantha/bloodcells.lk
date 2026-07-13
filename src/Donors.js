@@ -42,13 +42,13 @@ export const DonorDashboard = ({ nav }) => {
         </SectionCard>
 
         <SectionCard title="Upcoming Appointment">
-          <div className="border border-red-100 bg-red-50 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-red-600 font-semibold"><Calendar className="w-5 h-5" /> Jun 18, 2026</div>
+          <div className="border border-red-100 bg-brand-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-brand-600 font-semibold"><Calendar className="w-5 h-5" /> Jun 18, 2026</div>
             <p className="text-sm text-gray-600 mt-2 flex items-center gap-2"><Clock className="w-4 h-4" /> 10:30 AM</p>
             <p className="text-sm text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" /> NBTS Colombo</p>
             <div className="flex gap-2 mt-4">
               <Button variant="outline" className="flex-1 text-xs">Reschedule</Button>
-              <Button variant="ghost" className="flex-1 text-xs text-red-600">Cancel</Button>
+              <Button variant="ghost" className="flex-1 text-xs text-brand-600">Cancel</Button>
             </div>
           </div>
         </SectionCard>
@@ -127,9 +127,9 @@ export const AppointmentBooking = ({ nav }) => {
               ) : (
                 centers.map((c, i) => (
                   <button key={i} onClick={() => setSelectedCenter(i)}
-                    className={`w-full flex items-center justify-between border rounded-lg p-4 text-left transition-colors ${selectedCenter === i ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-red-300'}`}>
+                    className={`w-full flex items-center justify-between border rounded-lg p-4 text-left transition-colors ${selectedCenter === i ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-red-300'}`}>
                     <div className="flex items-center gap-3">
-                      <MapPin className={`w-5 h-5 ${selectedCenter === i ? 'text-red-600' : 'text-gray-400'}`} />
+                      <MapPin className={`w-5 h-5 ${selectedCenter === i ? 'text-brand-600' : 'text-gray-400'}`} />
                       <div>
                         <p className="font-medium text-gray-800">{c.name}</p>
                         <p className="text-xs text-gray-500">{c.addr}</p>
@@ -150,7 +150,7 @@ export const AppointmentBooking = ({ nav }) => {
                 return (
                   <button key={d} disabled={disabled} onClick={() => setSelectedDate(d)}
                     className={`aspect-square rounded-lg text-sm transition-colors
-                      ${disabled ? 'text-gray-300 cursor-not-allowed' : selectedDate === d ? 'bg-red-600 text-white font-semibold' : 'hover:bg-red-50 text-gray-700'}`}>
+                      ${disabled ? 'text-gray-300 cursor-not-allowed' : selectedDate === d ? 'bg-brand-600 text-white font-semibold' : 'hover:bg-brand-50 text-gray-700'}`}>
                     {d}
                   </button>
                 );
@@ -162,7 +162,7 @@ export const AppointmentBooking = ({ nav }) => {
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {slots.map(s => (
                 <button key={s} onClick={() => setSelectedSlot(s)}
-                  className={`py-2 rounded-lg text-sm border transition-colors ${selectedSlot === s ? 'bg-red-600 text-white border-red-600' : 'border-gray-200 text-gray-700 hover:border-red-300'}`}>
+                  className={`py-2 rounded-lg text-sm border transition-colors ${selectedSlot === s ? 'bg-brand-600 text-white border-red-600' : 'border-gray-200 text-gray-700 hover:border-red-300'}`}>
                   {s}
                 </button>
               ))}
@@ -268,7 +268,7 @@ export const DonorProfile = ({ nav }) => {
   if (error) {
     return (
       <DashboardLayout {...nav} title="My Profile" userName="Donor" role="Donor">
-        <div className="bg-red-50 border border-red-100 text-red-700 rounded-lg p-6 text-center">
+        <div className="bg-brand-50 border border-red-100 text-brand-700 rounded-lg p-6 text-center">
           <AlertCircle className="w-8 h-8 mx-auto mb-2" />
           <p>{error}</p>
           <Button variant="outline" className="mt-4" onClick={loadProfile}>Retry</Button>
@@ -301,7 +301,7 @@ export const DonorProfile = ({ nav }) => {
       </div>
 
       {saveError && (
-        <div className="bg-red-50 border border-red-100 text-red-700 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
+        <div className="bg-brand-50 border border-red-100 text-brand-700 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
           <AlertCircle className="w-4 h-4" /> {saveError}
         </div>
       )}
@@ -324,7 +324,7 @@ export const DonorProfile = ({ nav }) => {
                 <div>
                   <label className="block text-gray-400 mb-1">Full Name</label>
                   <input name="full_name" value={form.full_name} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
                   <label className="block text-gray-400 mb-1">NIC (cannot change)</label>
@@ -334,12 +334,12 @@ export const DonorProfile = ({ nav }) => {
                 <div>
                   <label className="block text-gray-400 mb-1">Date of Birth</label>
                   <input type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
                   <label className="block text-gray-400 mb-1">Gender</label>
                   <select name="gender" value={form.gender} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
                     <option value="">Select</option>
                     {genderOptions.map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
@@ -347,12 +347,12 @@ export const DonorProfile = ({ nav }) => {
                 <div>
                   <label className="block text-gray-400 mb-1">Weight (kg)</label>
                   <input type="number" step="0.1" name="weight" value={form.weight} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
                   <label className="block text-gray-400 mb-1">Blood Group</label>
                   <select name="blood_group" value={form.blood_group} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
                     <option value="">Select</option>
                     {BLOOD_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
@@ -376,17 +376,17 @@ export const DonorProfile = ({ nav }) => {
                 <div>
                   <label className="block text-gray-400 mb-1">Email</label>
                   <input name="email" value={form.email} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
                   <label className="block text-gray-400 mb-1">Phone</label>
                   <input name="phone" value={form.phone} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-gray-400 mb-1">District</label>
                   <select name="district" value={form.district} onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
                     <option value="">Select district</option>
                     {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
@@ -394,9 +394,9 @@ export const DonorProfile = ({ nav }) => {
               </div>
             ) : (
               <div className="space-y-3 text-sm">
-                <p className="flex items-center gap-3 text-gray-700"><Phone className="w-4 h-4 text-red-600" /> {profile?.phone || '—'}</p>
-                <p className="flex items-center gap-3 text-gray-700"><Mail className="w-4 h-4 text-red-600" /> {user?.email || '—'}</p>
-                <p className="flex items-center gap-3 text-gray-700"><MapPin className="w-4 h-4 text-red-600" /> {profile?.district || '—'}</p>
+                <p className="flex items-center gap-3 text-gray-700"><Phone className="w-4 h-4 text-brand-600" /> {profile?.phone || '—'}</p>
+                <p className="flex items-center gap-3 text-gray-700"><Mail className="w-4 h-4 text-brand-600" /> {user?.email || '—'}</p>
+                <p className="flex items-center gap-3 text-gray-700"><MapPin className="w-4 h-4 text-brand-600" /> {profile?.district || '—'}</p>
               </div>
             )}
           </SectionCard>

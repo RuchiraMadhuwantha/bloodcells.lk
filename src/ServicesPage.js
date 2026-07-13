@@ -91,9 +91,9 @@ const ServicesPage = ({ onNavigate }) => {
   return (
     <div className="min-h-screen page-shell">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-r from-brand-700 via-brand-600 to-rose-700 text-white py-16 md:py-24">
         <div className="absolute -top-12 -left-12 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-red-500/15 blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Our Services</h1>
           <p className="text-lg text-red-100">Comprehensive blood donation and transfusion management solutions</p>
@@ -108,8 +108,8 @@ const ServicesPage = ({ onNavigate }) => {
             {mainServices.map((service, index) => {
               const Icon = service.icon;
               return (
-                <div key={index} className="bg-white border-2 border-gray-100 rounded-lg p-8 hover:border-red-300 hover:shadow-lg transition-all">
-                  <div className="w-14 h-14 bg-red-100 text-red-600 rounded-lg flex items-center justify-center mb-4">
+                <div key={index} className="bg-white border-2 border-gray-100 rounded-2xl p-8 hover:border-brand-300 hover:shadow-soft transition-all">
+                  <div className="w-14 h-14 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center mb-4">
                     <Icon className="w-7 h-7" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{service.title}</h3>
@@ -135,7 +135,7 @@ const ServicesPage = ({ onNavigate }) => {
           <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Services by Portal</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {services.map((serviceGroup, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md p-8">
+              <div key={index} className="bg-white rounded-2xl shadow-card p-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-6">{serviceGroup.category}</h3>
                 <ul className="space-y-3">
                   {serviceGroup.items.map((item, i) => (
@@ -158,7 +158,7 @@ const ServicesPage = ({ onNavigate }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
                   <span className="text-xl font-bold">✓</span>
                 </div>
                 <div>
@@ -167,7 +167,7 @@ const ServicesPage = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
                   <span className="text-xl font-bold">✓</span>
                 </div>
                 <div>
@@ -176,7 +176,7 @@ const ServicesPage = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
                   <span className="text-xl font-bold">✓</span>
                 </div>
                 <div>
@@ -187,7 +187,7 @@ const ServicesPage = ({ onNavigate }) => {
             </div>
             <div className="space-y-4">
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
                   <span className="text-xl font-bold">✓</span>
                 </div>
                 <div>
@@ -196,7 +196,7 @@ const ServicesPage = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
                   <span className="text-xl font-bold">✓</span>
                 </div>
                 <div>
@@ -205,7 +205,7 @@ const ServicesPage = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
                   <span className="text-xl font-bold">✓</span>
                 </div>
                 <div>
@@ -219,15 +219,15 @@ const ServicesPage = ({ onNavigate }) => {
       </section>
 
       {/* CTA */}
-      <section className="bg-red-600 py-16 px-4 sm:px-6 lg:px-8">
+      <section className="bg-brand-600 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center text-white">
           <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
           <p className="text-lg text-red-100 mb-8">Choose your role and access the portal that's right for you</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => onNavigate('register')} className="px-8 py-3 bg-white text-red-600 rounded-lg font-semibold hover:bg-gray-100 transition-all">
+            <button onClick={() => onNavigate('register')} className="px-8 py-3 bg-white text-brand-600 rounded-2xl font-semibold hover:bg-gray-100 transition-all">
               Become a Donor
             </button>
-            <button onClick={() => onNavigate('login')} className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-red-600 transition-all">
+            <button onClick={() => onNavigate('login')} className="px-8 py-3 border-2 border-white text-white rounded-2xl font-semibold hover:bg-white hover:text-brand-600 transition-all">
               Login to Portal
             </button>
           </div>
@@ -238,7 +238,7 @@ const ServicesPage = ({ onNavigate }) => {
       <section className="py-8 px-4 text-center">
         <button
           onClick={() => onNavigate('home')}
-          className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 font-medium"
+          className="inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 font-medium"
         >
           ← Back to Home
         </button>

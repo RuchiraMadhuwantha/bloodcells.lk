@@ -127,9 +127,9 @@ const ForDonorsPage = ({ onNavigate }) => {
   return (
     <div className="min-h-screen page-shell">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-r from-brand-700 via-brand-600 to-rose-700 text-white py-16 md:py-24">
         <div className="absolute -top-12 -left-12 w-80 h-80 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute bottom-4 right-4 w-72 h-72 rounded-full bg-red-500/20 blur-3xl" />
+        <div className="absolute bottom-4 right-4 w-72 h-72 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">For Donors</h1>
           <p className="text-lg text-red-100">Everything you need to know about blood donation and saving lives</p>
@@ -144,8 +144,8 @@ const ForDonorsPage = ({ onNavigate }) => {
             {benefits.map((benefit, index) => {
               const Icon = benefit.icon;
               return (
-                <div key={index} className="bg-white border-2 border-gray-100 rounded-lg p-6 hover:border-red-300 hover:shadow-lg transition-all">
-                  <div className="w-14 h-14 bg-red-100 text-red-600 rounded-lg flex items-center justify-center mb-4">
+                <div key={index} className="bg-white border-2 border-gray-100 rounded-2xl p-6 hover:border-brand-300 hover:shadow-soft transition-all">
+                  <div className="w-14 h-14 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center mb-4">
                     <Icon className="w-7 h-7" />
                   </div>
                   <h3 className="font-bold text-gray-900 mb-2">{benefit.title}</h3>
@@ -163,7 +163,7 @@ const ForDonorsPage = ({ onNavigate }) => {
           <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Eligibility Requirements</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {eligibilityRequirements.map((section, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md p-6">
+              <div key={index} className="bg-white rounded-2xl shadow-card p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   {section.category}
@@ -171,7 +171,7 @@ const ForDonorsPage = ({ onNavigate }) => {
                 <ul className="space-y-3">
                   {section.requirements.map((req, i) => (
                     <li key={i} className="flex items-start gap-2 text-gray-700">
-                      <span className="text-red-600 font-bold mt-1">•</span>
+                      <span className="text-brand-600 font-bold mt-1">•</span>
                       <span>{req}</span>
                     </li>
                   ))}
@@ -201,7 +201,7 @@ const ForDonorsPage = ({ onNavigate }) => {
                   <div className="flex gap-8">
                     {/* Timeline dot */}
                     <div className="hidden md:flex flex-col items-center w-20 shrink-0">
-                      <div className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center font-bold relative z-10">
+                      <div className="w-12 h-12 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold relative z-10">
                         {item.step}
                       </div>
                       {index < donationProcess.length - 1 && (
@@ -210,10 +210,10 @@ const ForDonorsPage = ({ onNavigate }) => {
                     </div>
                     
                     {/* Content */}
-                    <div className="flex-1 bg-white border-2 border-gray-100 rounded-lg p-6 md:p-8 hover:border-red-300 transition-colors">
+                    <div className="flex-1 bg-white border-2 border-gray-100 rounded-2xl p-6 md:p-8 hover:border-brand-300 transition-colors">
                       <div className="flex items-start justify-between mb-2">
                         <h3 className="text-xl font-bold text-gray-900">{item.title}</h3>
-                        <span className="text-sm text-red-600 font-medium">{item.time}</span>
+                        <span className="text-sm text-brand-600 font-medium">{item.time}</span>
                       </div>
                       <p className="text-gray-600">{item.description}</p>
                     </div>
@@ -231,13 +231,13 @@ const ForDonorsPage = ({ onNavigate }) => {
           <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Frequently Asked Questions</h2>
           <div className="space-y-4">
             {faqs.map((faq, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div key={index} className="bg-white rounded-2xl shadow-card overflow-hidden">
                 <button
                   onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
                   className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
                 >
                   <h3 className="font-bold text-gray-900 text-left">{faq.question}</h3>
-                  <ChevronRight className={`w-5 h-5 text-red-600 transition-transform ${expandedFaq === index ? 'rotate-90' : ''}`} />
+                  <ChevronRight className={`w-5 h-5 text-brand-600 transition-transform ${expandedFaq === index ? 'rotate-90' : ''}`} />
                 </button>
                 {expandedFaq === index && (
                   <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
@@ -251,15 +251,15 @@ const ForDonorsPage = ({ onNavigate }) => {
       </section>
 
       {/* CTA */}
-      <section className="bg-red-600 py-16 px-4 sm:px-6 lg:px-8">
+      <section className="bg-brand-600 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center text-white">
           <h2 className="text-3xl font-bold mb-4">Ready to Save Lives?</h2>
           <p className="text-lg text-red-100 mb-8">Register today and book your first donation appointment</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => onNavigate('register')} className="px-8 py-3 bg-white text-red-600 rounded-lg font-semibold hover:bg-gray-100 transition-all">
+            <button onClick={() => onNavigate('register')} className="px-8 py-3 bg-white text-brand-600 rounded-2xl font-semibold hover:bg-gray-100 transition-all">
               Become a Donor
             </button>
-            <button onClick={() => onNavigate('register')} className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-red-600 transition-all">
+            <button onClick={() => onNavigate('register')} className="px-8 py-3 border-2 border-white text-white rounded-2xl font-semibold hover:bg-white hover:text-brand-600 transition-all">
               Book Appointment
             </button>
           </div>
@@ -270,7 +270,7 @@ const ForDonorsPage = ({ onNavigate }) => {
       <section className="py-8 px-4 text-center">
         <button
           onClick={() => onNavigate('home')}
-          className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 font-medium"
+          className="inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 font-medium"
         >
           ← Back to Home
         </button>

@@ -5,6 +5,7 @@ import {
   Star, Shield, Activity, AlertCircle,
 } from 'lucide-react';
 import heroImage from './assets/hero.jpg';
+import communityCareImage from './assets/community-care.svg';
 
 /* ─────────────────────────────────────────────
    Helper: Section Header
@@ -172,7 +173,7 @@ const Homepage = ({ onNavigate }) => {
               {[
                 { title: 'Blood Donation',     description: 'Support patients in need with safe blood units.',   image: heroImage },
                 { title: 'Emergency Requests', description: 'Immediate response for urgent transfusion needs.',  image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80' },
-                { title: 'Community Care',     description: 'Connecting donors, hospitals and blood banks.',     image: 'https://images.unsplash.com/photo-1542736667-069246bdbc60?auto=format&fit=crop&w=800&q=80' },
+                { title: 'Community Care',     description: 'Connecting donors, hospitals and blood banks.',     image: communityCareImage },
               ].map((item, i) => (
                 <div key={i} className="overflow-hidden rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-xl">
                   <img src={item.image} alt={item.title} className="h-40 w-full object-cover brightness-90" loading="lazy" />

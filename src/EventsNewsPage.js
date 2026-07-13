@@ -129,9 +129,9 @@ const EventsNewsPage = ({ onNavigate }) => {
   return (
     <div className="min-h-screen page-shell">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-800 text-white py-16 md:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-r from-brand-700 via-brand-600 to-rose-700 text-white py-16 md:py-24">
         <div className="absolute -top-10 -left-8 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-red-500/15 blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Events & News</h1>
           <p className="text-lg text-red-100">Stay updated on blood donation campaigns and system developments</p>
@@ -150,7 +150,7 @@ const EventsNewsPage = ({ onNavigate }) => {
                   onClick={() => setSelectedCategory(cat.value)}
                   className={`px-4 py-2 rounded-full font-medium transition-colors ${
                     selectedCategory === cat.value
-                      ? 'bg-red-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -162,7 +162,7 @@ const EventsNewsPage = ({ onNavigate }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {filteredEvents.map(event => (
-              <div key={event.id} className="bg-white border-2 border-gray-100 rounded-lg overflow-hidden hover:shadow-lg transition-all">
+              <div key={event.id} className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden hover:shadow-soft transition-all">
                 <div className="h-32 md:h-40" style={{ background: event.image }} />
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-2">
@@ -175,24 +175,24 @@ const EventsNewsPage = ({ onNavigate }) => {
                   <p className="text-gray-600 text-sm mb-4">{event.description}</p>
                   <div className="space-y-2 text-sm text-gray-700">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-red-600" />
+                      <Calendar className="w-4 h-4 text-brand-600" />
                       {event.date}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-red-600" />
+                      <Clock className="w-4 h-4 text-brand-600" />
                       {event.time}
                     </div>
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-red-600" />
+                      <MapPin className="w-4 h-4 text-brand-600" />
                       {event.location}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-red-600" />
+                      <Users className="w-4 h-4 text-brand-600" />
                       Expected: {event.attendees}
                     </div>
                   </div>
                   {event.status === 'registering' && (
-                    <button onClick={() => onNavigate('register')} className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition-colors">
+                    <button onClick={() => onNavigate('register')} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 text-white py-2 rounded-2xl font-medium transition-colors">
                       Register Now
                     </button>
                   )}
@@ -209,11 +209,11 @@ const EventsNewsPage = ({ onNavigate }) => {
           <h2 className="text-3xl font-bold text-gray-900 mb-12">Latest News</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {news.map(item => (
-              <div key={item.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all">
+              <div key={item.id} className="bg-white rounded-2xl shadow-card p-6 hover:shadow-soft transition-all">
                 <div className="flex items-start gap-4">
                   <div className="text-3xl">{item.icon}</div>
                   <div className="flex-1">
-                    <span className="text-xs font-medium text-red-600 uppercase">{item.category}</span>
+                    <span className="text-xs font-medium text-brand-600 uppercase">{item.category}</span>
                     <h3 className="text-lg font-bold text-gray-900 mt-1 mb-2">{item.title}</h3>
                     <p className="text-gray-600 text-sm mb-3">{item.summary}</p>
                     <span className="text-xs text-gray-500">{item.date}</span>
@@ -226,7 +226,7 @@ const EventsNewsPage = ({ onNavigate }) => {
       </section>
 
       {/* Newsletter Signup */}
-      <section className="bg-gradient-to-r from-red-600 to-red-800 py-16 px-4 sm:px-6 lg:px-8">
+      <section className="bg-gradient-to-r from-brand-700 via-brand-600 to-rose-700 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center text-white">
           <h2 className="text-3xl font-bold mb-4">Stay Informed</h2>
           <p className="text-red-100 mb-8">Subscribe to our newsletter for updates on events, campaigns, and system improvements.</p>
@@ -234,9 +234,9 @@ const EventsNewsPage = ({ onNavigate }) => {
             <input
               type="email"
               placeholder="Enter your email"
-              className="flex-1 px-4 py-3 rounded-lg text-gray-900 focus:outline-none"
+              className="flex-1 px-4 py-3 rounded-2xl text-gray-900 focus:outline-none"
             />
-            <button className="px-6 py-3 bg-white text-red-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+            <button className="px-6 py-3 bg-white text-brand-600 rounded-2xl font-semibold hover:bg-gray-100 transition-colors">
               Subscribe
             </button>
           </div>
@@ -247,7 +247,7 @@ const EventsNewsPage = ({ onNavigate }) => {
       <section className="py-8 px-4 text-center">
         <button
           onClick={() => onNavigate('home')}
-          className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 font-medium"
+          className="inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 font-medium"
         >
           ← Back to Home
         </button>

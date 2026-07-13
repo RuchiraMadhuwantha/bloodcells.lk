@@ -38,7 +38,6 @@ const BANK_NAV = [
   { route: 'bank-dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { route: 'bank-inventory', label: 'Inventory', icon: Database },
   { route: 'bank-donors', label: 'Donors', icon: Users },
-  { route: 'bank-prediction', label: 'AI Demand Prediction', icon: Sparkles },
   { route: 'admin-dashboard', label: 'Administrator', icon: ShieldCheck },
 ];
 
@@ -71,19 +70,21 @@ const Navbar = ({ onNavigate, activePage }) => {
       : 'flex items-center gap-2 w-full text-left text-gray-700 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors';
 
   return (
-    <nav className="bg-white/95 backdrop-blur-xl shadow-sm sticky top-0 z-50 border-b border-gray-200">
+    <nav className="bg-white/90 backdrop-blur-xl shadow-sm sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <button onClick={() => onNavigate('home')} className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center"><Droplet className="w-6 h-6 text-white fill-white" /></div>
-            <span className="text-xl font-bold text-gray-800">BloodCells<span className="text-red-600">.lk</span></span>
+          <button onClick={() => onNavigate('home')} className="flex items-center space-x-2 group">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-700 rounded-xl flex items-center justify-center shadow-md shadow-red-200 group-hover:scale-105 transition-transform">
+              <Droplet className="w-6 h-6 text-white fill-white" />
+            </div>
+            <span className="text-xl font-extrabold text-gray-800 tracking-tight">BloodCells<span className="text-red-600">.lk</span></span>
           </button>
           <div className="hidden md:flex items-center space-x-1">
             {navLinks.map(({ route, label }) => (
               <button
                 key={route}
                 onClick={() => onNavigate(route)}
-                className={`px-3 py-2 rounded-lg ${linkClass(route)}`}
+                className={`px-4 py-2 rounded-full text-sm transition-colors ${linkClass(route)}`}
               >
                 {label}
                 {activePage === route && (
@@ -93,8 +94,8 @@ const Navbar = ({ onNavigate, activePage }) => {
             ))}
           </div>
           <div className="hidden md:flex items-center space-x-3">
-            <button onClick={() => onNavigate('register')} className="px-4 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium">Register</button>
-            <button onClick={() => onNavigate('login')} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-1.5 shadow-sm shadow-red-100">
+            <button onClick={() => onNavigate('register')} className="px-4 py-2 text-red-600 border border-red-200 rounded-full hover:bg-red-50 transition-colors font-semibold text-sm">Register</button>
+            <button onClick={() => onNavigate('login')} className="px-5 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-full hover:from-red-700 hover:to-red-800 transition-all font-semibold text-sm flex items-center gap-1.5 shadow-md shadow-red-200">
               <Calendar className="w-4 h-4" /> Login
             </button>
           </div>
@@ -102,7 +103,7 @@ const Navbar = ({ onNavigate, activePage }) => {
         </div>
       </div>
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-1 shadow-inner">
+        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-1 shadow-lg">
           {navLinks.map(({ route, label }) => (
             <button
               key={route}
@@ -116,8 +117,8 @@ const Navbar = ({ onNavigate, activePage }) => {
           <button onClick={() => { onNavigate('donors'); setMobileMenuOpen(false); }} className={mobileLinkClass('donors')}>For Donors</button>
           <hr className="border-gray-100 my-2" />
           <div className="flex flex-col gap-2 pt-1">
-            <button onClick={() => { onNavigate('login'); setMobileMenuOpen(false); }} className="w-full py-2 text-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 font-medium">Login</button>
-            <button onClick={() => { onNavigate('register'); setMobileMenuOpen(false); }} className="w-full py-2 text-center bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center justify-center gap-1.5 shadow-sm">
+            <button onClick={() => { onNavigate('login'); setMobileMenuOpen(false); }} className="w-full py-2 text-center text-red-600 border border-red-200 rounded-full hover:bg-red-50 font-semibold">Login</button>
+            <button onClick={() => { onNavigate('register'); setMobileMenuOpen(false); }} className="w-full py-2 text-center bg-gradient-to-r from-red-600 to-red-700 text-white rounded-full hover:from-red-700 hover:to-red-800 font-semibold flex items-center justify-center gap-1.5 shadow-md">
               <Calendar className="w-4 h-4" /> Book Appointment
             </button>
           </div>
