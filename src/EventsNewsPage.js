@@ -61,7 +61,7 @@ const EventsNewsPage = ({ onNavigate }) => {
       title: "New AI Prediction Model Reduces Blood Shortages by 40%",
       date: "Jun 15, 2026",
       category: "Technology",
-      summary: "PRAANA's latest AI update successfully predicted demand patterns with 95% accuracy, helping prevent stockouts.",
+      summary: "BloodCells.lk's latest AI update successfully predicted demand patterns with 95% accuracy, helping prevent stockouts.",
       icon: "📊"
     },
     {
@@ -69,12 +69,12 @@ const EventsNewsPage = ({ onNavigate }) => {
       title: "Emergency Blood Request System Saves Lives in Kandy",
       date: "Jun 12, 2026",
       category: "Success Story",
-      summary: "Real-time coordination through PRAANA enabled emergency blood delivery in just 15 minutes, saving a critical patient.",
+      summary: "Real-time coordination through BloodCells.lk enabled emergency blood delivery in just 15 minutes, saving a critical patient.",
       icon: "❤️"
     },
     {
       id: 3,
-      title: "50th Partner Hospital Joins PRAANA Network",
+      title: "50th Partner Hospital Joins BloodCells.lk Network",
       date: "Jun 10, 2026",
       category: "Network",
       summary: "Western Province Hospital becomes the 50th facility to join the integrated blood transfusion system.",
@@ -93,7 +93,7 @@ const EventsNewsPage = ({ onNavigate }) => {
       title: "Mobile Donation Units Reach Remote Areas",
       date: "Jun 05, 2026",
       category: "Expansion",
-      summary: "PRAANA now coordinates 12 mobile blood collection units serving rural regions of Sri Lanka.",
+      summary: "BloodCells.lk now coordinates 12 mobile blood collection units serving rural regions of Sri Lanka.",
       icon: "🚐"
     },
     {
@@ -101,7 +101,7 @@ const EventsNewsPage = ({ onNavigate }) => {
       title: "100,000 Donations Milestone Achieved",
       date: "Jun 01, 2026",
       category: "Milestone",
-      summary: "PRAANA celebrates coordinating 100,000 successful blood donations since system launch.",
+      summary: "BloodCells.lk celebrates coordinating 100,000 successful blood donations since system launch.",
       icon: "🎉"
     }
   ];

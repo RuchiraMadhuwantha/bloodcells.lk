@@ -151,10 +151,10 @@ const ServicesPage = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* Why Choose PRAANA */}
+      {/* Why Choose BloodCells.lk */}
       <section className="py-16 md:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Why Choose PRAANA?</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Why Choose BloodCells.lk?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div className="flex gap-4">

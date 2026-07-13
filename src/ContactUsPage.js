@@ -78,7 +78,7 @@ const ContactUsPage = ({ onNavigate }) => {
     {
       icon: MessageSquare,
       title: "Chat Support",
-      description: "Get instant help from PRAANA Assistant",
+      description: "Get instant help from BloodCells.lk Assistant",
       detail: "Click the chat icon in the app",
       subDetail: "Available 24/7, AI-powered responses"
     },
@@ -112,7 +112,7 @@ const ContactUsPage = ({ onNavigate }) => {
     },
     {
       name: "Technical Support",
-      email: "support@praana.lk",
+      email: "support@bloodcells.lk",
       phone: "+94 11 2 699 194",
       topics: ["App issues", "Account problems", "Technical help"]
     },

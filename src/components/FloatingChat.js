@@ -21,7 +21,7 @@ export const FloatingChat = () => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
-    { from: 'ai', text: 'Hi! I\'m PRAANA Assistant 🩸 — your AI helper for donations, requests and inventory. How can I help today?' },
+    { from: 'ai', text: 'Hi! I\'m BloodCells.lk Assistant 🩸 — your AI helper for donations, requests and inventory. How can I help today?' },
   ]);
   const endRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open]);
@@ -54,7 +54,7 @@ export const FloatingChat = () => {
               <Bot className="w-6 h-6" />
             </div>
             <div>
-              <p className="font-semibold leading-tight">PRAANA Assistant</p>
+              <p className="font-semibold leading-tight">BloodCells.lk Assistant</p>
               <p className="text-xs text-white/80 flex items-center gap-1"><span className="w-2 h-2 bg-green-400 rounded-full" /> Online · AI powered</p>
             </div>
           </div>

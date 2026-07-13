@@ -17,7 +17,7 @@ const AboutPage = ({ onNavigate }) => {
   ];
 
   const milestones = [
-    { year: "2015", event: "PRAANA System Launched" },
+    { year: "2015", event: "bloodcells.lk System Launched" },
     { year: "2018", event: "50+ Hospitals Connected" },
     { year: "2022", event: "AI Demand Prediction Introduced" },
     { year: "2024", event: "100,000+ Donations Coordinated" },
@@ -144,7 +144,7 @@ const AboutPage = ({ onNavigate }) => {
             <div className="bg-white/10 backdrop-blur rounded-2xl p-6">
               <Mail className="w-8 h-8 mx-auto mb-3" />
               <p className="font-medium">Email</p>
-              <p className="text-red-100">info@nbts.lk<br />support@praana.lk</p>
+              <p className="text-red-100">info@nbts.lk<br />support@bloodcells.lk</p>
             </div>
           </div>
         </div>
