@@ -33,7 +33,12 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
                 ${active ? 'bg-brand-600 text-white shadow' : 'text-gray-600 hover:bg-brand-50 hover:text-brand-600'}`}
             >
               <item.icon className="w-5 h-5" />
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span className="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}

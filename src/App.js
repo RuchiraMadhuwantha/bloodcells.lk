@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Menu, X, Droplet, ChevronRight, Heart, Award, Calendar, User, Database, Users, Sparkles,
-  Lock, Phone, Mail, FileText, Activity, Check, AlertCircle, MapPin, LayoutDashboard, ShieldCheck
+  Lock, Phone, Mail, FileText, Activity, Check, AlertCircle, MapPin, LayoutDashboard, ShieldCheck, Megaphone, Building2
 } from 'lucide-react';
 import AboutPage from './AboutPage';
 import ServicesPage from './ServicesPage';
@@ -16,6 +16,9 @@ import Home from './Home';
 import { DonorDashboard, AppointmentBooking, DonorProfile } from './Donors';
 import { HospitalDashboard, BloodRequestPage } from './Hospital';
 import { BankDashboard, InventoryManagement, DonorManagement, AIPrediction } from './BloodBank';
+import { CampaignManagement } from './components/CampaignManagement';
+import { HospitalManagement } from './components/HospitalManagement';
+import { HospitalProvider, useHospitals } from './data/hospitals';
 import { AdminDashboard } from './AdminDashboard';
 
 /* ===================================================================================
@@ -38,6 +41,8 @@ const BANK_NAV = [
   { route: 'bank-dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { route: 'bank-inventory', label: 'Inventory', icon: Database },
   { route: 'bank-donors', label: 'Donors', icon: Users },
+  { route: 'bank-campaigns', label: 'Campaigns', icon: Megaphone },
+  { route: 'bank-hospitals', label: 'Hospital Management', icon: Building2 },
   { route: 'admin-dashboard', label: 'Administrator', icon: ShieldCheck },
 ];
 
@@ -132,8 +137,20 @@ const Navbar = ({ onNavigate, activePage }) => {
    APP ROOT — routing + login-by-role
    =================================================================================== */
 
-const App = () => {
+const App = () => (
+  <HospitalProvider>
+    <AppInner />
+  </HospitalProvider>
+);
+
+const AppInner = () => {
+  const { pendingCount } = useHospitals();
   const [currentRoute, setCurrentRoute] = useState('home');
+
+  // Sidebar nav with live pending-approval badge on Hospital Management
+  const bankNav = BANK_NAV.map((i) =>
+    i.route === 'bank-hospitals' ? { ...i, badge: pendingCount } : i
+  );
 
   const handleLogin = (role, token, user) => {
     localStorage.setItem('authToken', token || '');
@@ -172,11 +189,13 @@ const App = () => {
     'donor-profile': <DonorProfile nav={navFor('Donor Portal', DONOR_NAV)} />,
     'hospital-dashboard': <HospitalDashboard nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-request': <BloodRequestPage nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
-    'bank-dashboard': <BankDashboard nav={navFor('Blood Bank Portal', BANK_NAV)} />,
-    'bank-inventory': <InventoryManagement nav={navFor('Blood Bank Portal', BANK_NAV)} />,
-    'bank-donors': <DonorManagement nav={navFor('Blood Bank Portal', BANK_NAV)} />,
-    'bank-prediction': <AIPrediction nav={navFor('Blood Bank Portal', BANK_NAV)} />,
-    'admin-dashboard': <AdminDashboard nav={navFor('Blood Bank Portal', BANK_NAV)} />,
+    'bank-dashboard': <BankDashboard nav={navFor('Blood Bank Portal', bankNav)} />,
+    'bank-inventory': <InventoryManagement nav={navFor('Blood Bank Portal', bankNav)} />,
+    'bank-donors': <DonorManagement nav={navFor('Blood Bank Portal', bankNav)} />,
+    'bank-campaigns': <CampaignManagement nav={navFor('Blood Bank Portal', bankNav)} />,
+    'bank-hospitals': <HospitalManagement nav={navFor('Blood Bank Portal', bankNav)} />,
+    'bank-prediction': <AIPrediction nav={navFor('Blood Bank Portal', bankNav)} />,
+    'admin-dashboard': <AdminDashboard nav={navFor('Blood Bank Portal', bankNav)} />,
   };
 
   const isPublic = !!publicRoutes[currentRoute];

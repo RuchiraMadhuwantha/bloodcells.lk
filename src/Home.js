@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import heroImage from './assets/hero.jpg';
 import communityCareImage from './assets/community-care.svg';
+import NewsCarousel from './components/NewsCarousel';
 
 /* ─────────────────────────────────────────────
    Helper: Section Header
@@ -229,30 +230,7 @@ const Homepage = ({ onNavigate }) => {
               </div>
             </div>
 
-            <div className="bg-white p-8 rounded-3xl shadow-md border border-red-50">
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Progress</h2>
-              <div className="space-y-6">
-                {[
-                  { label: 'Total Donations',   value: '10,000+', pct: '85%' },
-                  { label: 'Active Donors',     value: '5,000+',  pct: '70%' },
-                  { label: 'Partner Hospitals', value: '50+',     pct: '60%' },
-                  { label: 'Lives Saved',       value: '15,000+', pct: '92%' },
-                ].map((item, i) => (
-                  <div key={i}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-gray-700 font-medium">{item.label}</span>
-                      <span className="text-red-600 font-bold">{item.value}</span>
-                    </div>
-                    <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: item.pct, background: 'linear-gradient(90deg,#dc2626,#f87171)' }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <NewsCarousel />
           </div>
         </div>
       </div>

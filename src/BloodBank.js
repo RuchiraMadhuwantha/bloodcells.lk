@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import {
   Database, AlertTriangle, Users, Clock, Edit, Phone, Mail, Bell, Plus, Search, Filter, CheckCircle,
-  TrendingUp, Sparkles, AlertCircle, Zap, X
+  TrendingUp, Sparkles, AlertCircle, Zap, X, Building2
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, Table, ProgressBar } from './components/UIComponents';
+import { useHospitals } from './data/hospitals';
 import { BarChart, LineChart, Donut } from './components/Charts';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 export const BankDashboard = ({ nav }) => {
+  const { pendingCount } = useHospitals();
   const inventory = BLOOD_GROUPS.map((g, i) => ({ group: g, units: [62, 14, 41, 11, 78, 8, 23, 5][i] }));
   const donations = [
     { donor: 'Nimal Perera', group: 'O+', date: 'Jun 16', units: 1 },
@@ -34,6 +36,21 @@ export const BankDashboard = ({ nav }) => {
         <StatCard icon={Users} value="5,012" label="Active Donors" accent="blue" />
         <StatCard icon={Clock} value="3" label="Pending Requests" accent="green" />
       </div>
+
+      <SectionCard
+        title="Pending Hospital Approvals"
+        action={<Button variant="outline" icon={Users} onClick={() => nav.onNavigate('bank-hospitals')}>Review Applications</Button>}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+            <Building2 className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-gray-800">{pendingCount}</p>
+            <p className="text-sm text-gray-500">Hospital{pendingCount === 1 ? '' : 's'} awaiting Blood Bank approval</p>
+          </div>
+        </div>
+      </SectionCard>
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         <SectionCard title="Inventory Overview">
