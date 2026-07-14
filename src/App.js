@@ -10,6 +10,7 @@ import ForDonorsPage from './ForDonorsPage';
 import ContactUsPage from './ContactUsPage';
 import { LoginPage } from './LoginPage';
 import { RegisterPage } from './RegisterPage';
+import { ForgotPassword } from './ForgotPassword';
 import Home from './Home';
 
 // Import dashboard components
@@ -175,6 +176,7 @@ const AppInner = () => {
   const publicRoutes = {
     home: <Home onNavigate={setCurrentRoute} />,
     login: <LoginPage onLogin={handleLogin} onNavigate={setCurrentRoute} />,
+    'forgot-password': <ForgotPassword onNavigate={setCurrentRoute} />,
     register: <RegisterPage onNavigate={setCurrentRoute} />,
     about: <AboutPage onNavigate={setCurrentRoute} />,
     services: <ServicesPage onNavigate={setCurrentRoute} />,

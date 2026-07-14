@@ -141,34 +141,11 @@ const Homepage = ({ onNavigate }) => {
                   <span style={{ color: '#fecaca' }}>Blood Donation</span><br />
                   System
                 </h1>
-                <p className="mt-5 text-lg text-red-100 max-w-xl leading-relaxed">
-                  A national platform for donors, hospitals, and blood banks to coordinate safe and timely blood supply across Sri Lanka.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => onNavigate('register')}
-                  className="bg-white text-red-700 px-8 py-3.5 rounded-xl font-bold hover:bg-red-50 shadow-lg flex items-center gap-2"
-                  style={{ transition: 'all 0.2s' }}
-                >
-                  <Calendar className="w-5 h-5" /> Book Appointment
-                </button>
-                <button
-                  onClick={() => onNavigate('register')}
-                  className="border-2 border-white text-white px-8 py-3.5 rounded-xl font-bold hover:bg-white/10"
-                  style={{ transition: 'all 0.2s' }}
-                >
-                  Become a Donor
-                </button>
-                <button
-                  onClick={() => onNavigate('login')}
-                  className="border-2 border-white/50 text-white/90 px-8 py-3.5 rounded-xl font-semibold hover:bg-white hover:text-red-700"
-                  style={{ transition: 'all 0.2s' }}
-                >
-                  Request Blood
-                </button>
-              </div>
+              <p className="mt-5 text-lg text-red-100 max-w-xl leading-relaxed">
+                A national platform for donors, hospitals, and blood banks to coordinate safe and timely blood supply across Sri Lanka.
+              </p>
             </div>
+          </div>
 
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {[

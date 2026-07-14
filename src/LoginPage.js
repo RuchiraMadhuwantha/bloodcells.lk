@@ -109,6 +109,15 @@ export const LoginPage = ({ onLogin, onNavigate }) => {
                 {loading ? 'Signing in…' : 'Login'}
                 {!loading && <ArrowRight className="w-4 h-4" />}
               </button>
+
+              <div className="text-right">
+                <button
+                  onClick={() => onNavigate('forgot-password')}
+                  className="text-sm text-brand-600 hover:underline font-medium"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
 
             <p className="text-center text-sm text-gray-600 mt-6">
