@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Building2, Search, Filter, Eye, CheckCircle, XCircle, Users, Phone, Mail, MapPin, Calendar,
-  ArrowLeft, X, FileText, Check, AlertCircle,
+  Building2, Search, Filter, Eye, CheckCircle, XCircle, X, FileText, Check, AlertCircle, Loader2,
 } from 'lucide-react';
 import { DashboardLayout } from './DashboardShell';
 import { StatCard, Badge, Button, SectionCard, Table } from './UIComponents';
@@ -56,7 +55,6 @@ const HospitalDetails = ({ hospital, onClose, onApprove, onReject, onReviewAgain
           <DetailRow label="Hospital Code" value={h.hospitalCode} />
           <DetailRow label="Hospital Type" value={h.hospitalType} />
           <DetailRow label="District" value={h.district} />
-          <DetailRow label="City / Area" value={h.city} />
           <DetailRow label="Address" value={h.address} />
         </Section>
 
@@ -113,7 +111,7 @@ const Section = ({ title, children }) => (
 
 /* ── Main page ── */
 export const HospitalManagement = ({ nav }) => {
-  const { hospitals, pendingCount, approve, reject, reviewAgain } = useHospitals();
+  const { hospitals, pendingCount, loading, error, approve, reject, reviewAgain, refresh } = useHospitals();
 
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState('');
@@ -128,6 +126,7 @@ export const HospitalManagement = ({ nav }) => {
   const [rejectReason, setRejectReason] = useState('');
   const [activityTarget, setActivityTarget] = useState(null);
   const [toast, setToast] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -156,13 +155,13 @@ export const HospitalManagement = ({ nav }) => {
     const q = search.toLowerCase();
     list = list.filter(
       (h) =>
-        h.hospitalName.toLowerCase().includes(q) ||
-        h.hospitalCode.toLowerCase().includes(q) ||
-        h.district.toLowerCase().includes(q)
+        (h.hospitalName || '').toLowerCase().includes(q) ||
+        (h.hospitalCode || '').toLowerCase().includes(q) ||
+        (h.district || '').toLowerCase().includes(q)
     );
   }
   list = [...list].sort((a, b) => {
-    if (sort === 'Hospital Name') return a.hospitalName.localeCompare(b.hospitalName);
+    if (sort === 'Hospital Name') return (a.hospitalName || '').localeCompare(b.hospitalName || '');
     const diff = new Date(a.registrationDate) - new Date(b.registrationDate);
     return sort === 'Oldest Registration' ? diff : -diff;
   });
@@ -174,22 +173,47 @@ export const HospitalManagement = ({ nav }) => {
     rejected: hospitals.filter((h) => h.status === 'Rejected' || h.status === 'Inactive').length,
   };
 
-  const confirmApprove = () => {
-    approve(approveTarget.id);
-    setApproveTarget(null);
-    setToast('Hospital registration approved successfully.');
+  const confirmApprove = async () => {
+    setActionBusy(true);
+    try {
+      await approve(approveTarget.id);
+      setApproveTarget(null);
+      setToast('Hospital registration approved successfully.');
+    } catch (e) {
+      setToast(e.message || 'Failed to approve hospital.');
+      setApproveTarget(null);
+    } finally {
+      setActionBusy(false);
+    }
   };
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectReason.trim()) return;
-    reject(rejectTarget.id, rejectReason.trim());
-    setRejectTarget(null);
-    setRejectReason('');
-    setToast('Hospital registration has been rejected.');
+    setActionBusy(true);
+    try {
+      await reject(rejectTarget.id);
+      setRejectTarget(null);
+      setRejectReason('');
+      setToast('Hospital registration has been rejected.');
+    } catch (e) {
+      setToast(e.message || 'Failed to reject hospital.');
+      setRejectTarget(null);
+      setRejectReason('');
+    } finally {
+      setActionBusy(false);
+    }
   };
-  const doReviewAgain = (h) => {
-    reviewAgain(h.id);
-    setDetails(null);
-    setToast('Hospital moved back to pending for review.');
+  const doReviewAgain = async (h) => {
+    setActionBusy(true);
+    try {
+      await reviewAgain(h.id);
+      setDetails(null);
+      setToast('Hospital moved back to pending for review.');
+    } catch (e) {
+      setToast(e.message || 'Failed to move hospital to pending.');
+      setDetails(null);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const renderActions = (h) => {
@@ -215,6 +239,12 @@ export const HospitalManagement = ({ nav }) => {
       </>
     );
   };
+
+  const emptyMessage =
+    tab === 'pending' ? 'No pending hospital approvals' :
+    tab === 'active' ? 'No active hospitals found' :
+    tab === 'rejected' ? 'No rejected hospitals found' :
+    'No hospitals found';
 
   return (
     <DashboardLayout
@@ -289,37 +319,48 @@ export const HospitalManagement = ({ nav }) => {
           </div>
         </div>
 
-        <Table columns={['Hospital', 'Code', 'Type', 'District', 'Status', 'Actions']}>
-          {list.map((h) => (
-            <tr key={h.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-4 h-4" />
+        {loading ? (
+          <div className="py-16 text-center text-gray-500 flex items-center justify-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" /> Loading hospitals…
+          </div>
+        ) : error ? (
+          <div className="py-16 text-center">
+            <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <Button variant="outline" onClick={refresh}>Retry</Button>
+          </div>
+        ) : list.length === 0 ? (
+          <div className="py-16 text-center">
+            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-base font-medium text-gray-600 mb-1">{emptyMessage}</p>
+            <p className="text-sm text-gray-400">Hospitals that register will appear here once approved by the blood bank.</p>
+          </div>
+        ) : (
+          <Table columns={['Hospital', 'Code', 'Type', 'District', 'Status', 'Actions']}>
+            {list.map((h) => (
+              <tr key={h.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{h.hospitalName}</p>
+                      <p className="text-xs text-gray-400">{h.contactNumber}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{h.hospitalName}</p>
-                    <p className="text-xs text-gray-400">{h.contactNumber}</p>
-                  </div>
-                </div>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{h.hospitalCode}</td>
-              <td className="px-4 py-3 text-sm text-gray-500">{h.hospitalType}</td>
-              <td className="px-4 py-3 text-sm text-gray-500">{h.district}</td>
-              <td className="px-4 py-3"><Badge color={hospitalStatusBadge(h.status)}>{h.status}</Badge></td>
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-1.5">{renderActions(h)}</div>
-              </td>
-            </tr>
-          ))}
-          {list.length === 0 && (
-            <tr>
-              <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">
-                No hospitals found for the current filters.
-              </td>
-            </tr>
-          )}
-        </Table>
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{h.hospitalCode}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{h.hospitalType}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{h.district}</td>
+                <td className="px-4 py-3"><Badge color={hospitalStatusBadge(h.status)}>{h.status}</Badge></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1.5">{renderActions(h)}</div>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        )}
       </SectionCard>
 
       {/* Detail modal */}
@@ -340,8 +381,10 @@ export const HospitalManagement = ({ nav }) => {
             Are you sure you want to approve this hospital registration? The hospital will be marked as active.
           </p>
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setApproveTarget(null)}>Cancel</Button>
-            <Button className="flex-1" icon={CheckCircle} onClick={confirmApprove}>Approve Hospital</Button>
+            <Button variant="outline" className="flex-1" onClick={() => setApproveTarget(null)} disabled={actionBusy}>Cancel</Button>
+            <Button className="flex-1" icon={CheckCircle} onClick={confirmApprove} disabled={actionBusy}>
+              {actionBusy ? 'Processing…' : 'Approve Hospital'}
+            </Button>
           </div>
         </Modal>
       )}
@@ -361,8 +404,10 @@ export const HospitalManagement = ({ nav }) => {
             <p className="text-xs text-red-600 mt-1">A rejection reason is required.</p>
           )}
           <div className="flex gap-3 mt-6">
-            <Button variant="outline" className="flex-1" onClick={() => setRejectTarget(null)}>Cancel</Button>
-            <Button className="flex-1 bg-red-600 hover:bg-red-700" icon={XCircle} onClick={confirmReject} disabled={!rejectReason.trim()}>Reject Application</Button>
+            <Button variant="outline" className="flex-1" onClick={() => setRejectTarget(null)} disabled={actionBusy}>Cancel</Button>
+            <Button className="flex-1 bg-red-600 hover:bg-red-700" icon={XCircle} onClick={confirmReject} disabled={!rejectReason.trim() || actionBusy}>
+              {actionBusy ? 'Processing…' : 'Reject Application'}
+            </Button>
           </div>
         </Modal>
       )}

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Menu, X, Droplet, Bell, LogOut, Heart, AlertCircle, Calendar } from 'lucide-react';
-import { FloatingChat } from './FloatingChat';
 
 export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) => (
   <>
@@ -115,7 +114,6 @@ export const DashboardLayout = ({ portal, items, current, onNavigate, title, sub
         <Topbar title={title} subtitle={subtitle} userName={userName} role={role} onLogout={onLogout} onMenu={() => setSidebarOpen(true)} />
         <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">{children}</main>
       </div>
-      <FloatingChat />
     </div>
   );
 };
