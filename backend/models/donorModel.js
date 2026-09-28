@@ -1,7 +1,10 @@
 const pool = require('../config/db');
 
-const createDonorProfile = async ({ userId, fullName, nic, dateOfBirth, gender, bloodGroup, phone, district, weight, lastDonationDate, declarationChecked }) => {
-  const [result] = await pool.query(
+/** Optional `executor` lets callers run these writes inside a transaction. */
+const exec = (executor) => executor || pool;
+
+const createDonorProfile = async ({ userId, fullName, nic, dateOfBirth, gender, bloodGroup, phone, district, weight, lastDonationDate, declarationChecked }, executor) => {
+  const [result] = await exec(executor).query(
     `INSERT INTO donors (
       user_id, full_name, nic, date_of_birth, gender, blood_group, phone, district, weight, last_donation_date, declaration_checked
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -10,12 +13,12 @@ const createDonorProfile = async ({ userId, fullName, nic, dateOfBirth, gender, 
   return result.insertId;
 };
 
-const getDonorByUserId = async (userId) => {
-  const [rows] = await pool.query('SELECT * FROM donors WHERE user_id = ?', [userId]);
+const getDonorByUserId = async (userId, executor) => {
+  const [rows] = await exec(executor).query('SELECT * FROM donors WHERE user_id = ?', [userId]);
   return rows[0] || null;
 };
 
-const updateDonorProfile = async (userId, fields) => {
+const updateDonorProfile = async (userId, fields, executor) => {
   const columns = Object.keys(fields);
   if (columns.length === 0) return;
 
@@ -23,7 +26,7 @@ const updateDonorProfile = async (userId, fields) => {
   const values = columns.map((col) => fields[col]);
   values.push(userId);
 
-  await pool.query(`UPDATE donors SET ${setClause} WHERE user_id = ?`, values);
+  await exec(executor).query(`UPDATE donors SET ${setClause} WHERE user_id = ?`, values);
 };
 
 module.exports = {

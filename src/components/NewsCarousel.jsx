@@ -156,6 +156,9 @@ const NewsCarousel = () => {
         <p className="text-gray-500 leading-relaxed max-w-2xl">
           Stay informed with the latest blood donation campaigns, awareness updates, and community news.
         </p>
+        <p className="inline-block mt-2 text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+          Sample content — not yet loaded from the database
+        </p>
       </div>
 
       {/* Carousel */}

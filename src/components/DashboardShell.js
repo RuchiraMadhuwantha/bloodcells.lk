@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Droplet, Bell, LogOut, Heart, AlertCircle, Calendar } from 'lucide-react';
+import { Menu, Droplet, Bell, LogOut, Heart } from 'lucide-react';
 
 export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) => (
   <>
@@ -53,13 +53,9 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
   </>
 );
 
-export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu }) => {
+// Notifications are supplied by the caller and must come from real data.
+export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu, notifications = [] }) => {
   const [notifOpen, setNotifOpen] = useState(false);
-  const notifications = [
-    { icon: AlertCircle, color: 'text-brand-600', text: 'Emergency O− request from Colombo General', time: '2m' },
-    { icon: Calendar, color: 'text-blue-600', text: 'Appointment confirmed for Jun 18', time: '1h' },
-    { icon: Droplet, color: 'text-amber-600', text: 'AB− stock fell below threshold', time: '3h' },
-  ];
   return (
     <header className="h-16 bg-brand-600 text-white shadow-md flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">
       <div className="flex items-center gap-3">
@@ -71,22 +67,30 @@ export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu }) =>
       </div>
       <div className="flex items-center gap-2 sm:gap-4">
         <div className="relative">
-          <button onClick={() => setNotifOpen(o => !o)} className="relative p-2 hover:bg-brand-700 rounded-lg">
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            title="Notifications"
+            className="relative p-2 hover:bg-brand-700 rounded-lg"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-300 rounded-full" />
+            {notifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-300 rounded-full" />}
           </button>
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white text-gray-700 rounded-lg shadow-xl border border-gray-100 overflow-hidden">
+            <div className="absolute right-0 mt-2 w-80 bg-white text-gray-700 rounded-lg shadow-xl border border-gray-100 overflow-hidden max-h-96 overflow-y-auto">
               <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Notifications</div>
-              {notifications.map((n, i) => (
-                <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 border-b border-gray-50">
-                  <n.icon className={`w-5 h-5 mt-0.5 ${n.color}`} />
-                  <div className="flex-1">
-                    <p className="text-sm">{n.text}</p>
-                    <p className="text-xs text-gray-400">{n.time} ago</p>
+              {notifications.length === 0 ? (
+                <p className="px-4 py-6 text-sm text-gray-500 text-center">No notifications right now.</p>
+              ) : (
+                notifications.map((n, i) => (
+                  <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 border-b border-gray-50">
+                    <n.icon className={`w-5 h-5 mt-0.5 ${n.color}`} />
+                    <div className="flex-1">
+                      <p className="text-sm">{n.text}</p>
+                      {n.time && <p className="text-xs text-gray-400">{n.time}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
         </div>
@@ -105,13 +109,13 @@ export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu }) =>
   );
 };
 
-export const DashboardLayout = ({ portal, items, current, onNavigate, title, subtitle, userName, role, onLogout, children }) => {
+export const DashboardLayout = ({ portal, items, current, onNavigate, title, subtitle, userName, role, onLogout, notifications, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar portal={portal} items={items} current={current} onNavigate={onNavigate} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title={title} subtitle={subtitle} userName={userName} role={role} onLogout={onLogout} onMenu={() => setSidebarOpen(true)} />
+        <Topbar title={title} subtitle={subtitle} userName={userName} role={role} onLogout={onLogout} onMenu={() => setSidebarOpen(true)} notifications={notifications} />
         <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">{children}</main>
       </div>
     </div>

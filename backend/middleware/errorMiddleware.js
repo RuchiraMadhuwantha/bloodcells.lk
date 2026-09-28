@@ -1,12 +1,23 @@
-const errorMiddleware = (err, req, res, next) => {
-  console.error(err);
+const { StatusCodes } = require('http');
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+/**
+ * Final error handler.
+ * Only `err.message` set explicitly by our controllers/validators reaches the
+ * client; unexpected errors (SQL, stack traces) are logged server-side and
+ * replaced with a friendly message.
+ */
+// eslint-disable-next-line no-unused-vars
+const errorMiddleware = (err, req, res, next) => {
+  const statusCode = err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
+  const isKnown = Boolean(err.statusCode);
+
+  if (!isKnown) {
+    console.error(`[error] ${req.method} ${req.originalUrl} ->`, err.message);
+  }
 
   res.status(statusCode).json({
     success: false,
-    message,
+    message: isKnown ? err.message : 'Something went wrong on our side. Please try again.',
   });
 };
 

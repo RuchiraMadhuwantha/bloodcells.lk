@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Send, Bot } from 'lucide-react';
+import { X, MessageSquare, Send, Bot, Info } from 'lucide-react';
 
 export const SUGGESTED_PROMPTS = [
   'Am I eligible to donate now?',
@@ -8,20 +8,34 @@ export const SUGGESTED_PROMPTS = [
   'Show nearest donation centers',
 ];
 
+/**
+ * Offline, rule-based helper. It is NOT connected to a language model and it
+ * has no access to any user's records, so it must never state a personal
+ * eligibility date, a real stock level or a real distance. Anything that
+ * depends on live data is pointed at the signed-in portal instead.
+ */
 const cannedReply = (text) => {
   const t = text.toLowerCase();
-  if (t.includes('eligible')) return 'Based on your last donation (Mar 12, 2026), you become eligible again on Jun 16, 2026 — that\'s today! You can book an appointment now.';
-  if (t.includes('low') || t.includes('shortage')) return 'This week O− and B− are critically low (under 25% capacity). I\'d recommend prioritizing campaigns for these groups.';
-  if (t.includes('emergency')) return 'Go to the Hospital Portal → New Blood Request, set Priority to "Emergency", and the request is broadcast instantly to all regional blood banks.';
-  if (t.includes('center') || t.includes('near')) return 'Nearest centers: NBTS Colombo (2.1 km), Kurunegala RBC (4.8 km), Anuradhapura RBC (6.3 km). Want me to open the booking calendar?';
-  return 'I can help with eligibility, appointments, emergency requests, inventory levels and demand forecasts. Try one of the suggested prompts below.';
+  if (t.includes('eligible') || t.includes('eligibility')) {
+    return "I can't see your donation history, so I can't tell you whether you're eligible — and I won't guess. Sign in to your Donor Dashboard, where your next eligible date is calculated from your own completed donations.";
+  }
+  if (t.includes('low') || t.includes('shortage') || t.includes('stock') || t.includes('inventory')) {
+    return "Live stock levels aren't available to me. Signed-in Blood Bank staff can see real inventory and alerts on the Blood Bank Dashboard, and hospitals can request stock through the Hospital Portal.";
+  }
+  if (t.includes('emergency')) {
+    return "To raise an emergency request: sign in to the Hospital Portal, choose \"New Blood Request\", set the priority to Emergency and the required date, then submit. It enters the Blood Bank approval queue straight away.";
+  }
+  if (t.includes('center') || t.includes('centre') || t.includes('near')) {
+    return "The list of approved donation centres comes from the database. Sign in and use \"Book Appointment\" to see the centres that are currently active and book a real time slot.";
+  }
+  return "I can explain how eligibility, appointments, emergency requests and inventory work. I'm a demo assistant with fixed answers — for anything about your own records, use the signed-in dashboards. Try one of the suggested prompts below.";
 };
 
 export const FloatingChat = () => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
-    { from: 'ai', text: 'Hi! I\'m BloodCells.lk Assistant 🩸 — your AI helper for donations, requests and inventory. How can I help today?' },
+    { from: 'ai', text: "Hi! I'm the BloodCells.lk assistant. I can explain how the service works — for your own records and live data, please use the signed-in dashboards." },
   ]);
   const endRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open]);
@@ -55,8 +69,13 @@ export const FloatingChat = () => {
             </div>
             <div>
               <p className="font-semibold leading-tight">BloodCells.lk Assistant</p>
-              <p className="text-xs text-white/80 flex items-center gap-1"><span className="w-2 h-2 bg-green-400 rounded-full" /> Online · AI powered</p>
+              <p className="text-xs text-white/80 flex items-center gap-1"><Info className="w-3 h-3" /> Demo · fixed answers, not live data</p>
             </div>
+          </div>
+
+          <div className="bg-amber-50 text-amber-900 text-[11px] px-4 py-2 border-b border-amber-100 leading-relaxed">
+            This assistant is not connected to an AI model and cannot see your records, eligibility or
+            real stock levels. Anything personal is shown only in your signed-in dashboard.
           </div>
 
           {/* History */}

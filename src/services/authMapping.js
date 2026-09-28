@@ -34,22 +34,3 @@ export const buildLoginPayload = (form) => ({
   username: form.username,
   password: form.password,
 });
-
-export const getBloodBankDemoLogin = (form) => {
-  const DEMO_USERNAME = 'bloodbank_admin';
-  const DEMO_PASSWORD = 'NBTS@BloodBank2026!';
-
-  if (form?.username === DEMO_USERNAME && form?.password === DEMO_PASSWORD) {
-    return {
-      role: 'blood_bank',
-      token: 'bloodbank-demo-token',
-      user: {
-        username: DEMO_USERNAME,
-        role: 'blood_bank',
-        displayName: 'Blood Bank Admin',
-      },
-    };
-  }
-
-  return null;
-};

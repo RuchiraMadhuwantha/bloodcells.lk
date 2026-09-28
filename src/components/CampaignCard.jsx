@@ -1,7 +1,6 @@
 import React from 'react';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react';
-import { Badge, BloodTypeBadge } from './UIComponents';
-import { statusBadgeColor } from '../data/campaigns';
+import { BloodTypeBadge } from './UIComponents';
 
 // Reusable donor-visible campaign card.
 // Can later be used on the Public Home Page, Donor Dashboard, and Campaign Listing.

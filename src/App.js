@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Menu, X, Droplet, ChevronRight, Heart, Award, Calendar, User, Database, Users, Sparkles,
-  Lock, Phone, Mail, FileText, Activity, Check, AlertCircle, MapPin, LayoutDashboard, ShieldCheck, Megaphone, Building2
+  Menu, X, Droplet, Calendar, User, Database, Users,
+  LayoutDashboard, ShieldCheck, Megaphone, Building2, ClipboardList, TrendingUp
 } from 'lucide-react';
 import AboutPage from './AboutPage';
 import ServicesPage from './ServicesPage';
@@ -11,16 +11,18 @@ import ContactUsPage from './ContactUsPage';
 import { LoginPage } from './LoginPage';
 import { RegisterPage } from './RegisterPage';
 import { ForgotPassword } from './ForgotPassword';
+import { ResetPassword } from './ResetPassword';
 import Home from './Home';
 
 // Import dashboard components
 import { DonorDashboard, AppointmentBooking, DonorProfile } from './Donors';
 import { HospitalDashboard, BloodRequestPage } from './Hospital';
-import { BankDashboard, InventoryManagement, DonorManagement, AIPrediction } from './BloodBank';
+import { BankDashboard, InventoryManagement, DonorManagement, BloodRequestQueue, AIPrediction } from './BloodBank';
 import { CampaignManagement } from './components/CampaignManagement';
 import { HospitalManagement } from './components/HospitalManagement';
 import { HospitalProvider, useHospitals } from './data/hospitals';
 import { AdminDashboard } from './AdminDashboard';
+import { AuthProvider, useAuth, canAccess } from './context/AuthContext';
 
 /* ===================================================================================
    PUBLIC PAGES — Homepage + Login + Register
@@ -41,17 +43,13 @@ const HOSPITAL_NAV = [
 const BANK_NAV = [
   { route: 'bank-dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { route: 'bank-inventory', label: 'Inventory', icon: Database },
+  { route: 'bank-requests', label: 'Blood Requests', icon: ClipboardList },
   { route: 'bank-donors', label: 'Donors', icon: Users },
   { route: 'bank-campaigns', label: 'Campaigns', icon: Megaphone },
   { route: 'bank-hospitals', label: 'Hospital Management', icon: Building2 },
+  { route: 'bank-prediction', label: 'Demand Planning', icon: TrendingUp },
   { route: 'admin-dashboard', label: 'Administrator', icon: ShieldCheck },
 ];
-
-const ADMIN_NAV = [
-  { route: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { route: 'bank-prediction', label: 'AI Demand Prediction', icon: Sparkles },
-];
-
 
 
 const Navbar = ({ onNavigate, activePage }) => {
@@ -139,34 +137,33 @@ const Navbar = ({ onNavigate, activePage }) => {
    =================================================================================== */
 
 const App = () => (
-  <HospitalProvider>
-    <AppInner />
-  </HospitalProvider>
+  <AuthProvider>
+    <HospitalProvider>
+      <AppInner />
+    </HospitalProvider>
+  </AuthProvider>
 );
 
 const AppInner = () => {
   const { pendingCount } = useHospitals();
-  const [currentRoute, setCurrentRoute] = useState('home');
+  const { role, isAuthenticated, booting, signOut } = useAuth();
+  // The backend sends reset links as `#/reset-password?token=…`, so honour that
+  // on first paint instead of always landing on the homepage.
+  const [currentRoute, setCurrentRoute] = useState(() =>
+    (typeof window !== 'undefined' && window.location.hash.startsWith('#reset-password')
+      ? 'reset-password'
+      : 'home')
+  );
 
   // Sidebar nav with live pending-approval badge on Hospital Management
   const bankNav = BANK_NAV.map((i) =>
     i.route === 'bank-hospitals' ? { ...i, badge: pendingCount } : i
   );
 
-  const handleLogin = (role, token, user) => {
-    localStorage.setItem('authToken', token || '');
-    localStorage.setItem('authUser', JSON.stringify(user || {}));
-
-    const landing = {
-      donor: 'donor-dashboard',
-      hospital: 'hospital-dashboard',
-      blood_bank: 'bank-dashboard',
-      admin: 'admin-dashboard',
-    }[role] || 'donor-dashboard';
-
-    setCurrentRoute(landing);
+  const handleLogout = () => {
+    signOut();
+    setCurrentRoute('home');
   };
-  const handleLogout = () => setCurrentRoute('home');
 
   // nav prop bundle shared by every dashboard screen
   const navFor = (portal, items) => ({
@@ -175,8 +172,9 @@ const AppInner = () => {
 
   const publicRoutes = {
     home: <Home onNavigate={setCurrentRoute} />,
-    login: <LoginPage onLogin={handleLogin} onNavigate={setCurrentRoute} />,
+    login: <LoginPage onNavigate={setCurrentRoute} />,
     'forgot-password': <ForgotPassword onNavigate={setCurrentRoute} />,
+    'reset-password': <ResetPassword onNavigate={setCurrentRoute} />,
     register: <RegisterPage onNavigate={setCurrentRoute} />,
     about: <AboutPage onNavigate={setCurrentRoute} />,
     services: <ServicesPage onNavigate={setCurrentRoute} />,
@@ -194,6 +192,7 @@ const AppInner = () => {
     'bank-dashboard': <BankDashboard nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-inventory': <InventoryManagement nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-donors': <DonorManagement nav={navFor('Blood Bank Portal', bankNav)} />,
+    'bank-requests': <BloodRequestQueue nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-campaigns': <CampaignManagement nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-hospitals': <HospitalManagement nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-prediction': <AIPrediction nav={navFor('Blood Bank Portal', bankNav)} />,
@@ -202,10 +201,26 @@ const AppInner = () => {
 
   const isPublic = !!publicRoutes[currentRoute];
 
+  if (booting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-gray-500 text-sm">Loading your portal…</p>
+      </div>
+    );
+  }
+
+  // Any dashboard route requires a session; the role must also match the portal.
+  const wantsDashboard = !!dashboardRoutes[currentRoute];
+  if (wantsDashboard && (!isAuthenticated || !canAccess(role, currentRoute))) {
+    return publicRoutes.login;
+  }
+
   return (
     <>
       {isPublic && <Navbar onNavigate={setCurrentRoute} activePage={currentRoute} />}
-      {publicRoutes[currentRoute] || dashboardRoutes[currentRoute] || publicRoutes.home}
+      {isPublic
+        ? publicRoutes[currentRoute]
+        : dashboardRoutes[currentRoute] || publicRoutes.home}
     </>
   );
 };

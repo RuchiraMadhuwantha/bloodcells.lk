@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, AlertCircle, Calendar, MapPin, Database, Users, Sparkles, ChevronRight, Check } from 'lucide-react';
+import { Activity, AlertCircle, Calendar, MapPin, Database, Sparkles, Check } from 'lucide-react';
 
 const ServicesPage = ({ onNavigate }) => {
   const mainServices = [

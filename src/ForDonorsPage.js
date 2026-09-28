@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, CheckCircle, AlertCircle, Calendar, Users, TrendingUp, MapPin, ChevronRight, Droplet } from 'lucide-react';
+import { Heart, CheckCircle, Calendar, Users, TrendingUp, ChevronRight, Droplet } from 'lucide-react';
 
 const ForDonorsPage = ({ onNavigate }) => {
   const [expandedFaq, setExpandedFaq] = useState(null);

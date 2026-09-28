@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, MessageSquare, Send, MapIcon } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, MessageSquare, Send } from 'lucide-react';
 
 const ContactUsPage = ({ onNavigate }) => {
   const [formData, setFormData] = useState({

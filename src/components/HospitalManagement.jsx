@@ -190,14 +190,13 @@ export const HospitalManagement = ({ nav }) => {
     if (!rejectReason.trim()) return;
     setActionBusy(true);
     try {
-      await reject(rejectTarget.id);
+      // The reason is persisted so the hospital can read exactly why it was rejected.
+      await reject(rejectTarget.id, rejectReason.trim());
       setRejectTarget(null);
       setRejectReason('');
       setToast('Hospital registration has been rejected.');
     } catch (e) {
       setToast(e.message || 'Failed to reject hospital.');
-      setRejectTarget(null);
-      setRejectReason('');
     } finally {
       setActionBusy(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, MapPin, Clock, Users, ChevronRight, Search, Tag } from 'lucide-react';
+import { Calendar, MapPin, Clock, Users } from 'lucide-react';
 
 const EventsNewsPage = ({ onNavigate }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -110,10 +110,6 @@ const EventsNewsPage = ({ onNavigate }) => {
     { label: 'All', value: 'all' },
     { label: 'Events', value: 'event' },
     { label: 'Campaigns', value: 'campaign' },
-  ];
-
-  const newsCategories = [
-    'All', 'Technology', 'Success Story', 'Network', 'Achievement', 'Expansion', 'Milestone'
   ];
 
   const filteredEvents = selectedCategory === 'all' 

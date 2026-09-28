@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, FileText, MapPin, Phone, Check, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, FileText, Phone, Check } from 'lucide-react';
 import { DISTRICTS } from '../../data/districts';
 import { buildHospitalRegistrationPayload } from '../../services/authMapping';
 

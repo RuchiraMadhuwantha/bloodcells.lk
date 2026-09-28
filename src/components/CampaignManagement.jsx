@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   Megaphone, Plus, Search, Filter, Eye, Pencil, Trash2, Calendar, Clock, MapPin, Users,
-  Phone, Mail, ChevronRight, X, Image as ImageIcon, ArrowLeft, FileText, Heart, AlertCircle,
-  Loader2, CheckCircle,
+  Phone, X, Image as ImageIcon, ArrowLeft, FileText, Heart, AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { DashboardLayout } from './DashboardShell';
 import { StatCard, Badge, Button, SectionCard, Table, BloodTypeBadge } from './UIComponents';
@@ -316,17 +316,6 @@ const LoadingSkeleton = () => (
   </div>
 );
 
-const ErrorState = ({ onRetry }) => (
-  <div className="text-center py-16">
-    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-      <AlertCircle className="w-8 h-8 text-red-500" />
-    </div>
-    <h3 className="text-lg font-bold text-gray-800">Unable to load campaigns.</h3>
-    <p className="text-gray-500 mt-1 mb-5">A reusable error state is ready for future API integration.</p>
-    <Button variant="outline" onClick={onRetry}>Retry</Button>
-  </div>
-);
-
 /* ── Delete confirmation ── */
 const DeleteModal = ({ campaign, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onCancel}>
@@ -507,6 +496,18 @@ export const CampaignManagement = ({ nav }) => {
     // LIST VIEW
     return (
       <>
+        {/* Honest labelling: campaigns are not persisted by the backend yet. */}
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-4 mb-6 flex items-start gap-3 text-sm">
+          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Demo data — not stored on the server</p>
+            <p className="mt-1">
+              Campaigns are held in browser memory only. Creating or editing one here will not be visible
+              to donors, hospitals or other Blood Bank staff, and it will be lost on refresh.
+            </p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard icon={Megaphone} value={summary.total} label="Total Campaigns" accent="red" />
           <StatCard icon={Calendar} value={summary.upcoming} label="Upcoming Campaigns" accent="blue" />
