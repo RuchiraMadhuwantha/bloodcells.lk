@@ -20,6 +20,14 @@ const {
 
 const router = express.Router();
 
+// Public event cards expose published campaign information only.
+router.get('/public', async (req, res, next) => {
+  try {
+    const campaigns = await require('../models/campaignModel').listCampaigns({ role: 'public', period: 'upcoming' });
+    res.json({ success: true, campaigns: campaigns.map(({ id, name, title, shortDescription, image, status, date, startTime, endTime, venueName, address, district, targetDonors }) => ({ id, name, title, shortDescription, image, status, date, startTime, endTime, venueName, address, district, targetDonors })) });
+  } catch (error) { next(error); }
+});
+
 const idParam = [param('id').isInt({ min: 1 }).withMessage('Invalid campaign reference.')];
 const listQuery = [
   query('status').optional().isIn(['Draft','Upcoming','Active','Completed','Cancelled']),

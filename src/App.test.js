@@ -3,6 +3,7 @@ import App from './App';
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 test('renders the public homepage by default', async () => {

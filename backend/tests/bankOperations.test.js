@@ -106,6 +106,11 @@ test('donor list minimizes contact data and labels medical eligibility unverifie
 test('appointment conditional update prevents duplicate processing',async()=>{const m=require('../models/appointmentModel');await m.updateAppointmentStatus({appointmentId:9,status:'approved'},pool);await assert.rejects(m.updateAppointmentStatus({appointmentId:9,status:'approved'},pool),{statusCode:409});});
 
 const campaignPayload={name:'Real fixture campaign',date:'2099-01-01',startTime:'09:00',endTime:'12:00',organizerName:'Authorized fixture',status:'Draft'};
+test('public Events endpoint excludes drafts and returns published cards without private contacts',async()=>{
+ let response=await fetch(base+'/campaigns/public');assert.equal(response.status,200);assert.equal((await response.json()).campaigns.length,0);
+ db.campaign.status='Upcoming';db.campaign.contact_email='private@example.test';
+ response=await fetch(base+'/campaigns/public');const data=await response.json();assert.equal(data.campaigns[0].name,db.campaign.name);assert.equal(data.campaigns[0].status,'Upcoming');assert.equal('contactEmail' in data.campaigns[0],false);
+});
 test('bank creates a campaign in the shared campaign model',async()=>{const r=await call('/campaigns',{method:'POST',body:campaignPayload});assert.equal(r.status,201);assert.equal(db.campaign.name,campaignPayload.name);assert.equal(r.data.campaign.status,'Draft');});
 test('campaign publishing persists and becomes visible to donors',async()=>{assert.equal((await call('/campaigns',{actor:8})).data.campaigns.length,0);const published=await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}});assert.equal(published.status,200);assert.equal(db.campaign.status,'Upcoming');const donor=await call('/campaigns',{actor:8});assert.equal(donor.data.campaigns[0].name,db.campaign.name);});
 test('invalid campaign dates and time ranges are rejected',async()=>{assert.equal((await call('/campaigns',{method:'POST',body:{...campaignPayload,date:'2026-02-30'}})).status,400);assert.equal((await call('/campaigns',{method:'POST',body:{...campaignPayload,endTime:'08:00'}})).status,400);});

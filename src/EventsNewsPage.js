@@ -1,59 +1,36 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { listPublicCampaigns } from './services/api';
 import { Calendar, MapPin, Clock, Users } from 'lucide-react';
 
 const EventsNewsPage = ({ onNavigate }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const events = [
-    {
-      id: 1,
-      title: "Colombo Mega Blood Drive 2026",
-      date: "Jun 24, 2026",
-      time: "8:00 AM - 6:00 PM",
-      location: "BMICH, Colombo",
-      type: "event",
-      status: "upcoming",
-      image: "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)",
-      description: "The largest blood donation drive of the year featuring multiple donation booths, medical screening stations, and refreshments.",
-      attendees: "2,500+"
-    },
-    {
-      id: 2,
-      title: "University of Kelaniya Blood Donation Camp",
-      date: "Jul 02, 2026",
-      time: "10:00 AM - 4:00 PM",
-      location: "Kelaniya Campus",
-      type: "event",
-      status: "registering",
-      image: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-      description: "Campus-wide donation initiative targeting student donors. Free health check-up and certificates provided.",
-      attendees: "500+"
-    },
-    {
-      id: 3,
-      title: "Corporate Donation Week 2026",
-      date: "Jul 15, 2026",
-      time: "9:00 AM - 5:00 PM",
-      location: "World Trade Center, Colombo",
-      type: "event",
-      status: "upcoming",
-      image: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-      description: "Week-long corporate initiative encouraging businesses to organize donation teams with office competitions.",
-      attendees: "1,000+"
-    },
-    {
-      id: 4,
-      title: "Summer Blood Donation Campaign",
-      date: "Starting Aug 1, 2026",
-      time: "All day",
-      location: "Multiple centers",
-      type: "campaign",
-      status: "upcoming",
-      image: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-      description: "Regional campaign across all blood banks to boost inventory during summer vacation season.",
-      attendees: "5,000+"
-    }
-  ];
+  const [resource, setResource] = useState({ loading: true, error: '', campaigns: [] });
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setResource({ loading: true, error: '', campaigns: [] });
+    listPublicCampaigns().then((data) => {
+      if (!Array.isArray(data?.campaigns)) throw new Error('The server did not return campaign records.');
+      if (active) setResource({ loading: false, error: '', campaigns: data.campaigns });
+    }).catch((error) => {
+      if (active) setResource({ loading: false, error: error.message, campaigns: [] });
+    });
+    return () => { active = false; };
+  }, [revision]);
+  const events = resource.campaigns.map((campaign) => ({
+    id: campaign.id,
+    title: campaign.title || campaign.name,
+    date: campaign.date,
+    time: `${campaign.startTime} - ${campaign.endTime}`,
+    location: [campaign.venueName, campaign.address, campaign.district].filter(Boolean).join(', '),
+    type: 'campaign',
+    status: campaign.status.toLowerCase(),
+    imageUrl: campaign.image,
+    image: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+    description: campaign.shortDescription,
+    attendees: campaign.targetDonors || 'Not specified',
+  }));
 
   const news = [
     {
@@ -156,10 +133,14 @@ const EventsNewsPage = ({ onNavigate }) => {
             </div>
           </div>
 
+          <button className="mb-5 text-brand-600 underline disabled:opacity-50" disabled={resource.loading} onClick={() => setRevision((r) => r + 1)}>Refresh campaigns</button>
+          {resource.loading && <p role="status">Loading campaigns...</p>}
+          {resource.error && <p role="alert" className="mb-5 text-red-700">{resource.error} Use Refresh campaigns to retry.</p>}
+          {!resource.loading && !resource.error && filteredEvents.length === 0 && <p role="status">No published {selectedCategory === 'event' ? 'events' : 'campaigns'} available.</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {filteredEvents.map(event => (
               <div key={event.id} className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden hover:shadow-soft transition-all">
-                <div className="h-32 md:h-40" style={{ background: event.image }} />
+                {event.imageUrl ? <img src={event.imageUrl} alt={event.title} className="w-full h-32 md:h-40 object-cover" /> : <div className="h-32 md:h-40" style={{ background: event.image }} />}
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-xs font-medium px-3 py-1 rounded-full capitalize ${statusColors[event.status]}`}>
@@ -187,8 +168,8 @@ const EventsNewsPage = ({ onNavigate }) => {
                       Expected: {event.attendees}
                     </div>
                   </div>
-                  {event.status === 'registering' && (
-                    <button onClick={() => onNavigate('register')} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 text-white py-2 rounded-2xl font-medium transition-colors">
+                  {['upcoming', 'active'].includes(event.status) && (
+                    <button onClick={() => onNavigate('donor-campaigns')} className="mt-4 w-full bg-brand-600 hover:bg-brand-700 text-white py-2 rounded-2xl font-medium transition-colors">
                       Register Now
                     </button>
                   )}

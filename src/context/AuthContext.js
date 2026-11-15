@@ -20,6 +20,9 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => getStoredUser());
   const [token, setToken] = useState(() => getToken());
   const [booting, setBooting] = useState(true);
+  const [verificationError, setVerificationError] = useState('');
+  const [verificationRevision, setVerificationRevision] = useState(0);
+  const retrySession = useCallback(() => { setBooting(true); setVerificationRevision((r) => r + 1); }, []);
 
   const isAuthenticated = !!token && !!user;
 
@@ -33,6 +36,7 @@ export const AuthProvider = ({ children }) => {
     clearSession();
     setToken('');
     setUser(null);
+    setVerificationError('');
   }, []);
 
   // On mount, confirm the stored token is still valid and the account is still
@@ -42,6 +46,7 @@ export const AuthProvider = ({ children }) => {
     let cancelled = false;
 
     const verify = async () => {
+      setVerificationError('');
       if (!getToken()) {
         setBooting(false);
         return;
@@ -52,11 +57,13 @@ export const AuthProvider = ({ children }) => {
         const fresh = data.user || null;
         setUser(fresh);
         storeSession(getToken(), fresh);
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          clearSession();
-          setToken('');
-          setUser(null);
+          if (error.status === 401 || error.status === 403) {
+            signOut();
+          } else {
+            setVerificationError(error.message || 'Unable to check your session. Please retry.');
+          }
         }
       } finally {
         if (!cancelled) setBooting(false);
@@ -67,7 +74,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [verificationRevision, signOut]);
 
   // The API client fires this when any request comes back 401.
   useEffect(() => {
@@ -99,12 +106,14 @@ export const AuthProvider = ({ children }) => {
       role: user?.role || null,
       isAuthenticated,
       booting,
+      verificationError,
+      retrySession,
       signIn,
       signOut,
       refreshProfile,
       landingRoute: ROLE_HOME[user?.role] || LANDING_ROUTE.donor,
     }),
-    [user, token, isAuthenticated, booting, signIn, signOut, refreshProfile]
+    [user, token, isAuthenticated, booting, verificationError, retrySession, signIn, signOut, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

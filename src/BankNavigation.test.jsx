@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, act, waitFor } from '@testing-library/react';
 import App from './App';
 import * as api from './services/api';
 import { canAccess } from './context/AuthContext';
@@ -9,7 +9,7 @@ const user = { username: 'testbank', role: 'blood_bank', account_status: 'active
 const hospital = { id: 'H-1', hospitalId: 1, userId: 4, hospitalName: 'Test Hospital', hospitalCode: 'TEST', district: 'Colombo', status: 'Pending', registrationDate: '2026-01-01' };
 const stats = { inventory: { totalUnits: 0, byBloodGroup: [], lowStockGroups: 0, criticalStockGroups: 0 }, donors: { totalDonors: 0 }, requests: { pending: 0 }, appointments: { upcoming: 0, next: [] }, hospitals: { pending: 0 }, accounts: { hospitals: 0 }, alerts: { lowStock: [] } };
 beforeEach(() => {
-  localStorage.clear(); jest.resetAllMocks();
+  localStorage.clear(); sessionStorage.clear(); jest.resetAllMocks();
   require('./services/apiClient').apiGet.mockResolvedValue({available:true,complete:true,items:[]});
   api.login.mockResolvedValue({ token: 'test-token', user });
   api.me.mockResolvedValue({ user });
@@ -29,6 +29,32 @@ const login = async () => {
   fireEvent.click(screen.getAllByRole('button', { name: /^login$/i }).at(-1));
   await screen.findByRole('heading', { name: 'Blood Bank Dashboard', level: 1 });
 };
+
+test('refresh restores the signed-in blood bank page', async () => {
+  localStorage.setItem('authToken', 'test-token');
+  localStorage.setItem('authUser', JSON.stringify(user));
+  sessionStorage.setItem('currentRoute', 'bank-appointments');
+  const page = render(<App />);
+  await screen.findByRole('heading', { name: 'Appointment Management', level: 1 });
+  page.unmount();
+  render(<App />);
+  await screen.findByRole('heading', { name: 'Appointment Management', level: 1 });
+  expect(localStorage.getItem('authToken')).toBe('test-token');
+});
+
+test('browser Back returns from a section to the dashboard and Forward restores the section', async () => {
+  await login();
+  fireEvent.click(screen.getByRole('button', { name: 'Appointment Management' }));
+  await screen.findByRole('heading', { name: 'Appointment Management', level: 1 });
+  expect(window.history.state.appRoute).toBe('bank-appointments');
+  act(() => window.history.back());
+  await screen.findByRole('heading', { name: 'Blood Bank Dashboard', level: 1 });
+  act(() => window.history.forward());
+  await screen.findByRole('heading', { name: 'Appointment Management', level: 1 });
+  fireEvent.click(screen.getByRole('button', { name: /Back to dashboard/ }));
+  await screen.findByRole('heading', { name: 'Blood Bank Dashboard', level: 1 });
+  await waitFor(() => expect(localStorage.getItem('authToken')).toBe('test-token'));
+});
 test('blood bank navigation opens every module without changing donor or hospital routes', async () => {
   await login();
   for (const [label, title] of [

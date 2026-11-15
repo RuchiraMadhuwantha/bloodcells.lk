@@ -55,12 +55,37 @@ const FormSection = ({ title, children }) => (
 /* ── Campaign Form (used for Create + Edit) ── */
 const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initial });
+  const centres = useBankResource(service.getDonationCentres);
+  const [centreId, setCentreId] = useState('');
   const [imagePreview, setImagePreview] = useState(initial && initial.image ? initial.image : null);
   const [error, setError] = useState('');
   const [busy,setBusy]=useState(false);const saving=useRef(false);
-  const save=async status=>{if(saving.current)return;saving.current=true;setBusy(true);setError('');try{await service.saveCampaign({...form,status:status||form.status,imageUrl:form.image?.startsWith('http')?form.image:undefined},initial?.id);onSaved();}catch(e){setError(e.message);}finally{saving.current=false;setBusy(false);}};
+  const save = async (status) => {
+    if (saving.current) return;
+    if (!form.name.trim() || !form.date || !form.startTime || !form.endTime || !form.organizerName.trim()) {
+      setError('Enter the campaign name, date, start time, end time and organizer name before saving.');
+      return;
+    }
+    if (form.endTime <= form.startTime) {
+      setError('Campaign end time must be after the start time.');
+      return;
+    }
+    saving.current = true; setBusy(true); setError('');
+    try {
+      const result = await service.saveCampaign({ ...form, status: status || form.status, imageUrl: form.image?.startsWith('http') ? form.image : undefined }, initial?.id);
+      if (!result?.campaign?.id) throw new Error('No campaign confirmation was returned. Check the campaign list before trying again.');
+      onSaved(result.campaign);
+    } catch (e) {
+      setError(e.message || 'Could not save the campaign. Please try again.');
+    } finally { saving.current = false; setBusy(false); }
+  };
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  const selectCentre = (id) => {
+    setCentreId(id);
+    const centre = centres.data?.items.find((c) => String(c.hospitalId) === id);
+    if (centre) setForm((f) => ({ ...f, venueName: centre.name, address: centre.address || '', district: centre.district || '', city: '' }));
+  };
   const toggleGroup = (g) =>
     setForm((f) => ({
       ...f,
@@ -128,6 +153,14 @@ const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
       </FormSection>
 
       <FormSection title="3. Location">
+        <Field label="Select Donation Centre" full hint="The same approved centres available in donor appointment booking. Selecting a centre fills the venue, address and district.">
+          <select className={inputCls} value={centreId} onChange={(e) => selectCentre(e.target.value)} disabled={centres.loading || !!centres.error}>
+            <option value="">{centres.loading ? 'Loading donation centres...' : 'Select a donation centre'}</option>
+            {(centres.data?.items || []).map((c) => <option key={c.hospitalId} value={String(c.hospitalId)}>{c.name}{c.code ? ` (${c.code})` : ''}{c.district ? ` — ${c.district}` : ''}</option>)}
+          </select>
+        </Field>
+        {centres.error && <div className="md:col-span-2 text-sm text-red-700" role="alert">{centres.error} <button type="button" className="underline" onClick={centres.refresh}>Retry loading centres</button></div>}
+        {!centres.loading && !centres.error && centres.data?.items.length === 0 && <p className="md:col-span-2 text-sm text-gray-500">No approved donation centres available.</p>}
         <Field label="Venue Name" required>
           <input className={inputCls} value={form.venueName} onChange={(e) => set('venueName', e.target.value)} placeholder="e.g. Colombo Community Hall" />
         </Field>
@@ -226,11 +259,12 @@ const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
         </Field>
       </FormSection>
 
+      {error && <p role="alert" className="bg-red-50 text-red-700 rounded-lg p-3 text-sm">{error}</p>}
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button variant="outline" disabled={busy||(initial&&initial.status!=='Draft')} onClick={()=>save('Draft')}>Save as Draft</Button>
         <Button variant="outline" onClick={preview}>Preview Campaign</Button>
-        <Button disabled={busy} onClick={()=>save()}>{busy?'Saving...':'Save selected status'}</Button>
+        <Button disabled={busy} onClick={()=>save()}>{busy?'Saving...':initial?'Save selected status':'Create campaign'}</Button>
       </div>
     </div>
   );
@@ -299,11 +333,18 @@ export const CampaignManagement = ({ nav }) => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [district, setDistrict] = useState('');
+  const [savedCampaign, setSavedCampaign] = useState(null);
+  const onSaved = (campaign) => {
+    setSavedCampaign(campaign);
+    setSearch(''); setStatus(''); setDistrict('');
+    setPreviewing(null); setView('list'); resource.refresh();
+  };
   const records = (resource.data?.items || []).filter((c) => (!status || c.status === status) && (!district || c.district === district) && c.name.toLowerCase().includes(search.trim().toLowerCase()));
-  return <BankLayout nav={nav} title={view === 'list' ? 'Campaign Management' : 'Campaign Form Preview'} subtitle="Campaign planning and donor-facing preview">
+  return <BankLayout nav={nav} title={view === 'list' ? 'Campaign Management' : selected ? 'Edit Campaign' : 'Create Campaign'} subtitle="Campaign planning and donor-facing preview">
     <Notice>Campaigns use the same saved source as donor participation. Only the creator may edit or publish a campaign. Preview changes are unsaved until confirmed with Save.</Notice>
-    {view !== 'list' ? <CampaignForm initial={selected} onCancel={() => setView('list')} onPreview={setPreviewing} onSaved={()=>{setView('list');resource.refresh();}} /> :
-      <SectionCard title="Campaigns" action={<Button onClick={() => { setSelected(null); setView('create'); }}>Create campaign</Button>}>
+    {view === 'list' && savedCampaign && <p role="status" className="mb-4 rounded-lg bg-green-50 p-4 text-green-800">Campaign “{savedCampaign.name}” saved successfully{savedCampaign.reference ? ` (${savedCampaign.reference})` : ''}. Status: {savedCampaign.status}. {savedCampaign.status === 'Draft' ? 'This draft is visible to the blood bank. Edit it and select Upcoming or Active to publish it to donors.' : ''}</p>}
+    {view !== 'list' ? <CampaignForm initial={selected} onCancel={() => setView('list')} onPreview={setPreviewing} onSaved={onSaved} /> :
+      <SectionCard title="Campaigns" action={<div className="flex gap-2"><Button variant="outline" disabled={resource.loading} onClick={resource.refresh}>Refresh campaigns</Button><Button onClick={() => { setSavedCampaign(null); setSelected(null); setView('create'); }}>Create campaign</Button></div>}>
         <Filters>
           <SharedField label="Search campaigns"><input className={inputCls} value={search} onChange={(e) => setSearch(e.target.value)} /></SharedField>
           <SharedField label="Campaign district"><select className={inputCls} value={district} onChange={(e) => setDistrict(e.target.value)}><option value="">All districts</option>{DISTRICTS.map((d) => <option key={d}>{d}</option>)}</select></SharedField>

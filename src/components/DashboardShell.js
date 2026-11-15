@@ -115,12 +115,16 @@ export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu, onNo
 
 export const DashboardLayout = ({ portal, items, current, onNavigate, title, subtitle, userName, role, onLogout, onNotifications, notifications, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const dashboardRoute = items.find((item) => item.route.endsWith('-dashboard'))?.route;
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar portal={portal} items={items} current={current} onNavigate={onNavigate} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar title={title} subtitle={subtitle} userName={userName} role={role} onLogout={onLogout} onMenu={() => setSidebarOpen(true)} notifications={notifications} onNotifications={onNotifications} />
-        <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
+          {dashboardRoute && current !== dashboardRoute && <button className="mb-4 text-sm font-medium text-brand-600 hover:underline" onClick={() => onNavigate(dashboardRoute)}>← Back to dashboard</button>}
+          {children}
+        </main>
       </div>
     </div>
   );

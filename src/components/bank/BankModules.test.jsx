@@ -26,6 +26,7 @@ beforeEach(() => {
   bank.getStock.mockResolvedValue({ available: true, complete: true, items: [stock] });
   bank.getRequests.mockResolvedValue({ available: true, complete: true, items: [request] });
   bank.getAppointments.mockResolvedValue({ available: true, complete: true, items: [appointment] });
+  bank.getDonationCentres.mockResolvedValue({ available: true, complete: true, items: [{ hospitalId: 7, name: 'Approved donation centre', code: 'DC7', address: '7 Centre Road', district: 'Kandy' }] });
   bank.getDonors.mockResolvedValue({ available: true, complete: true, items: [donor] });
   bank.getDonorDetails.mockResolvedValue({ donor, appointments: [] });
   for (const method of ['getExpiry', 'getRegionalStock', 'getTransfers', 'getNotifications', 'getCampaigns','getCoordination']) bank[method].mockResolvedValue(unavailable);
@@ -106,18 +107,39 @@ test.each([BloodExpiry, RegionalStock, BloodTransfers, RegionalCoordination])('u
   renderBank(<Page nav={nav} />);
   expect((await screen.findAllByText('Service not available yet.')).length).toBeGreaterThan(0);
 });
-test('campaign form preserves preview design but never creates or publishes records', async () => {
+test('campaign preview stays unsaved and successful creation refreshes the list and clears filters', async () => {
   renderBank(<CampaignManagement nav={nav} />);
   await screen.findByText('Service not available yet.');
   expect(screen.queryByText('Community Blood Donation Drive')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Search campaigns'), { target: { value: 'Other campaign' } });
+  fireEvent.change(screen.getByLabelText('Campaign status'), { target: { value: 'Active' } });
   fireEvent.click(screen.getByRole('button', { name: 'Create campaign' }));
+  await screen.findByRole('option', { name: 'Approved donation centre (DC7) — Kandy' });
+  fireEvent.change(screen.getByLabelText('Select Donation Centre'), { target: { value: '7' } });
+  expect(screen.getByLabelText('Venue Name')).toHaveValue('Approved donation centre');
+  expect(screen.getByLabelText('Address')).toHaveValue('7 Centre Road');
+  expect(screen.getByLabelText('District')).toHaveValue('Kandy');
   const values = { 'Campaign Name': 'Unsaved test campaign', 'Short Description': 'Test description', 'Campaign Date': '2026-12-20', 'Start Time': '09:00', 'End Time': '12:00', 'Venue Name': 'User entered venue', District: 'Colombo', 'Organizer Name': 'User entered organizer' };
   for (const [label, value] of Object.entries(values)) fireEvent.change(screen.getByLabelText(label), { target: { value } });
   fireEvent.click(screen.getByRole('button', { name: 'Preview Campaign' }));
   expect(screen.getByRole('dialog')).toHaveTextContent('Unsaved test campaign');
   fireEvent.keyDown(document, { key: 'Escape' });
-  expect(screen.getByRole('button', { name: 'Save selected status' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Create campaign' })).toBeEnabled();
   expect(bank.saveCampaign).not.toHaveBeenCalled();
+  bank.saveCampaign.mockRejectedValueOnce(new Error('Enter a valid contact email.'));
+  fireEvent.click(screen.getByRole('button', { name: 'Create campaign' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a valid contact email.');
+  const saved = { id: 42, reference: 'CM-00042', name: 'Unsaved test campaign', status: 'Draft', date: '2026-12-20' };
+  bank.saveCampaign.mockResolvedValueOnce({ campaign: saved });
+  bank.getCampaigns.mockResolvedValue({ available: true, complete: true, items: [saved] });
+  fireEvent.click(screen.getByRole('button', { name: 'Create campaign' }));
+  await screen.findByRole('button', { name: 'Create campaign' });
+  await waitFor(() => expect(screen.queryByLabelText('Campaign Name')).not.toBeInTheDocument());
+  expect(await screen.findByText('Unsaved test campaign', { selector: 'td' })).toBeInTheDocument();
+  expect(screen.getByText(/saved successfully/)).toHaveTextContent('CM-00042');
+  expect(screen.getByLabelText('Search campaigns')).toHaveValue('');
+  expect(screen.getByLabelText('Campaign status')).toHaveValue('');
+  expect(bank.saveCampaign).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Unsaved test campaign', venueName: 'User entered venue', status: 'Draft' }), undefined);
 });
 test('reports use the protected server preview and PDF endpoint',async()=>{
  bank.getReport.mockResolvedValue({title:'Verified Bank Report',period:'All',generatedAt:'Now',summary:{Units:5},columns:['Units'],rows:[[5]],sourceNote:'Verified data'});

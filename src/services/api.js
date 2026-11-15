@@ -147,6 +147,7 @@ export const listCampaigns = (params = {}) => {
 };
 
 export const getCampaign = (id) => apiGet(`/campaigns/${id}`);
+export const listPublicCampaigns = () => apiGet('/campaigns/public', { auth: false });
 
 export const registerForCampaign = (id, note) =>
   apiPost(`/campaigns/${id}/registrations`, note ? { note } : {});

@@ -11,6 +11,7 @@ const resource = (response, key) => {
 export const getStock = async () => resource(await api.listInventory(), 'inventory');
 export const getRequests = async () => resource(await api.listAllRequests(), 'requests');
 export const getAppointments = async () => resource(await api.listAllAppointments(), 'appointments');
+export const getDonationCentres = async () => resource(await api.listActiveHospitals(), 'hospitals');
 export const getDonors = async () => resource(await api.listDonors(), 'donors');
 export const getDonorDetails = api.getDonor;
 export const adjustStock = api.adjustInventory;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Menu, X, Droplet, Calendar, User, Database, Users,
   LayoutDashboard, ShieldCheck, Megaphone, Building2, ClipboardList, TrendingUp, History, Bell, Siren
@@ -190,14 +190,29 @@ const App = () => (
 
 const AppInner = () => {
   const { pendingCount, loading: hospitalCountLoading, error: hospitalCountError } = useHospitals();
-  const { role, isAuthenticated, booting, signOut } = useAuth();
+  const { role, isAuthenticated, booting, signOut, verificationError, retrySession } = useAuth();
   // The backend sends reset links as `#/reset-password?token=…`, so honour that
   // on first paint instead of always landing on the homepage.
-  const [currentRoute, setCurrentRoute] = useState(() =>
+  const [currentRoute, updateCurrentRoute] = useState(() =>
     (typeof window !== 'undefined' && window.location.hash.startsWith('#reset-password')
       ? 'reset-password'
-      : 'home')
+      : window.sessionStorage.getItem('currentRoute') || 'home')
   );
+  const setCurrentRoute = useCallback((route) => {
+    if (window.history.state?.appRoute !== route) {
+      window.history.pushState({ ...window.history.state, appRoute: route }, '');
+    }
+    updateCurrentRoute(route);
+  }, []);
+  useEffect(() => {
+    window.history.replaceState({ ...window.history.state, appRoute: currentRoute }, '');
+    const onBack = (event) => updateCurrentRoute(event.state?.appRoute || 'home');
+    window.addEventListener('popstate', onBack);
+    return () => window.removeEventListener('popstate', onBack);
+    // Register once; subsequent navigation writes its own history entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { window.sessionStorage.setItem('currentRoute', currentRoute); }, [currentRoute]);
 
   const [hospitalRequestGroup, setHospitalRequestGroup] = useState('O+');
   const openHospitalRequest = (group) => {
@@ -281,6 +296,9 @@ const AppInner = () => {
   }
 
   // Any dashboard route requires a session; the role must also match the portal.
+  if (verificationError) {
+    return <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6"><p role="alert">{verificationError}</p><button onClick={retrySession} className="text-red-600 underline">Retry session</button><button onClick={handleLogout}>Log out</button></div>;
+  }
   const wantsDashboard = !!dashboardRoutes[currentRoute];
   if (wantsDashboard && (!isAuthenticated || !canAccess(role, currentRoute))) {
     return publicRoutes.login;
