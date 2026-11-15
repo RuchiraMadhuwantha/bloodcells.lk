@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { toDateString } = require('../utils/date');
+const { toDateString, toDateTimeString } = require('../utils/date');
 
 const STATUS_LABELS = {
   pending: 'Pending',
@@ -39,15 +39,19 @@ const mapRequestRow = (r) => ({
   statusLabel: STATUS_LABELS[r.status] || r.status,
   decisionNote: r.decision_note,
   requestedBy: r.requested_by_name,
+  requestedByUserId: r.requested_by_user_id,
   createdAt: toDateString(r.created_at),
   reviewedAt: r.reviewed_at ? toDateString(r.reviewed_at) : '',
   fulfilledAt: r.fulfilled_at ? toDateString(r.fulfilled_at) : '',
+  updatedAt: toDateTimeString(r.updated_at),
+  submittedAt: toDateTimeString(r.created_at),
 });
 // A request's requester is always a signed-in hospital user, so the display
 // name comes from `users.username`.
 const buildSelect = (extraWhere = '', params = []) => `
   SELECT
     br.request_id,
+    br.requested_by_user_id,
     br.hospital_id,
     br.blood_group,
     br.quantity,
@@ -60,6 +64,7 @@ const buildSelect = (extraWhere = '', params = []) => `
     br.reviewed_at,
     br.fulfilled_at,
     br.created_at,
+    br.updated_at,
     h.hospital_name,
     h.hospital_code,
     h.district,
@@ -68,7 +73,7 @@ const buildSelect = (extraWhere = '', params = []) => `
   JOIN hospitals h ON br.hospital_id = h.hospital_id
   JOIN users req ON br.requested_by_user_id = req.user_id
   ${extraWhere}
-  ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'normal'), br.created_at DESC`;
+  ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'normal'), br.required_date IS NULL, br.required_date ASC, br.created_at ASC, br.request_id ASC`;
 
 const createBloodRequest = async ({
   hospitalId,
@@ -80,20 +85,28 @@ const createBloodRequest = async ({
   department = null,
   reason = null,
 }) => {
-  const [result] = await pool.query(
-    `INSERT INTO blood_requests
-      (hospital_id, requested_by_user_id, blood_group, quantity, urgency, required_date, department, reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [hospitalId, requestedByUserId, bloodGroup, quantity, urgency, requiredDate || null, department || null, reason || null]
-  );
-  return result.insertId;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query('SELECT hospital_id FROM hospitals WHERE hospital_id=? FOR UPDATE', [hospitalId]);
+    const [duplicates] = await connection.query(
+      "SELECT request_id FROM blood_requests WHERE hospital_id=? AND blood_group=? AND quantity=? AND urgency=? AND required_date <=> ? AND department <=> ? AND reason <=> ? AND status='pending' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 SECOND) LIMIT 1",
+      [hospitalId,bloodGroup,quantity,urgency,requiredDate || null,department || null,reason || null]);
+    if (duplicates.length) { await connection.commit(); return duplicates[0].request_id; }
+    const [result] = await connection.query(
+      'INSERT INTO blood_requests (hospital_id,requested_by_user_id,blood_group,quantity,urgency,required_date,department,reason) VALUES (?,?,?,?,?,?,?,?)',
+      [hospitalId,requestedByUserId,bloodGroup,quantity,urgency,requiredDate || null,department || null,reason || null]);
+    await connection.commit();
+    return result.insertId;
+  } catch (e) { await connection.rollback(); throw e; } finally { connection.release(); }
+
 };
 
 /**
  * Blood bank view: every request, newest/most urgent first, with optional
  * status filter and free-text search.
  */
-const getAllRequests = async ({ status, search } = {}) => {
+const getAllRequests = async ({ status, search, bloodGroup, urgency, district, start, end } = {}) => {
   const conditions = [];
   const params = [];
 
@@ -107,14 +120,27 @@ const getAllRequests = async ({ status, search } = {}) => {
     params.push(q, q, q, q);
   }
 
+  for(const [value,column] of [[bloodGroup,'br.blood_group'],[urgency,'br.urgency'],[district,'h.district']])if(value){conditions.push(column+'=?');params.push(value);}
+  if(start){conditions.push('br.created_at>=?');params.push(start);}
+  if(end){conditions.push('br.created_at<DATE_ADD(?,INTERVAL 1 DAY)');params.push(end);}
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const [rows] = await pool.query(buildSelect(where, params), params);
   return rows.map(mapRequestRow);
 };
 
 /** Hospital view: only that hospital's own requests. */
-const getRequestsForHospital = async (hospitalId) => {
-  const [rows] = await pool.query(buildSelect('WHERE br.hospital_id = ?', [hospitalId]), [hospitalId]);
+const getRequestsForHospital = async (hospitalId, filters = {}) => {
+  const conditions = ['br.hospital_id=?']; const values = [hospitalId];
+  for (const [key,column] of [['status','br.status'],['bloodGroup','br.blood_group'],['urgency','br.urgency']]) {
+    if (filters[key]) { conditions.push(column+'=?'); values.push(filters[key]); }
+  }
+  if (filters.start) { conditions.push('br.created_at>=?'); values.push(filters.start); }
+  if (filters.end) { conditions.push('br.created_at<DATE_ADD(?,INTERVAL 1 DAY)'); values.push(filters.end); }
+  let sql = buildSelect('WHERE '+conditions.join(' AND '));
+  if (filters.sort === 'newest') sql=sql.slice(0,sql.indexOf('ORDER BY'))+'ORDER BY br.created_at DESC,br.request_id DESC';
+  if (filters.sort === 'required') sql=sql.slice(0,sql.indexOf('ORDER BY'))+'ORDER BY br.required_date IS NULL,br.required_date,br.request_id';
+  if (Number.isInteger(filters.maxRows) && filters.maxRows>0 && filters.maxRows<=10001) { sql+=' LIMIT ?';values.push(filters.maxRows); }
+  const [rows] = await pool.query(sql,values);
   return rows.map(mapRequestRow);
 };
 
@@ -123,14 +149,10 @@ const getRequestById = async (requestId) => {
   return rows[0] ? mapRequestRow(rows[0]) : null;
 };
 
-const getRequestCountByStatus = async () => {
-  const [rows] = await pool.query(
-    `SELECT status, COUNT(*) AS cnt FROM blood_requests GROUP BY status`
-  );
-  const counts = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, cancelled: 0 };
-  rows.forEach((r) => {
-    counts[r.status] = Number(r.cnt);
-  });
+const getRequestCountByStatus = async (hospitalId) => {
+  const [rows] = await pool.query('SELECT status,COUNT(*) AS cnt FROM blood_requests '+(hospitalId ? 'WHERE hospital_id=? ' : '')+'GROUP BY status',hospitalId ? [hospitalId] : []);
+  const counts = { pending:0,approved:0,rejected:0,fulfilled:0,cancelled:0 };
+  rows.forEach(r => { counts[r.status]=Number(r.cnt); });
   return counts;
 };
 
@@ -159,18 +181,20 @@ const updateRequestStatus = async ({ requestId, newStatus, reviewedByUserId, not
     );
   }
 
-  const isFulfilled = newStatus === 'fulfilled';
-  await pool.query(
-    `UPDATE blood_requests
-        SET status = ?,
-            decision_note = ?,
-            reviewed_by_user_id = ?,
-            reviewed_at = NOW(),
-            fulfilled_at = ?
-      WHERE request_id = ?`,
-    [newStatus, note || null, reviewedByUserId || null, isFulfilled ? new Date() : null, requestId]
-  );
-
+  if (newStatus === 'fulfilled') throw Object.assign(new Error('Use the verified batch fulfillment transaction.'), {statusCode:409});
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [result] = await conn.query(
+      `UPDATE blood_requests SET status=?,decision_note=?,reviewed_by_user_id=?,reviewed_at=NOW()
+       WHERE request_id=? AND status=?`,
+      [newStatus,note || null,reviewedByUserId || null,requestId,current.status]);
+    if(result.affectedRows!==1) throw Object.assign(new Error('Request changed. Refresh before retrying.'),{statusCode:409});
+    if(newStatus==='cancelled' || newStatus==='rejected') await require('./bankTransferModel').release(conn,requestId,reviewedByUserId || current.requestedByUserId);
+    try {await require('./bankInventoryModel').audit(conn,reviewedByUserId || current.requestedByUserId,'request-'+newStatus,null,null,requestId,{from:current.status,status:newStatus,note:note || null});}
+    catch(e){if(e.code!=='ER_NO_SUCH_TABLE')throw e;}
+    await conn.commit();
+  } catch(e) { await conn.rollback(); throw e; } finally {conn.release();}
   return getRequestById(requestId);
 };
 
@@ -196,7 +220,7 @@ const listOpenRequestsForGroup = async (bloodGroup) => {
      WHERE br.blood_group = ?
        AND br.status IN ('pending', 'approved')
        AND hu.account_status = 'active'
-     ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'normal'), br.created_at DESC`,
+     ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'normal'), br.required_date IS NULL, br.required_date ASC, br.created_at ASC, br.request_id ASC`,
     [bloodGroup]
   );
   return rows.map((r) => ({
@@ -220,81 +244,9 @@ const listOpenRequestsForGroup = async (bloodGroup) => {
  * concurrent fulfilments can never both pass the availability check. If any
  * step fails the whole thing rolls back and no inventory is lost.
  */
-const fulfilRequest = async ({ requestId, reviewedByUserId, note }) => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    const [rows] = await connection.query(
-      'SELECT request_id, blood_group, quantity, status FROM blood_requests WHERE request_id = ? FOR UPDATE',
-      [requestId]
-    );
-    if (rows.length === 0) {
-      throw Object.assign(new Error('Blood request not found.'), { statusCode: 404 });
-    }
-    const row = rows[0];
-
-    const allowed = ALLOWED_TRANSITIONS[row.status] || [];
-    if (!allowed.includes('fulfilled')) {
-      const label = (STATUS_LABELS[row.status] || row.status).toLowerCase();
-      throw Object.assign(
-        new Error(`A ${label} request cannot be changed to fulfilled.`),
-        { statusCode: 409 }
-      );
-    }
-
-    const [stock] = await connection.query(
-      'SELECT available_units FROM blood_inventory WHERE blood_group = ? FOR UPDATE',
-      [row.blood_group]
-    );
-    if (stock.length === 0) {
-      throw Object.assign(
-        new Error(`No inventory record exists for ${row.blood_group}.`),
-        { statusCode: 400 }
-      );
-    }
-    if (Number(stock[0].available_units) < Number(row.quantity)) {
-      throw Object.assign(
-        new Error(
-          `Cannot fulfil this request: only ${stock[0].available_units} unit(s) of ${row.blood_group} are in stock but ${row.quantity} are required.`
-        ),
-        { statusCode: 409 }
-      );
-    }
-
-    const [decrement] = await connection.query(
-      `UPDATE blood_inventory
-          SET available_units = available_units - ?,
-              last_restocked_at = last_restocked_at
-        WHERE blood_group = ? AND available_units >= ?`,
-      [row.quantity, row.blood_group, row.quantity]
-    );
-    if (decrement.affectedRows !== 1) {
-      throw Object.assign(
-        new Error(`Cannot fulfil this request: ${row.blood_group} stock changed while confirming.`),
-        { statusCode: 409 }
-      );
-    }
-
-    await connection.query(
-      `UPDATE blood_requests
-          SET status = 'fulfilled',
-              decision_note = ?,
-              reviewed_by_user_id = ?,
-              reviewed_at = NOW(),
-              fulfilled_at = NOW()
-        WHERE request_id = ?`,
-      [note || null, reviewedByUserId || null, requestId]
-    );
-
-    await connection.commit();
-    return getRequestById(requestId);
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+const fulfilRequest = async (data) => {
+  await require('./bankTransferModel').fulfill(data);
+  return getRequestById(data.requestId);
 };
 
 module.exports = {

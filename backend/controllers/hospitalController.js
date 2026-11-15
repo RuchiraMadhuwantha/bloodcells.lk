@@ -12,7 +12,7 @@ const { toFriendlyError } = require('../validators/common');
 
 const listHospitals = async (req, res, next) => {
   try {
-    const [hospitals, stats] = await Promise.all([getAllHospitals(), getHospitalStats()]);
+    const [hospitals, stats] = await Promise.all([getAllHospitals(req.query), getHospitalStats()]);
     res.json({ success: true, hospitals, stats });
   } catch (error) {
     next(toFriendlyError(error, 'Could not load hospitals.'));
@@ -62,7 +62,7 @@ const myHospital = async (req, res, next) => {
 const approve = async (req, res, next) => {
   try {
     const userId = Number(req.params.userId);
-    if (!Number.isInteger(userId)) {
+    if (!Number.isInteger(userId) || userId<1) {
       return res.status(400).json({ success: false, message: 'Invalid hospital reference.' });
     }
 
@@ -84,10 +84,10 @@ const approve = async (req, res, next) => {
 const reject = async (req, res, next) => {
   try {
     const userId = Number(req.params.userId);
-    if (!Number.isInteger(userId)) {
+    if (!Number.isInteger(userId) || userId<1) {
       return res.status(400).json({ success: false, message: 'Invalid hospital reference.' });
     }
-    if (!req.body.reason || !req.body.reason.trim()) {
+    if (typeof req.body.reason!=='string' || !req.body.reason.trim() || req.body.reason.length>1000) {
       return res.status(400).json({ success: false, message: 'A rejection reason is required.' });
     }
 
@@ -109,7 +109,7 @@ const reject = async (req, res, next) => {
 const reviewAgain = async (req, res, next) => {
   try {
     const userId = Number(req.params.userId);
-    if (!Number.isInteger(userId)) {
+    if (!Number.isInteger(userId) || userId<1) {
       return res.status(400).json({ success: false, message: 'Invalid hospital reference.' });
     }
 

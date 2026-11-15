@@ -27,55 +27,9 @@ const getStats = async (req, res, next) => {
   }
 };
 
-const adjustStock = async (req, res, next) => {
-  try {
-    const { bloodGroup, amount, mode = 'add' } = req.body;
-    const numeric = Number(amount);
+const adjustStock = (req,res) => res.status(409).json({success:false,message:'Aggregate stock adjustments are disabled. Record verified batches through /api/bank/inventory so expiry, centre ownership and stock history are preserved.'});
 
-    if (mode === 'set' && numeric === 0) {
-      throw httpError(400, 'Set mode requires the new total number of units.');
-    }
-    if (mode === 'remove' && numeric === 0) {
-      throw httpError(400, 'Enter how many units to remove.');
-    }
-
-    const item = await adjustInventory({ bloodGroup, amount: numeric, mode });
-    const stats = await getInventoryStats();
-
-    const verb = mode === 'add' ? 'added to' : mode === 'remove' ? 'removed from' : 'set for';
-    res.json({
-      success: true,
-      message: `${numeric} unit(s) ${verb} ${bloodGroup}. Stock is now ${item.availableUnits}.`,
-      item,
-      stats,
-    });
-  } catch (error) {
-    next(toFriendlyError(error, 'Could not update the inventory.'));
-  }
-};
-
-const setThresholds = async (req, res, next) => {
-  try {
-    const { bloodGroup, lowStockThreshold, criticalStockThreshold } = req.body;
-
-    const low = lowStockThreshold === undefined ? undefined : Number(lowStockThreshold);
-    const critical = criticalStockThreshold === undefined ? undefined : Number(criticalStockThreshold);
-
-    if (low !== undefined && critical !== undefined && critical > low) {
-      throw httpError(400, 'The critical threshold must be lower than or equal to the low stock threshold.');
-    }
-
-    const item = await updateThresholds({
-      bloodGroup,
-      lowStockThreshold: low,
-      criticalStockThreshold: critical,
-    });
-
-    res.json({ success: true, message: `Alert thresholds updated for ${bloodGroup}.`, item });
-  } catch (error) {
-    next(toFriendlyError(error, 'Could not update the alert thresholds.'));
-  }
-};
+const setThresholds = (req,res) => res.status(409).json({success:false,message:'Update thresholds for an assigned centre through /api/bank/centres/:id/thresholds. Existing aggregate thresholds are retained as fallback configuration.'});
 
 const getItem = async (req, res, next) => {
   try {

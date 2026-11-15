@@ -29,8 +29,42 @@ const updateDonorProfile = async (userId, fields, executor) => {
   await exec(executor).query(`UPDATE donors SET ${setClause} WHERE user_id = ?`, values);
 };
 
+/** Reverse lookup: the users.user_id that owns a donor profile (for notifications). */
+const getUserIdByDonorId = async (donorId, executor) => {
+  const [rows] = await exec(executor).query('SELECT user_id FROM donors WHERE donor_id = ?', [donorId]);
+  return rows[0] ? rows[0].user_id : null;
+};
+
+/**
+ * User ids of donors eligible to be *notified* about an emergency alert:
+ * matching blood group, active accounts, district match when the alert has one.
+ * Notification is not medical eligibility — final screening happens at the
+ * donation centre.
+ */
+const findDonorUserIdsForBloodGroup = async ({ bloodGroup, district }, executor) => {
+  const conditions = [
+    'd.blood_group = ?',
+    "u.account_status = 'active'",
+  ];
+  const params = [bloodGroup];
+  if (district) {
+    conditions.push('(d.district = ? OR d.district IS NULL)');
+    params.push(district);
+  }
+  const [rows] = await exec(executor).query(
+    `SELECT u.user_id
+       FROM donors d
+       JOIN users u ON u.user_id = d.user_id
+      WHERE ${conditions.join(' AND ')}`,
+    params
+  );
+  return rows.map((r) => r.user_id);
+};
+
 module.exports = {
   createDonorProfile,
   getDonorByUserId,
   updateDonorProfile,
+  getUserIdByDonorId,
+  findDonorUserIdsForBloodGroup,
 };

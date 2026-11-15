@@ -91,8 +91,12 @@ const HOSPITAL_SELECT = `
   JOIN users u ON h.user_id = u.user_id`;
 
 /** All hospitals for blood bank hospital management. Never returns credentials. */
-const getAllHospitals = async () => {
-  const [rows] = await pool.query(`${HOSPITAL_SELECT} ORDER BY u.created_at DESC`);
+const getAllHospitals = async ({status,search,district}={}) => {
+  const conditions=[],values=[];
+  if(status){conditions.push('u.account_status=?');values.push(status);}
+  if(district){conditions.push('h.district=?');values.push(district);}
+  if(search){conditions.push('(h.hospital_name LIKE ? OR h.hospital_code LIKE ?)');values.push('%'+search+'%','%'+search+'%');}
+  const [rows] = await pool.query(`${HOSPITAL_SELECT} ${conditions.length?'WHERE '+conditions.join(' AND '):''} ORDER BY u.created_at DESC`,values);
   return rows.map(mapHospitalRow);
 };
 
@@ -156,6 +160,11 @@ const updateHospitalStatus = async (userId, accountStatus, reviewedByUserId, rej
     );
     if (rows.length === 0) {
       throw Object.assign(new Error('Hospital registration not found.'), { statusCode: 404 });
+    }
+
+    const allowed = {pending:['active','inactive'],active:['inactive'],inactive:['pending']};
+    if (!(allowed[rows[0].account_status] || []).includes(accountStatus)) {
+      throw Object.assign(new Error('Hospital status changed or this approval transition is not allowed. Refresh before retrying.'),{statusCode:409});
     }
 
     await connection.query(

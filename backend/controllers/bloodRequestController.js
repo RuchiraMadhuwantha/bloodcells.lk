@@ -44,7 +44,7 @@ const createRequest = async (req, res, next) => {
     });
 
     const created = await getRequestById(requestId);
-    const counts = await getRequestCountByStatus();
+    const counts = await getRequestCountByStatus(hospital.hospitalId);
 
     res.status(201).json({
       success: true,
@@ -67,12 +67,24 @@ const listMyRequests = async (req, res, next) => {
     if (!hospital) {
       throw httpError(404, 'No hospital record is linked to this account.');
     }
-    const requests = await getRequestsForHospital(hospital.hospitalId);
-    const counts = await getRequestCountByStatus();
-    res.json({ success: true, requests, counts });
+    const all = await getRequestsForHospital(hospital.hospitalId, req.query);
+    const limit = req.query.limit ? Number(req.query.limit) : null;
+    const page = Number(req.query.page || 1);
+    const requests = limit ? all.slice((page-1)*limit,page*limit) : all;
+    const counts = await getRequestCountByStatus(hospital.hospitalId);
+    res.json({ success: true, requests, counts, ...(limit ? { pagination: { page,limit,total:all.length },hasMore:page*limit<all.length } : {}) });
   } catch (error) {
     next(toFriendlyError(error, 'Could not load your blood requests.'));
   }
+};
+
+const getMyRequest = async (req,res,next) => {
+  try {
+    const hospital = await getHospitalByUserId(req.user.user_id);
+    const request = await getRequestById(Number(req.params.id));
+    if (!hospital || !request || request.hospitalId !== hospital.hospitalId) throw httpError(404,'Hospital request not found.');
+    res.json({ success:true,request });
+  } catch(e) { next(toFriendlyError(e,'Could not load this hospital request.')); }
 };
 
 const cancelMyRequest = async (req, res, next) => {
@@ -93,6 +105,7 @@ const cancelMyRequest = async (req, res, next) => {
     const updated = await updateRequestStatus({
       requestId: request.id,
       newStatus: 'cancelled',
+      reviewedByUserId: req.user.user_id,
       note: 'Cancelled by the hospital.',
     });
 
@@ -107,7 +120,7 @@ const cancelMyRequest = async (req, res, next) => {
 const listAllRequests = async (req, res, next) => {
   try {
     const [requests, counts] = await Promise.all([
-      getAllRequests({ status: req.query.status, search: req.query.search }),
+      getAllRequests(req.query),
       getRequestCountByStatus(),
     ]);
     res.json({ success: true, requests, counts });
@@ -209,6 +222,7 @@ const listMatching = async (req, res, next) => {
 
 module.exports = {
   createRequest,
+  getMyRequest,
   listMyRequests,
   cancelMyRequest,
   listAllRequests,

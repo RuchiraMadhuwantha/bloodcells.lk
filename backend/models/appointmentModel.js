@@ -58,7 +58,7 @@ const getAppointmentsForHospital = async (hospitalId) => {
   return rows.map(mapAppointmentRow);
 };
 
-const getAppointmentsForBank = async ({ date, hospitalId } = {}) => {
+const getAppointmentsForBank = async ({ date, hospitalId, status, search } = {}) => {
   const conditions = ["hu.account_status = 'active'"];
   const params = [];
   if (date) {
@@ -69,6 +69,8 @@ const getAppointmentsForBank = async ({ date, hospitalId } = {}) => {
     conditions.push('a.hospital_id = ?');
     params.push(hospitalId);
   }
+  if(status){conditions.push('a.status=?');params.push(status);}
+  if(search){conditions.push('(d.full_name LIKE ? OR h.hospital_name LIKE ?)');params.push('%'+search+'%','%'+search+'%');}
   const [rows] = await pool.query(
     `${APPOINTMENT_SELECT} WHERE ${conditions.join(' AND ')}
       ORDER BY a.appointment_date ASC, a.time_slot ASC`,
@@ -86,29 +88,47 @@ const getBookedSlots = async (hospitalId, date) => {
   return rows.map((r) => r.time_slot);
 };
 
-const createAppointment = async ({ donorId, hospitalId, appointmentDate, timeSlot, notes }) => {
-  // The hospital must still be approved, otherwise donors could book a centre
-  // that is not allowed to operate.
-  const [hospitals] = await pool.query(
+const createAppointment = async ({ donorId, hospitalId, appointmentDate, timeSlot, notes }, executor) => {
+  const db = executor || pool;
+
+  // Lock the hospital row for the duration of the transaction. Every booking
+  // for this centre serializes on that row, which makes the check-then-insert
+  // below atomic even without a covering unique index.
+  const [hospitals] = await db.query(
     `SELECT h.hospital_id FROM hospitals h
        JOIN users u ON h.user_id = u.user_id
-      WHERE h.hospital_id = ? AND u.account_status = 'active'`,
+      WHERE h.hospital_id = ? AND u.account_status = 'active'
+      FOR UPDATE`,
     [hospitalId]
   );
   if (hospitals.length === 0) {
     throw httpError(400, 'This donation centre is not available for booking.');
   }
 
-  const [duplicates] = await pool.query(
+  const [duplicates] = await db.query(
     `SELECT appointment_id FROM appointments
-      WHERE donor_id = ? AND appointment_date = ? AND time_slot = ? AND status != 'cancelled'`,
+      WHERE donor_id = ? AND appointment_date = ? AND time_slot = ? AND status != 'cancelled'
+      FOR UPDATE`,
     [donorId, appointmentDate, timeSlot]
   );
   if (duplicates.length > 0) {
     throw httpError(409, 'You already have an appointment booked for this date and time.');
   }
 
-  const [result] = await pool.query(
+  // Centre capacity: one active booking per (hospital, date, time slot) —
+  // mirrors how the booking UI disables taken slots.
+  const [occupied] = await db.query(
+    `SELECT appointment_id FROM appointments
+      WHERE hospital_id = ? AND appointment_date = ? AND time_slot = ? AND status != 'cancelled'
+      LIMIT 1
+      FOR UPDATE`,
+    [hospitalId, appointmentDate, timeSlot]
+  );
+  if (occupied.length > 0) {
+    throw httpError(409, 'This time slot at the selected centre is already booked. Please choose another slot.');
+  }
+
+  const [result] = await db.query(
     `INSERT INTO appointments (donor_id, hospital_id, appointment_date, time_slot, notes)
      VALUES (?, ?, ?, ?, ?)`,
     [donorId, hospitalId, appointmentDate, timeSlot, notes || null]
@@ -116,18 +136,75 @@ const createAppointment = async ({ donorId, hospitalId, appointmentDate, timeSlo
   return result.insertId;
 };
 
-const updateAppointmentStatus = async ({ appointmentId, status }) => {
-  const [result] = await pool.query('UPDATE appointments SET status = ? WHERE appointment_id = ?', [
+/**
+ * Moves an appointment to a new date/slot. The caller owns the transaction.
+ * Re-validates ownership semantics via the row's current state and applies the
+ * same availability rules as booking.
+ */
+const rescheduleAppointment = async ({ appointmentId, donorId, newDate, newTimeSlot }, executor) => {
+  const db = executor || pool;
+
+  const [rows] = await db.query(
+    'SELECT * FROM appointments WHERE appointment_id = ? FOR UPDATE',
+    [appointmentId]
+  );
+  const appointment = rows[0];
+  if (!appointment) {
+    throw httpError(404, 'Appointment not found.');
+  }
+  if (appointment.donor_id !== donorId) {
+    throw httpError(403, 'You can only reschedule your own appointments.');
+  }
+  if (!['pending', 'approved'].includes(appointment.status)) {
+    throw httpError(409, `Only pending or approved appointments can be rescheduled (this one is ${STATUS_LABELS[appointment.status] || appointment.status}).`);
+  }
+
+  // Same centre, different slot: make sure the target is free for everyone.
+  const [occupied] = await db.query(
+    `SELECT appointment_id FROM appointments
+      WHERE hospital_id = ? AND appointment_date = ? AND time_slot = ? AND status != 'cancelled'
+        AND appointment_id != ?
+      LIMIT 1 FOR UPDATE`,
+    [appointment.hospital_id, newDate, newTimeSlot, appointmentId]
+  );
+  if (occupied.length > 0) {
+    throw httpError(409, 'This time slot at your centre is already booked. Please choose another slot.');
+  }
+
+  // ...and free for this donor specifically (they may have another booking).
+  const [duplicates] = await db.query(
+    `SELECT appointment_id FROM appointments
+      WHERE donor_id = ? AND appointment_date = ? AND time_slot = ? AND status != 'cancelled'
+        AND appointment_id != ?
+      LIMIT 1 FOR UPDATE`,
+    [donorId, newDate, newTimeSlot, appointmentId]
+  );
+  if (duplicates.length > 0) {
+    throw httpError(409, 'You already have an appointment booked for this date and time.');
+  }
+
+  await db.query(
+    `UPDATE appointments SET appointment_date = ?, time_slot = ? WHERE appointment_id = ?`,
+    [newDate, newTimeSlot, appointmentId]
+  );
+  return appointment;
+};
+
+const updateAppointmentStatus = async ({ appointmentId, status }, executor) => {
+  const db = executor || pool;
+  const [result] = await db.query("UPDATE appointments SET status = ? WHERE appointment_id = ? AND status IN ('pending','approved') AND status<>?", [
     status,
     appointmentId,
+    status,
   ]);
   if (result.affectedRows === 0) {
-    throw httpError(404, 'Appointment not found.');
+    throw httpError(409, 'Appointment was already processed. Refresh before retrying.');
   }
 };
 
-const getAppointmentById = async (appointmentId) => {
-  const [rows] = await pool.query(`${APPOINTMENT_SELECT} WHERE a.appointment_id = ?`, [appointmentId]);
+const getAppointmentById = async (appointmentId, executor, lock = false) => {
+  const db = executor || pool;
+  const [rows] = await db.query(`${APPOINTMENT_SELECT} WHERE a.appointment_id = ?${lock ? ' FOR UPDATE' : ''}`, [appointmentId]);
   return rows[0] ? mapAppointmentRow(rows[0]) : null;
 };
 
@@ -153,6 +230,7 @@ module.exports = {
   getAppointmentsForBank,
   getBookedSlots,
   createAppointment,
+  rescheduleAppointment,
   updateAppointmentStatus,
   getAppointmentById,
   getDonorIdByUserId,

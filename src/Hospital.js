@@ -1,393 +1,104 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Database, Clock, CheckCircle, AlertCircle, Plus, Send, LayoutDashboard,
-  Calendar, User, Loader2
-} from 'lucide-react';
-import { DashboardLayout } from './components/DashboardShell';
-import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, Table, ProgressBar } from './components/UIComponents';
-import { useAuth } from './context/AuthContext';
-import * as api from './services/api';
-
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
-
-const todayStr = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
-const formatDate = (iso) => {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
-  if (!y || !m || !d) return String(iso);
-  return new Date(Number(y), Number(m) - 1, Number(d))
-    .toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-};
-
-const requestStatusColor = (s) => ({
-  pending: 'yellow', approved: 'blue', fulfilled: 'green', rejected: 'gray', cancelled: 'gray',
-}[s] || 'gray');
-
-const urgencyColor = (u) => ({ emergency: 'red', urgent: 'amber', normal: 'blue' }[u] || 'blue');
-
-const Loading = ({ label = 'Loading…' }) => (
-  <div className="flex items-center justify-center py-20 text-gray-500">
-    <Loader2 className="w-6 h-6 animate-spin mr-2" /> {label}
-  </div>
-);
-
-const ErrorPanel = ({ message, onRetry }) => (
-  <div className="bg-brand-50 border border-red-100 text-brand-700 rounded-lg p-6 text-center">
-    <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-    <p>{message}</p>
-    {onRetry && <Button variant="outline" className="mt-4" onClick={onRetry}>Retry</Button>}
-  </div>
-);
-
-/* ===================================================================================
-   HOSPITAL DASHBOARD — own record, own requests, bank-wide stock levels
-   =================================================================================== */
+import React, { useRef, useState } from 'react';
+import { Database, Clock, CheckCircle, AlertCircle, ClipboardList, Plus, Send, User } from 'lucide-react';
+import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, ProgressBar } from './components/UIComponents';
+import * as service from './services/hospitalService';
+import { HospitalLayout, useHospital, useHospitalResource, Loading, ErrorPanel, EmptyState, Notice, Field, Details, inputClass, disabledClass } from './components/hospital/HospitalUI';
+import { BLOOD_GROUPS, URGENCIES, todayStr, isValidDate, formatDate, titleCase, statusColor, summarizeRequests, filterRequests } from './components/hospital/hospitalUtils';
+import { RequestTable, useRequestDialogs } from './components/hospital/HospitalRequests';
 
 export const HospitalDashboard = ({ nav }) => {
-  const { user } = useAuth();
-  const [hospital, setHospital] = useState(null);
-  const [requests, setRequests] = useState([]);
-  const [counts, setCounts] = useState(null);
-  const [inventory, setInventory] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [actionError, setActionError] = useState(null);
-  const [busyId, setBusyId] = useState(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [h, r, inv, ap] = await Promise.all([
-        api.getMyHospital(),
-        api.listMyRequests(),
-        api.listInventory(),
-        api.listHospitalAppointments(),
-      ]);
-      setHospital(h.hospital || null);
-      setRequests(r.requests || []);
-      setCounts(r.counts || null);
-      setInventory(inv.inventory || []);
-      setAppointments(ap.appointments || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const cancel = async (id) => {
-    setBusyId(id);
-    setActionError(null);
-    try {
-      await api.cancelMyRequest(id);
-      await load();
-    } catch (e) {
-      setActionError(e.message);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <DashboardLayout {...nav} title="Hospital Dashboard" userName={user?.username || 'Hospital'}>
-        <Loading label="Loading your hospital record…" />
-      </DashboardLayout>
-    );
-  }
-
-  if (error) {
-    return (
-      <DashboardLayout {...nav} title="Hospital Dashboard" userName={user?.username || 'Hospital'}>
-        <ErrorPanel message={error} onRetry={load} />
-      </DashboardLayout>
-    );
-  }
-
-  const totalUnits = inventory.reduce((sum, i) => sum + (i.availableUnits || 0), 0);
-  const emergency = requests.filter((r) => r.urgency === 'emergency' && ['pending', 'approved'].includes(r.status)).length;
-  const maxUnits = Math.max(50, ...inventory.map((i) => i.availableUnits || 0));
-  const today = todayStr();
-  const upcomingAppointments = appointments
-    .filter((a) => a.appointmentDate >= today && ['pending', 'approved'].includes(a.status))
+  const { hospital } = useHospital();
+  const dashboard=useHospitalResource(service.getDashboard);
+  const requests={loading:dashboard.loading,error:dashboard.error,refresh:dashboard.refresh,data:dashboard.data?{items:dashboard.data.summary.recentRequests}:null};
+  const stock = useHospitalResource(service.getNetworkStock);
+  const appointments = useHospitalResource(service.getAppointments);
+  const actions = useRequestDialogs(requests.refresh);
+  const items = requests.data?.items || [];
+  const counts = dashboard.data?.summary.requests || summarizeRequests([]);
+  const inventory = stock.data?.items || [];
+  const maxUnits = Math.max(1, ...inventory.map((i) => i.availableUnits));
+  const upcoming = (appointments.data?.items || []).filter((a) => a.appointmentDate >= todayStr() && ['pending', 'approved'].includes(a.status))
     .sort((a, b) => (a.appointmentDate + a.timeSlot).localeCompare(b.appointmentDate + b.timeSlot));
-  const hospitalName = hospital?.hospitalName || 'Your Hospital';
-
-  return (
-    <DashboardLayout {...nav} title="Hospital Dashboard" subtitle={hospitalName} userName={hospital?.username || user?.username || 'Hospital'} role="Hospital Admin">
-      {/* Approval state comes from the users table, not the local UI. */}
-      {hospital?.status && hospital.status !== 'Active' && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-6 text-sm">
-          <strong>Account status: {hospital.status}.</strong>{' '}
-          {hospital.status === 'Pending'
-            ? 'Your registration is awaiting Blood Bank approval.'
-            : hospital.rejectionReason || 'Please contact the Blood Bank.'}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Database} value={totalUnits} label="Units In Stock (network)" accent="green" />
-        <StatCard icon={Clock} value={counts?.pending ?? 0} label="Pending Requests" accent="amber" />
-        <StatCard icon={CheckCircle} value={counts?.approved ?? 0} label="Approved" accent="blue" />
-        <StatCard icon={AlertCircle} value={emergency} label="Emergency Open" accent="red" />
-      </div>
-
-      {actionError && (
-        <div className="bg-brand-50 border border-red-100 text-brand-700 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" /> {actionError}
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-3 gap-6 mb-6">
-        <SectionCard title="Blood Availability" className="lg:col-span-2" action={<Badge color="gray">Live inventory</Badge>}>
-          {inventory.length === 0 ? (
-            <p className="text-sm text-gray-500">No inventory data available.</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {inventory.map((a) => (
-                <div key={a.bloodGroup} className="border border-gray-100 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <BloodTypeBadge group={a.bloodGroup} size="sm" />
-                    <span className={`text-sm font-bold ${a.isLow ? 'text-red-600' : 'text-gray-800'}`}>{a.availableUnits}</span>
-                  </div>
-                  <ProgressBar value={a.availableUnits} max={maxUnits} />
-                  {a.isLow && <p className="text-[11px] text-red-600 mt-1">Low stock</p>}
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Donor Appointments" action={<Badge color="gray">{upcomingAppointments.length} upcoming</Badge>}>
-          {upcomingAppointments.length === 0 ? (
-            <p className="text-sm text-gray-500">No upcoming donor appointments at your centre.</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingAppointments.slice(0, 8).map((a) => (
-                <div key={a.id} className="flex items-center gap-3 border border-gray-100 rounded-lg p-3">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800 flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-gray-400" /> {a.donorName}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatDate(a.appointmentDate)} · {a.timeSlot} · <span className="font-medium">{a.bloodGroup}</span>
-                    </p>
-                  </div>
-                  <Badge color={a.status === 'approved' ? 'green' : 'yellow'}>{a.statusLabel}</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </div>
-
-      <SectionCard title="My Blood Requests" action={<Button icon={Plus} onClick={() => nav.onNavigate('hospital-request')}>New Request</Button>}>
-        {requests.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            You have not raised any blood requests yet.{' '}
-            <button onClick={() => nav.onNavigate('hospital-request')} className="text-brand-600 hover:underline font-medium">
-              Create the first one
-            </button>.
-          </p>
-        ) : (
-          <Table columns={['Request', 'Priority', 'Blood Group', 'Units', 'Status', 'Required', '']}>
-            {requests.map((r) => (
-              <tr key={r.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium">{r.reference}</td>
-                <td className="px-4 py-3"><Badge color={urgencyColor(r.urgency)}>{r.urgencyLabel}</Badge></td>
-                <td className="px-4 py-3 font-medium">{r.bloodGroup}</td>
-                <td className="px-4 py-3 text-sm">{r.quantity}</td>
-                <td className="px-4 py-3">
-                  <Badge color={requestStatusColor(r.status)}>{r.statusLabel}</Badge>
-                  {r.decisionNote && <p className="text-[11px] text-gray-500 mt-1 max-w-[180px]">{r.decisionNote}</p>}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500">{formatDate(r.requiredDate)}</td>
-                <td className="px-4 py-3 text-right">
-                  {['pending', 'approved'].includes(r.status) && (
-                    <Button
-                      variant="ghost"
-                      className="text-xs text-brand-600"
-                      disabled={busyId === r.id}
-                      onClick={() => cancel(r.id)}
-                    >
-                      {busyId === r.id ? 'Cancelling…' : 'Cancel'}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </Table>
-        )}
+  return <HospitalLayout nav={nav} title="Hospital Dashboard" subtitle={hospital.hospitalName}>
+    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+      {[[ClipboardList, 'Total Blood Requests', counts.total, 'red'], [Clock, 'Pending Requests', counts.pending, 'amber'],
+        [AlertCircle, 'Emergency Open', counts.emergency, 'red'], [CheckCircle, 'Approved Requests', counts.approved, 'blue'],
+        [CheckCircle, 'Fulfilled Requests', counts.fulfilled, 'green']].map(([icon, label, value, accent]) =>
+        <StatCard key={label} icon={icon} label={label} value={requests.loading ? 'Loading...' : requests.error ? 'Unavailable' : value} accent={accent} />)}
+      <StatCard icon={Database} label="Hospital usable units" value={dashboard.loading ? 'Loading...' : dashboard.data?.summary.inventory.available ? dashboard.data.summary.inventory.totalAvailable : 'Unavailable'} accent="green" />
+    </div>
+    <div className="grid lg:grid-cols-3 gap-6 mb-6">
+      <SectionCard title="Blood Availability" className="lg:col-span-2" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-availability')}>Check stock</Button>}>
+        <p className="text-xs text-gray-500 mb-4">Verified unreserved, non-expired stock at blood bank locations. Legacy aggregate stock is excluded. Viewing does not reserve units.</p>
+        {stock.loading ? <Loading /> : stock.error ? <ErrorPanel message={stock.error} onRetry={stock.refresh} /> : !inventory.length ? <EmptyState title="No network inventory returned" /> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{inventory.map((i) => <div key={String(i.id)+i.bloodGroup} className="border border-gray-100 rounded-lg p-3"><div className="flex justify-between items-center gap-2 mb-2"><BloodTypeBadge group={i.bloodGroup} size="sm" /><span className="font-bold text-sm">{i.availableUnits}</span></div><ProgressBar value={i.availableUnits} max={maxUnits} /><p className="text-xs text-gray-500 mt-2">{i.centreName} / {i.district}</p></div>)}</div>}
       </SectionCard>
-    </DashboardLayout>
-  );
+      <SectionCard title="Donor Appointments" action={!appointments.loading && !appointments.error && <Badge color="gray">{upcoming.length} upcoming</Badge>}>
+        {appointments.loading ? <Loading /> : appointments.error ? <ErrorPanel message={appointments.error} onRetry={appointments.refresh} /> : !upcoming.length ? <EmptyState title="No upcoming donor appointments" /> : <div className="space-y-3">{upcoming.slice(0, 8).map((a) => <div key={a.id} className="border border-gray-100 rounded-lg p-3"><p className="flex items-center gap-2 font-medium text-sm"><User className="w-4 h-4" />{a.donorName}</p><p className="text-xs text-gray-500 my-2">{formatDate(a.appointmentDate)} | {a.timeSlot} | {a.bloodGroup}</p><Badge color={a.status === 'approved' ? 'green' : 'yellow'}>{a.statusLabel}</Badge></div>)}</div>}
+      </SectionCard>
+    </div>
+    {actions.content}
+    <SectionCard title="Recent Blood Requests" action={<div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => nav.onNavigate('hospital-requests')}>View all requests</Button><Button icon={Plus} onClick={() => nav.onNavigate('hospital-request')}>New Request</Button></div>}>
+      {requests.loading ? <Loading /> : requests.error ? <ErrorPanel message={requests.error} onRetry={requests.refresh} /> : !items.length ? <EmptyState title="No blood requests recorded" /> : <RequestTable items={filterRequests(items).slice(0, 6)} onView={actions.view} onCancel={actions.askCancel} busy={actions.busy} />}
+    </SectionCard>
+    <div className="grid md:grid-cols-2 gap-6 mt-6">
+      <SectionCard title="Hospital Inventory" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-inventory')}>View inventory</Button>}><p className="text-sm text-gray-500">{dashboard.data?.summary.inventory.available ? dashboard.data.summary.inventory.totalAvailable+' usable, unreserved units in owned hospital batches.' : 'Hospital stock requires the approved hospital migration.'}</p></SectionCard>
+      <SectionCard title="Recent Blood Usage" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-usage')}>Blood usage</Button>}><p className="text-sm text-gray-500">{dashboard.data?.summary.usage.available ? dashboard.data.summary.usage.totalUsage+' recorded units used. Open Blood Usage for records and details.' : 'Hospital usage requires the approved hospital migration.'}</p></SectionCard>
+    </div>
+  </HospitalLayout>;
 };
 
-/* ===================================================================================
-   NEW BLOOD REQUEST — persisted through the backend
-   =================================================================================== */
-
-export const BloodRequestPage = ({ nav }) => {
-  const { user } = useAuth();
-  const [form, setForm] = useState({
-    group: 'O+', units: 2, priority: 'normal', date: '', dept: 'Emergency', notes: '',
-  });
+export const BloodRequestPage = ({ nav, initialGroup = 'O+' }) => {
+  const [form, setForm] = useState({ group: BLOOD_GROUPS.includes(initialGroup) ? initialGroup : 'O+', units: '', priority: 'normal', date: '', dept: 'Emergency', reason: '' });
   const [submitting, setSubmitting] = useState(false);
+  const lock = useRef(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
-
-  const submit = async () => {
-    setSubmitting(true);
-    setError(null);
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  const submit = async (event) => {
+    event.preventDefault();
+    if (lock.current) return;
+    const quantity = Number(form.units);
+    if (!BLOOD_GROUPS.includes(form.group) || !Number.isInteger(quantity) || quantity < 1 || quantity > 500) { setError('Choose a blood group and a whole quantity from 1 to 500 units.'); return; }
+    if (form.date && (!isValidDate(form.date) || form.date < todayStr())) { setError('Required date must be today or a valid future date.'); return; }
+    if (!URGENCIES.includes(form.priority) || form.reason.trim().length > 2000 || form.dept.length > 100) { setError('Check the urgency, department and reason.'); return; }
+    lock.current = true; setSubmitting(true); setError(null);
     try {
-      const data = await api.createBloodRequest({
-        blood_group: form.group,
-        quantity: Number(form.units),
-        urgency: form.priority,
-        required_date: form.date || undefined,
-        department: form.dept,
-        reason: form.notes.trim() || undefined,
-      });
+      const data = await service.createRequest({ blood_group: form.group, quantity, urgency: form.priority, required_date: form.date || undefined, department: form.dept || undefined, reason: form.reason.trim() || undefined });
+      if (!data?.request?.reference) throw new Error('Submission was not confirmed. Check My Blood Requests before trying again.');
       setResult(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (e) { setError(e.message || 'Could not submit the request.'); }
+    finally { lock.current = false; setSubmitting(false); }
   };
-
-  if (result) {
-    return (
-      <DashboardLayout {...nav} title="Blood Request" userName={user?.username || 'Hospital'}>
-        <Card className="max-w-lg mx-auto text-center py-10">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+  if (result) return <HospitalLayout nav={nav} title="Blood Request">
+    <Card className="max-w-xl mx-auto"><CheckCircle className="w-12 h-12 mx-auto text-green-600 mb-4" /><h2 className="text-xl font-bold text-center mb-3">Request Submitted</h2>
+      <p role="status" className="text-sm text-gray-600 mb-4">Your blood request has been saved and sent to the Blood Bank. Its current status is shown below.</p>
+      <Details entries={[[ 'Reference', result.request.reference ], ['Blood group', result.request.bloodGroup], ['Quantity', `${result.request.quantity} unit(s)`], ['Urgency', titleCase(result.request.urgency)], ['Required date', formatDate(result.request.requiredDate)], ['Status', result.request.statusLabel || titleCase(result.request.status)]]} />
+      {result.stockWarning && <div className="mt-4"><Notice>{result.stockWarning}</Notice></div>}
+      <div className="flex flex-wrap gap-3 mt-5"><Button onClick={() => nav.onNavigate('hospital-requests')}>My Blood Requests</Button><Button variant="outline" onClick={() => { setResult(null); setForm((f) => ({ ...f, units: '', date: '', reason: '' })); }}>Raise another</Button></div>
+    </Card>
+  </HospitalLayout>;
+  return <HospitalLayout nav={nav} title="New Blood Request" subtitle="Request blood units from the blood bank">
+    {error && <div className="mb-4"><ErrorPanel message={error} /></div>}
+    <form aria-label="Blood request" onSubmit={submit} className="grid lg:grid-cols-3 gap-6">
+      <fieldset disabled={submitting} className="lg:col-span-2 min-w-0"><legend className="sr-only">Blood request details</legend>
+        <SectionCard title="Request Details"><div className="space-y-5">
+          <Field label="Blood group"><select className={inputClass} value={form.group} onChange={(e) => set('group', e.target.value)} required>{BLOOD_GROUPS.map((g) => <option key={g}>{g}</option>)}</select></Field>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Field label="Quantity (units)"><input type="number" min="1" max="500" step="1" required className={inputClass} value={form.units} onChange={(e) => set('units', e.target.value)} /></Field>
+            <Field label="Required date (optional)"><input type="date" min={todayStr()} className={inputClass} value={form.date} onChange={(e) => set('date', e.target.value)} /></Field>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Request Submitted</h2>
-          <p className="text-gray-600 mb-6">
-            Request <span className="font-semibold">{result.request?.reference}</span> for{' '}
-            {result.request?.quantity} unit(s) of {result.request?.bloodGroup} has been sent to the Blood Bank
-            {result.request?.urgency === 'emergency' ? ' and flagged as an emergency' : ''}.
-          </p>
-          {result.stockWarning && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm mb-6 text-left">
-              <AlertCircle className="w-4 h-4 inline mr-1" /> {result.stockWarning}
-            </div>
-          )}
-          <div className="flex gap-3 justify-center">
-            <Button onClick={() => nav.onNavigate('hospital-dashboard')} icon={LayoutDashboard}>Back to Dashboard</Button>
-            <Button variant="outline" onClick={() => setResult(null)}>Raise another</Button>
-          </div>
-        </Card>
-      </DashboardLayout>
-    );
-  }
-
-  const minDate = todayStr();
-
-  return (
-    <DashboardLayout {...nav} title="New Blood Request" subtitle="Request blood units from the blood bank" userName={user?.username || 'Hospital'}>
-      {error && (
-        <div className="bg-brand-50 border border-red-100 text-brand-700 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" /> {error}
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        <SectionCard title="Request Details" className="lg:col-span-2">
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Blood Type</label>
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                {BLOOD_GROUPS.map((g) => (
-                  <button key={g} onClick={() => setForm({ ...form, group: g })}
-                    className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${form.group === g ? 'bg-red-600 text-white border-red-600' : 'border-gray-200 text-gray-700 hover:border-red-300'}`}>{g}</button>
-                ))}
-              </div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity (units)</label>
-                <input type="number" min="1" max="500" value={form.units}
-                  onChange={(e) => setForm({ ...form, units: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Required Date</label>
-                <input type="date" min={minDate} value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { value: 'normal', label: 'Normal' },
-                  { value: 'urgent', label: 'Urgent' },
-                  { value: 'emergency', label: 'Emergency' },
-                ].map((p) => (
-                  <button key={p.value} onClick={() => setForm({ ...form, priority: p.value })}
-                    className={`py-2.5 rounded-lg text-sm font-medium border transition-colors
-                      ${form.priority === p.value
-                        ? (p.value === 'emergency' ? 'bg-red-600 text-white border-red-600'
-                          : p.value === 'urgent' ? 'bg-amber-500 text-white border-amber-500'
-                          : 'bg-blue-600 text-white border-blue-600')
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select value={form.dept} onChange={(e) => setForm({ ...form, dept: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                {['Emergency', 'Surgery', 'ICU', 'Oncology', 'Maternity', 'General Ward'].map((d) => <option key={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reason / Notes</label>
-              <textarea rows="3" value={form.notes} maxLength={500}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="Patient condition, special handling…"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
-            </div>
-          </div>
-        </SectionCard>
-
-        <div>
-          <SectionCard title="Request Summary" className="sticky top-20">
-            <div className="flex justify-center mb-4"><BloodTypeBadge group={form.group} size="lg" /></div>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">Quantity</span><span className="font-medium">{form.units} units</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Priority</span>
-                <Badge color={urgencyColor(form.priority)}>{form.priority[0].toUpperCase() + form.priority.slice(1)}</Badge></div>
-              <div className="flex justify-between"><span className="text-gray-500">Required</span><span className="font-medium">{form.date ? formatDate(form.date) : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Department</span><span className="font-medium">{form.dept}</span></div>
-            </div>
-            {form.priority === 'emergency' && (
-              <div className="mt-4 bg-red-50 text-red-700 text-xs rounded-lg p-3 flex gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" /> Emergency requests are shown first in the Blood Bank queue.
-              </div>
-            )}
-            <Button onClick={submit} disabled={submitting || !form.units}
-              className={`w-full mt-6 ${submitting || !form.units ? 'opacity-50 cursor-not-allowed' : ''}`} icon={Send}>
-              {submitting ? 'Submitting…' : 'Submit Request'}
-            </Button>
-          </SectionCard>
-        </div>
-      </div>
-    </DashboardLayout>
-  );
+          <Field label="Urgency"><select className={inputClass} value={form.priority} onChange={(e) => set('priority', e.target.value)}>{URGENCIES.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}</select></Field>
+          <Field label="Department (optional)"><select className={inputClass} value={form.dept} onChange={(e) => set('dept', e.target.value)}><option value="">Not specified</option>{['Emergency', 'Surgery', 'ICU', 'Oncology', 'Maternity', 'General Ward'].map((d) => <option key={d}>{d}</option>)}</select></Field>
+          <Field label="Reason (optional)"><textarea rows={4} maxLength={2000} className={inputClass} value={form.reason} onChange={(e) => set('reason', e.target.value)} placeholder="Hospital-level reason; avoid patient-identifying information" /></Field>
+          <p className="text-xs text-gray-500">Additional notes are not a separate field in the current service. Include relevant non-identifying information in the reason.</p>
+        </div></SectionCard>
+      </fieldset>
+      <div><SectionCard title="Request Summary" className="lg:sticky lg:top-20">
+        <div className="flex justify-center mb-4"><BloodTypeBadge group={form.group} size="lg" /></div>
+        <Details entries={[[ 'Quantity', form.units ? `${form.units} units` : 'Enter quantity' ], ['Urgency', <Badge color={statusColor(form.priority)}>{titleCase(form.priority)}</Badge>], ['Required date', formatDate(form.date)], ['Department', form.dept || 'Not specified']]} />
+        {form.priority === 'emergency' && <div className="mt-4"><Notice>Flagged as an emergency for blood bank review. Urgency does not automatically approve or fulfil the request.</Notice></div>}
+        <Button type="submit" disabled={submitting} icon={Send} className={`w-full mt-5 ${disabledClass}`}>{submitting ? 'Submitting...' : 'Submit Request'}</Button>
+      </SectionCard></div>
+    </form>
+  </HospitalLayout>;
 };

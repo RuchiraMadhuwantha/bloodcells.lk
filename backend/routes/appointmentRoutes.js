@@ -3,6 +3,8 @@ const { param, body, query } = require('express-validator');
 const {
   bookAppointment,
   listMyAppointments,
+  getMyAppointment,
+  rescheduleMyAppointment,
   cancelMyAppointment,
   slotsForDate,
   listForHospital,
@@ -12,7 +14,7 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const allowRoles = require('../middleware/roleMiddleware');
 const { handleValidationErrors } = require('../validators/common');
-const { createAppointmentValidation } = require('../validators/domainValidators');
+const { createAppointmentValidation, rescheduleAppointmentValidation } = require('../validators/domainValidators');
 
 const router = express.Router();
 
@@ -26,6 +28,7 @@ const statusValidation = [
 /* Donor */
 router.post('/', authMiddleware, allowRoles('donor'), createAppointmentValidation, handleValidationErrors, bookAppointment);
 router.get('/mine', authMiddleware, allowRoles('donor'), listMyAppointments);
+router.put('/:id/reschedule', authMiddleware, allowRoles('donor'), idParam, rescheduleAppointmentValidation, handleValidationErrors, rescheduleMyAppointment);
 router.put('/:id/cancel', authMiddleware, allowRoles('donor'), idParam, handleValidationErrors, cancelMyAppointment);
 
 /* Availability for a centre on a given day. */
@@ -42,7 +45,10 @@ router.get(
 router.get('/hospital', authMiddleware, allowRoles('hospital'), listForHospital);
 
 /* Blood bank */
-router.get('/', authMiddleware, allowRoles('blood_bank'), listForBank);
+router.get('/', authMiddleware, allowRoles('blood_bank'),[query('date').optional().isDate({format:'YYYY-MM-DD',strictMode:true}),query('hospitalId').optional().isInt({min:1}),query('status').optional().isIn(['pending','approved','completed','cancelled']),query('search').optional().isString().isLength({max:100})],handleValidationErrors,listForBank);
 router.put('/:id/status', authMiddleware, allowRoles('blood_bank'), idParam, statusValidation, handleValidationErrors, setStatus);
+
+/* Donor: single appointment, after the fixed two-segment routes. */
+router.get('/:id', authMiddleware, allowRoles('donor'), idParam, handleValidationErrors, getMyAppointment);
 
 module.exports = router;

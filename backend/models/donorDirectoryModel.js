@@ -32,7 +32,9 @@ const mapDonorRow = (r) => {
     lastDonationDate: toDateString(r.last_donation_date),
     nextEligibleDate: nextEligible ? toDateString(nextEligible) : null,
     donationCount: Number(r.donation_count || 0),
-    eligible,
+    eligible, // Legacy name: donation interval only, never medical eligibility.
+    intervalMet: eligible,
+    medicalEligibility: 'not_verified',
     accountStatus: r.account_status,
     registeredAt: toDateString(r.created_at),
   };
@@ -42,7 +44,7 @@ const mapDonorRow = (r) => {
  * Donor directory for the blood bank. Passwords, password hashes and JWTs are
  * never selected here.
  */
-const listDonors = async ({ search, bloodGroup, district, eligible } = {}) => {
+const listDonors = async ({ search, bloodGroup, district, eligible, status } = {}) => {
   const conditions = [];
   const params = [];
 
@@ -60,6 +62,7 @@ const listDonors = async ({ search, bloodGroup, district, eligible } = {}) => {
     params.push(district);
   }
 
+  if (status) {conditions.push('u.account_status=?');params.push(status);}
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const [rows] = await pool.query(
     `SELECT
@@ -75,7 +78,7 @@ const listDonors = async ({ search, bloodGroup, district, eligible } = {}) => {
     params
   );
 
-  const donors = rows.map(mapDonorRow);
+  const donors = rows.map(mapDonorRow).map(({nic,email,phone,dateOfBirth,weight,gender,username,...safe})=>safe);
   if (eligible === true) return donors.filter((d) => d.eligible);
   if (eligible === false) return donors.filter((d) => !d.eligible);
   return donors;

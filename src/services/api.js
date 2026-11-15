@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut } from './apiClient';
+import { apiGet, apiPost, apiPut, apiDelete } from './apiClient';
 
 /* ───────────────────────── Auth ───────────────────────── */
 
@@ -13,7 +13,7 @@ export const registerHospital = (payload) =>
 
 export const me = () => apiGet('/auth/me');
 
-export const updateProfile = (payload) => apiPut('/auth/profile', payload);
+export const updateProfile = (payload) => apiPut('/auth/me', payload);
 
 export const forgotPassword = (email) =>
   apiPost('/auth/forgot-password', { email }, { auth: false });
@@ -50,7 +50,7 @@ export const getInventoryStats = () => apiGet('/inventory/stats');
 export const getInventoryForGroup = (bloodGroup) => apiGet(`/inventory/${encodeURIComponent(bloodGroup)}`);
 
 export const adjustInventory = ({ bloodGroup, amount, mode }) =>
-  apiPost('/inventory/adjust', { blood_group: bloodGroup, amount, mode });
+  apiPost('/inventory/adjust', { bloodGroup, amount, mode });
 
 export const updateInventoryThresholds = (payload) =>
   apiPut('/inventory/thresholds', {
@@ -86,6 +86,11 @@ export const bookAppointment = (payload) => apiPost('/appointments', payload);
 
 export const listMyAppointments = () => apiGet('/appointments/mine');
 
+export const getAppointment = (id) => apiGet(`/appointments/${id}`);
+
+export const rescheduleAppointment = (id, payload) =>
+  apiPut(`/appointments/${id}/reschedule`, payload);
+
 export const cancelAppointment = (id) => apiPut(`/appointments/${id}/cancel`);
 
 export const listHospitalAppointments = () => apiGet('/appointments/hospital');
@@ -116,6 +121,74 @@ export const getMyDonorSummary = () => apiGet('/donors/me/summary');
 
 /** Donor: open requests matching the donor's own blood group. */
 export const getMatchingRequests = () => apiGet('/blood-requests/matching');
+
+/* ─────────── Donation history (donor) ─────────── */
+
+export const listDonationHistory = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return apiGet(`/donors/me/donations${suffix}`);
+};
+
+export const getDonation = (id) => apiGet(`/donors/me/donations/${id}`);
+
+/* ─────────── Campaigns ─────────── */
+
+export const listCampaigns = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '' && v !== 'all') qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return apiGet(`/campaigns${suffix}`);
+};
+
+export const getCampaign = (id) => apiGet(`/campaigns/${id}`);
+
+export const registerForCampaign = (id, note) =>
+  apiPost(`/campaigns/${id}/registrations`, note ? { note } : {});
+
+export const listMyCampaignRegistrations = () =>
+  apiGet('/campaigns/registrations/mine');
+
+export const cancelCampaignRegistration = (id) =>
+  apiDelete(`/campaigns/${id}/registrations`);
+
+/* ─────────── Notifications ─────────── */
+
+export const listNotifications = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return apiGet(`/notifications${suffix}`);
+};
+
+export const getUnreadNotificationCount = () => apiGet('/notifications/unread-count');
+
+export const markNotificationRead = (id) => apiPut(`/notifications/${id}/read`);
+
+export const markAllNotificationsRead = () => apiPut('/notifications/read-all');
+
+/* ─────────── Emergency alerts ─────────── */
+
+export const listEmergencyAlerts = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, v);
+  });
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return apiGet(`/emergency-alerts${suffix}`);
+};
+
+export const getEmergencyAlert = (id) => apiGet(`/emergency-alerts/${id}`);
+
+export const respondToEmergencyAlert = (id, note) =>
+  apiPost(`/emergency-alerts/${id}/respond`, note ? { note } : {});
 
 /* ───────────────────────── Dashboards ───────────────────────── */
 

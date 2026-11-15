@@ -16,6 +16,7 @@ const list = async (req, res, next) => {
         search: req.query.search,
         bloodGroup: req.query.bloodGroup,
         district: req.query.district,
+        status: req.query.status,
         eligible: req.query.eligible === 'true' ? true : req.query.eligible === 'false' ? false : undefined,
       }),
       getDonorDirectoryStats(),
@@ -28,6 +29,8 @@ const list = async (req, res, next) => {
 };
 
 const listValidation = [
+  query('status').optional().isIn(['active','inactive','pending','suspended']),
+  query('eligible').optional().isBoolean(),
   query('search').optional().trim().isLength({ max: 100 }).withMessage('Search term is too long.'),
   query('bloodGroup').optional().custom((v) => v === 'All' || BLOOD_GROUPS.includes(v)).withMessage('Invalid blood group filter.'),
   query('district').optional().trim().isLength({ max: 100 }).withMessage('Invalid district filter.'),

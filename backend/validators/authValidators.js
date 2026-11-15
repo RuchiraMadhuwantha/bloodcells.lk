@@ -13,11 +13,11 @@ const donorRegisterValidation = [
 ];
 
 const hospitalRegisterValidation = [
-  body('username').trim().notEmpty().withMessage('Username is required.'),
-  body('email').isEmail().withMessage('Please enter a valid email address.'),
+  body('username').trim().isLength({min:1,max:50}).withMessage('Username is required.'),
+  body('email').isLength({max:100}).isEmail().withMessage('Please enter a valid email address.'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long.'),
-  body('hospital_name').trim().notEmpty().withMessage('Hospital name is required.'),
-  body('hospital_code').trim().notEmpty().withMessage('Hospital code is required.'),
+  body('hospital_name').trim().isLength({min:1,max:150}).withMessage('Hospital name is required.'),
+  body('hospital_code').trim().isLength({min:1,max:50}).withMessage('Hospital code is required.'),
   body('hospital_type').optional({ values: 'falsy' }).trim().isLength({ max: 100 }).withMessage('Hospital type is too long.'),
   body('district').optional({ values: 'falsy' }).trim().isLength({ max: 100 }).withMessage('District is too long.'),
   body('official_phone').optional({ values: 'falsy' }).trim().isLength({ min: 7, max: 20 }).withMessage('Please enter a valid official phone number.'),

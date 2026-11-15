@@ -1,4 +1,4 @@
-const { StatusCodes } = require('http');
+
 
 /**
  * Final error handler.
@@ -8,7 +8,7 @@ const { StatusCodes } = require('http');
  */
 // eslint-disable-next-line no-unused-vars
 const errorMiddleware = (err, req, res, next) => {
-  const statusCode = err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
+  const statusCode = err.statusCode || 500;
   const isKnown = Boolean(err.statusCode);
 
   if (!isKnown) {

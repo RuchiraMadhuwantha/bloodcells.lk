@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  Megaphone, Plus, Search, Filter, Eye, Pencil, Trash2, Calendar, Clock, MapPin, Users,
-  Phone, X, Image as ImageIcon, ArrowLeft, FileText, Heart, AlertCircle,
+  Calendar, Clock, MapPin, Users,
+  Phone, Image as ImageIcon, FileText, Heart, AlertCircle,
   CheckCircle,
 } from 'lucide-react';
-import { DashboardLayout } from './DashboardShell';
-import { StatCard, Badge, Button, SectionCard, Table, BloodTypeBadge } from './UIComponents';
+import { BankLayout, useBankResource, ResourceState, Notice, Filters, Field as SharedField, EmptyState, Dialog } from './bank/BankUI';
+import * as service from '../services/bankService';
+import { DISTRICTS } from '../data/districts';
+import { Button, SectionCard, Table, BloodTypeBadge } from './UIComponents';
 import CampaignCard from './CampaignCard';
-import { MOCK_CAMPAIGNS, BLOOD_GROUPS, CAMPAIGN_STATUSES, statusBadgeColor } from '../data/campaigns';
+import { BLOOD_GROUPS, CAMPAIGN_STATUSES } from '../data/campaigns';
 
-const defaultImage = MOCK_CAMPAIGNS[0].image;
+const defaultImage = '';
 
 const EMPTY_FORM = {
   name: '', title: '', shortDescription: '', detailedDescription: '',
@@ -36,10 +38,9 @@ const inputCls =
 /* ── Small shared form helpers ── */
 const Field = ({ label, required, hint, full, children }) => (
   <div className={full ? 'md:col-span-2' : ''}>
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      {label}{required && <span className="text-red-600"> *</span>}
-    </label>
-    {children}
+    <p className="text-sm font-medium text-gray-700 mb-1">{label}{required && ' *'}</p>
+    {React.isValidElement(children) && ['input', 'select', 'textarea'].includes(children.type)
+      ? React.cloneElement(children, { 'aria-label': label }) : children}
     {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
   </div>
 );
@@ -52,10 +53,12 @@ const FormSection = ({ title, children }) => (
 );
 
 /* ── Campaign Form (used for Create + Edit) ── */
-const CampaignForm = ({ initial, onSubmit, onCancel, onPreview }) => {
+const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initial });
   const [imagePreview, setImagePreview] = useState(initial && initial.image ? initial.image : null);
   const [error, setError] = useState('');
+  const [busy,setBusy]=useState(false);const saving=useRef(false);
+  const save=async status=>{if(saving.current)return;saving.current=true;setBusy(true);setError('');try{await service.saveCampaign({...form,status:status||form.status,imageUrl:form.image?.startsWith('http')?form.image:undefined},initial?.id);onSaved();}catch(e){setError(e.message);}finally{saving.current=false;setBusy(false);}};
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const toggleGroup = (g) =>
@@ -71,14 +74,15 @@ const CampaignForm = ({ initial, onSubmit, onCancel, onPreview }) => {
     if (file) setImagePreview(URL.createObjectURL(file));
   };
 
-  const submit = (statusOverride) => {
-    if (!form.name.trim()) {
-      setError('Campaign Name is required.');
-      return;
+  useEffect(() => () => { if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
+  const preview = () => {
+    if (!form.name.trim() || !form.shortDescription.trim() || !form.date || !form.startTime || !form.endTime || !form.venueName.trim() || !form.district.trim() || !form.organizerName.trim()) {
+      setError('Complete the campaign name, description, date, times, venue, district and organizer before previewing.'); return;
     }
-    const data = { ...form, image: imagePreview || form.image };
-    if (statusOverride) data.status = statusOverride;
-    onSubmit(data);
+    if (form.endTime <= form.startTime || form.targetDonors < 0 || !Number.isInteger(Number(form.targetDonors))) {
+      setError('End time must follow start time, and the donor target must be a nonnegative whole number.'); return;
+    }
+    setError(''); onPreview({ ...form, image: imagePreview || form.image });
   };
 
   return (
@@ -224,9 +228,9 @@ const CampaignForm = ({ initial, onSubmit, onCancel, onPreview }) => {
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button variant="outline" onClick={() => submit('Draft')}>Save as Draft</Button>
-        <Button variant="outline" onClick={() => onPreview({ ...form, image: imagePreview || form.image })}>Preview Campaign</Button>
-        <Button onClick={() => submit(null)}>{initial ? 'Save Changes' : 'Create Campaign'}</Button>
+        <Button variant="outline" disabled={busy||(initial&&initial.status!=='Draft')} onClick={()=>save('Draft')}>Save as Draft</Button>
+        <Button variant="outline" onClick={preview}>Preview Campaign</Button>
+        <Button disabled={busy} onClick={()=>save()}>{busy?'Saving...':'Save selected status'}</Button>
       </div>
     </div>
   );
@@ -234,16 +238,9 @@ const CampaignForm = ({ initial, onSubmit, onCancel, onPreview }) => {
 
 /* ── Donor-view Preview Modal ── */
 const PreviewModal = ({ campaign, onClose }) => (
-  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-    <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-        <div className="flex items-center gap-2">
-          <span className="bg-red-600 text-white text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full">Donor View Preview</span>
-          <span className="text-xs text-gray-400">This is a frontend preview only.</span>
-        </div>
-        <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
-      </div>
-      <div className="p-6">
+  <Dialog title="Unsaved donor-view preview" onClose={onClose}>
+    <Notice>This is a frontend preview only. It is not published, registered or saved.</Notice>
+
         <CampaignCard campaign={campaign} />
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <PreviewRow icon={Calendar} label="Date" value={formatDate(campaign.date)} />
@@ -260,7 +257,7 @@ const PreviewModal = ({ campaign, onClose }) => (
         <div className="mt-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Needed Blood Groups</p>
           <div className="flex flex-wrap gap-2">
-            {campaign.neededBloodGroups.map((g) => <BloodTypeBadge key={g} group={g} size="sm" />)}
+            {(campaign.neededBloodGroups || []).map((g) => <BloodTypeBadge key={g} group={g} size="sm" />)}
           </div>
         </div>
         {campaign.goal && (
@@ -275,10 +272,10 @@ const PreviewModal = ({ campaign, onClose }) => (
             <p className="text-sm text-gray-700 leading-relaxed">{campaign.detailedDescription}</p>
           </div>
         )}
-      </div>
-    </div>
-  </div>
+
+  </Dialog>
 );
+
 
 const PreviewRow = ({ icon: Icon, label, value }) => (
   <div className="border border-gray-100 rounded-lg p-3">
@@ -289,327 +286,36 @@ const PreviewRow = ({ icon: Icon, label, value }) => (
   </div>
 );
 
-/* ── Small UI states ── */
-const EmptyState = ({ onCreate }) => (
-  <div className="text-center py-16">
-    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-      <Megaphone className="w-8 h-8 text-red-500" />
-    </div>
-    <h3 className="text-lg font-bold text-gray-800">No campaigns found.</h3>
-    <p className="text-gray-500 mt-1 mb-5">Create your first blood donation campaign.</p>
-    <Button icon={Plus} onClick={onCreate}>Create Campaign</Button>
-  </div>
-);
-
-const LoadingSkeleton = () => (
-  <div className="space-y-4">
-    {[0, 1, 2].map((i) => (
-      <div key={i} className="flex items-center gap-4 border border-gray-100 rounded-lg p-4 animate-pulse">
-        <div className="w-16 h-16 bg-gray-200 rounded-lg" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-gray-200 rounded w-1/3" />
-          <div className="h-3 bg-gray-100 rounded w-1/2" />
-        </div>
-        <div className="h-6 w-20 bg-gray-200 rounded-full" />
-      </div>
-    ))}
-  </div>
-);
-
-/* ── Delete confirmation ── */
-const DeleteModal = ({ campaign, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onCancel}>
-    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-          <Trash2 className="w-5 h-5 text-red-600" />
-        </div>
-        <h3 className="text-lg font-bold text-gray-800">Delete campaign?</h3>
-      </div>
-      <p className="text-sm text-gray-600 mb-6">
-        Are you sure you want to delete <strong>{campaign.name}</strong>? This action is a frontend demo and can be wired to an API later.
-      </p>
-      <div className="flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        <Button className="flex-1 bg-red-600 hover:bg-red-700" onClick={onConfirm}>Delete</Button>
-      </div>
-    </div>
-  </div>
-);
-
-/* ── Main Campaign Management ── */
+const Participants=({id,onClose})=>{
+ const load=useCallback(()=>service.getParticipants(id),[id]);const resource=useBankResource(load);
+ return <Dialog title="Campaign participants" onClose={onClose}><ResourceState resource={resource} emptyTitle="No campaign registrations"><Table columns={['Donor','Group','District','Registration status']}>{(resource.data?.items||[]).map(r=><tr key={r.id}><td className="p-3">{r.fullName}</td><td className="p-3">{r.bloodGroup}</td><td className="p-3">{r.district}</td><td className="p-3">{r.status}</td></tr>)}</Table></ResourceState></Dialog>;
+};
 export const CampaignManagement = ({ nav }) => {
-  const [campaigns, setCampaigns] = useState(MOCK_CAMPAIGNS);
-  const [view, setView] = useState('list'); // list | create | detail | edit
+  const resource = useBankResource(service.getCampaigns);
+  const [view, setView] = useState('list');
+  const [participants,setParticipants]=useState(null);
   const [selected, setSelected] = useState(null);
   const [previewing, setPreviewing] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [loading, setLoading] = useState(true);
-
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [districtFilter, setDistrictFilter] = useState('All');
-  const [sort, setSort] = useState('Newest');
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500); // simulated frontend load
-    return () => clearTimeout(t);
-  }, []);
-
-  const goList = () => { setView('list'); setSelected(null); };
-  const openCreate = () => { setSelected(null); setView('create'); };
-  const openDetail = (c) => { setSelected(c); setView('detail'); };
-  const openEdit = (c) => { setSelected(c); setView('edit'); };
-
-  const handleCreate = (data) => {
-    const newC = { ...data, id: 'C-' + String(Date.now()).slice(-6), participants: 0 };
-    setCampaigns((prev) => [newC, ...prev]);
-    setSelected(newC);
-    setView('detail');
-  };
-  const handleUpdate = (data) => {
-    let updated;
-    setCampaigns((prev) => prev.map((c) => {
-      if (c.id !== data.id) return c;
-      updated = { ...c, ...data };
-      return updated;
-    }));
-    setSelected(updated);
-    setView('detail');
-  };
-  const handleDelete = (c) => {
-    setCampaigns((prev) => prev.filter((x) => x.id !== c.id));
-    setDeleteTarget(null);
-    goList();
-  };
-
-  const districts = ['All', ...Array.from(new Set(campaigns.map((c) => c.district)))];
-  const filtered = campaigns
-    .filter((c) => statusFilter === 'All' || c.status === statusFilter)
-    .filter((c) => districtFilter === 'All' || c.district === districtFilter)
-    .filter((c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.title || '').toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => {
-      if (sort === 'Oldest' || sort === 'Campaign Date') return new Date(a.date) - new Date(b.date);
-      return new Date(b.date) - new Date(a.date);
-    });
-
-  const summary = {
-    total: campaigns.length,
-    upcoming: campaigns.filter((c) => c.status === 'Upcoming').length,
-    active: campaigns.filter((c) => c.status === 'Active').length,
-    completed: campaigns.filter((c) => c.status === 'Completed').length,
-  };
-
-  const titleMap = {
-    list: 'Campaign Management',
-    create: 'Create New Campaign',
-    detail: selected ? selected.name : 'Campaign Details',
-    edit: 'Edit Campaign',
-  };
-  const subtitleMap = {
-    list: 'Create, manage, and monitor blood donation campaigns.',
-    create: 'Fill in the campaign details below.',
-    detail: selected ? `Campaign ID: ${selected.id}` : '',
-    edit: selected ? `Campaign ID: ${selected.id}` : '',
-  };
-
-  const renderContent = () => {
-    if (view === 'create')
-      return <CampaignForm initial={null} onSubmit={handleCreate} onCancel={goList} onPreview={(d) => setPreviewing(d)} />;
-
-    if (view === 'edit' && selected)
-      return (
-        <div>
-          <button onClick={goList} className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 mb-4">
-            <ArrowLeft className="w-4 h-4" /> Back to campaigns
-          </button>
-          <CampaignForm initial={selected} onSubmit={handleUpdate} onCancel={goList} onPreview={(d) => setPreviewing(d)} />
-        </div>
-      );
-
-    if (view === 'detail' && selected) {
-      const c = selected;
-      return (
-        <div>
-          <button onClick={goList} className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 mb-4">
-            <ArrowLeft className="w-4 h-4" /> Back to campaigns
-          </button>
-
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div className="relative h-48 md:h-60">
-              <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
-              <div className="absolute top-4 left-4"><Badge color={statusBadgeColor(c.status)}>{c.status}</Badge></div>
-            </div>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold text-gray-900">{c.name}</h2>
-              {c.title && <p className="text-gray-500 mt-1">{c.title}</p>}
-              <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-sm text-gray-600">
-                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-red-500" /> {formatDate(c.date)}</span>
-                <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-red-500" /> {c.startTime} – {c.endTime}</span>
-                <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-red-500" /> {c.venueName}, {c.city}, {c.district}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6 mb-6">
-            <SectionCard title="About the Campaign">
-              <p className="text-sm text-gray-700 leading-relaxed">{c.detailedDescription}</p>
-              {c.goal && <p className="text-sm text-gray-600 mt-3"><strong>Goal:</strong> {c.goal}</p>}
-            </SectionCard>
-            <SectionCard title="Blood Requirements">
-              <div className="flex flex-wrap gap-2 mb-4">
-                {c.neededBloodGroups.map((g) => <BloodTypeBadge key={g} group={g} size="sm" />)}
-              </div>
-              <p className="text-sm text-gray-600">Target Donors: <strong>{c.targetDonors}</strong></p>
-              <p className="text-sm text-gray-600">Participation: <strong>{c.participants}</strong></p>
-            </SectionCard>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6 mb-6">
-            <SectionCard title="Donor Information">
-              <DetailLine label="Who Can Participate" value={c.whoCanParticipate} />
-              <DetailLine label="Eligibility" value={c.eligibilityInfo} />
-              <DetailLine label="What to Bring" value={c.whatToBring} />
-              <DetailLine label="Preparation" value={c.preparationInstructions} />
-              <DetailLine label="Special Instructions" value={c.specialInstructions} />
-            </SectionCard>
-            <SectionCard title="Contact Information">
-              <DetailLine label="Organizer" value={c.organizerName} />
-              <DetailLine label="Contact Person" value={c.contactPerson} />
-              <DetailLine label="Contact Number" value={c.contactNumber} />
-              <DetailLine label="Contact Email" value={c.contactEmail} />
-              <DetailLine label="Emergency Contact" value={c.emergencyContact} />
-            </SectionCard>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button icon={Pencil} onClick={() => openEdit(c)}>Edit Campaign</Button>
-            <Button variant="outline" icon={Eye} onClick={() => setPreviewing(c)}>Preview</Button>
-          </div>
-        </div>
-      );
-    }
-
-    // LIST VIEW
-    return (
-      <>
-        {/* Honest labelling: campaigns are not persisted by the backend yet. */}
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-4 mb-6 flex items-start gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold">Demo data — not stored on the server</p>
-            <p className="mt-1">
-              Campaigns are held in browser memory only. Creating or editing one here will not be visible
-              to donors, hospitals or other Blood Bank staff, and it will be lost on refresh.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard icon={Megaphone} value={summary.total} label="Total Campaigns" accent="red" />
-          <StatCard icon={Calendar} value={summary.upcoming} label="Upcoming Campaigns" accent="blue" />
-          <StatCard icon={CheckCircle} value={summary.active} label="Active Campaigns" accent="green" />
-          <StatCard icon={FileText} value={summary.completed} label="Completed Campaigns" accent="amber" />
-        </div>
-
-        <SectionCard
-          title="Campaigns"
-          action={<Button icon={Plus} onClick={openCreate}>Create Campaign</Button>}
-        >
-          <div className="flex flex-col lg:flex-row gap-3 mb-5">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search campaigns…"
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
-                <option>All</option>
-                {CAMPAIGN_STATUSES.map((s) => <option key={s}>{s}</option>)}
-              </select>
-              <select value={districtFilter} onChange={(e) => setDistrictFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
-                {districts.map((d) => <option key={d}>{d}</option>)}
-              </select>
-              <select value={sort} onChange={(e) => setSort(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
-                <option>Newest</option>
-                <option>Oldest</option>
-                <option>Campaign Date</option>
-              </select>
-            </div>
-          </div>
-
-          {loading ? (
-            <LoadingSkeleton />
-          ) : filtered.length === 0 ? (
-            <EmptyState onCreate={openCreate} />
-          ) : (
-            <Table columns={['Campaign', 'Date', 'District', 'Status', 'Participation', 'Actions']}>
-              {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <img src={c.image} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{c.name}</p>
-                        <p className="text-xs text-gray-400">{c.id}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(c.date)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{c.district}</td>
-                  <td className="px-4 py-3"><Badge color={statusBadgeColor(c.status)}>{c.status}</Badge></td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{c.participants}/{c.targetDonors}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => openDetail(c)} title="View" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => openEdit(c)} title="Edit" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => setPreviewing(c)} title="Preview" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><ImageIcon className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteTarget(c)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </SectionCard>
-      </>
-    );
-  };
-
-  return (
-    <DashboardLayout
-      {...nav}
-      title={titleMap[view]}
-      subtitle={subtitleMap[view]}
-      userName="Ruwan Jayasuriya"
-      role="Bank Manager"
-    >
-      {renderContent()}
-
-      {previewing && <PreviewModal campaign={previewing} onClose={() => setPreviewing(null)} />}
-      {deleteTarget && (
-        <DeleteModal campaign={deleteTarget} onConfirm={() => handleDelete(deleteTarget)} onCancel={() => setDeleteTarget(null)} />
-      )}
-    </DashboardLayout>
-  );
+  const [status, setStatus] = useState('');
+  const [district, setDistrict] = useState('');
+  const records = (resource.data?.items || []).filter((c) => (!status || c.status === status) && (!district || c.district === district) && c.name.toLowerCase().includes(search.trim().toLowerCase()));
+  return <BankLayout nav={nav} title={view === 'list' ? 'Campaign Management' : 'Campaign Form Preview'} subtitle="Campaign planning and donor-facing preview">
+    <Notice>Campaigns use the same saved source as donor participation. Only the creator may edit or publish a campaign. Preview changes are unsaved until confirmed with Save.</Notice>
+    {view !== 'list' ? <CampaignForm initial={selected} onCancel={() => setView('list')} onPreview={setPreviewing} onSaved={()=>{setView('list');resource.refresh();}} /> :
+      <SectionCard title="Campaigns" action={<Button onClick={() => { setSelected(null); setView('create'); }}>Create campaign</Button>}>
+        <Filters>
+          <SharedField label="Search campaigns"><input className={inputCls} value={search} onChange={(e) => setSearch(e.target.value)} /></SharedField>
+          <SharedField label="Campaign district"><select className={inputCls} value={district} onChange={(e) => setDistrict(e.target.value)}><option value="">All districts</option>{DISTRICTS.map((d) => <option key={d}>{d}</option>)}</select></SharedField>
+          <SharedField label="Campaign status"><select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All recorded statuses</option>{CAMPAIGN_STATUSES.map((s) => <option key={s}>{s}</option>)}</select></SharedField>
+        </Filters>
+        <ResourceState resource={resource} emptyTitle="No campaign records returned">
+          {!records.length ? <EmptyState title="No campaigns match your filters" /> : <Table columns={['Campaign', 'Date / Time', 'Location / District', 'Organizer', 'Status', 'Participants', 'Actions']}>{records.map((c) => <tr key={c.id}><td className="p-3 text-sm">{c.name}<p className="text-xs text-gray-500">{c.shortDescription}</p></td><td className="p-3 text-sm">{formatDate(c.date)}<span className="block">{c.startTime} - {c.endTime}</span></td><td className="p-3 text-sm">{c.venueName} / {c.district}</td><td className="p-3 text-sm">{c.organizerName}</td><td className="p-3 text-sm">{c.status}</td><td className="p-3 text-sm">{c.participants ?? 'Not supplied'}</td><td className="p-3"><Button variant="ghost" onClick={() => setPreviewing(c)}>Details</Button><Button variant="ghost" onClick={()=>setParticipants(c.id)}>Participants</Button><Button variant="ghost" onClick={() => { setSelected(c); setView('edit'); }}>Edit campaign</Button></td></tr>)}</Table>}
+        </ResourceState>
+        <div className="flex flex-wrap gap-3 mt-4"><span className="text-sm text-gray-500">Edit a campaign to publish, close or cancel it using its saved status.</span></div>
+      </SectionCard>}
+    {participants&&<Participants id={participants} onClose={()=>setParticipants(null)}/>}
+    {previewing && <PreviewModal campaign={previewing} onClose={() => setPreviewing(null)} />}
+  </BankLayout>;
 };
-
-const DetailLine = ({ label, value }) => (
-  <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
-    <span className="w-36 text-xs font-semibold text-gray-500 uppercase tracking-wide pt-0.5 flex-shrink-0">{label}</span>
-    <span className="text-sm text-gray-700">{value || '—'}</span>
-  </div>
-);
-
 export default CampaignManagement;

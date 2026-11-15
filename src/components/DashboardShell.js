@@ -7,7 +7,7 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
     {open && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={onClose} />}
     <aside
       className={`fixed md:static z-40 inset-y-0 left-0 w-64 bg-white border-r border-gray-100 flex flex-col transition-transform
-        ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 ${items.some(item => item.group) ? 'md:sticky md:top-0 md:h-screen md:shrink-0' : ''}`}
     >
       {/* Brand */}
       <div className="h-16 flex items-center gap-2 px-5 border-b border-gray-100">
@@ -22,9 +22,11 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {items.map(item => {
+        {items.map((item, index) => {
           const active = current === item.route;
           return (
+            <React.Fragment key={item.route}>
+              {item.group && item.group !== items[index - 1]?.group && <p className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase">{item.group}</p>}
             <button
               key={item.route}
               onClick={() => { onNavigate(item.route); onClose?.(); }}
@@ -39,6 +41,7 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
                 </span>
               )}
             </button>
+            </React.Fragment>
           );
         })}
       </nav>
@@ -54,7 +57,7 @@ export const Sidebar = ({ portal, items, current, onNavigate, open, onClose }) =
 );
 
 // Notifications are supplied by the caller and must come from real data.
-export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu, notifications = [] }) => {
+export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu, onNotifications, notifications = [] }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   return (
     <header className="h-16 bg-brand-600 text-white shadow-md flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">
@@ -68,7 +71,8 @@ export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu, noti
       <div className="flex items-center gap-2 sm:gap-4">
         <div className="relative">
           <button
-            onClick={() => setNotifOpen(o => !o)}
+            onClick={() => onNotifications ? onNotifications() : setNotifOpen(o => !o)}
+            aria-label="Notifications"
             title="Notifications"
             className="relative p-2 hover:bg-brand-700 rounded-lg"
           >
@@ -109,13 +113,13 @@ export const Topbar = ({ title, subtitle, userName, role, onLogout, onMenu, noti
   );
 };
 
-export const DashboardLayout = ({ portal, items, current, onNavigate, title, subtitle, userName, role, onLogout, notifications, children }) => {
+export const DashboardLayout = ({ portal, items, current, onNavigate, title, subtitle, userName, role, onLogout, onNotifications, notifications, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar portal={portal} items={items} current={current} onNavigate={onNavigate} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title={title} subtitle={subtitle} userName={userName} role={role} onLogout={onLogout} onMenu={() => setSidebarOpen(true)} notifications={notifications} />
+        <Topbar title={title} subtitle={subtitle} userName={userName} role={role} onLogout={onLogout} onMenu={() => setSidebarOpen(true)} notifications={notifications} onNotifications={onNotifications} />
         <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">{children}</main>
       </div>
     </div>

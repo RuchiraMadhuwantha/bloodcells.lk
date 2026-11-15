@@ -1,5 +1,4 @@
 const pool = require('../config/db');
-const { getInventory, getInventoryStats } = require('../models/inventoryModel');
 const { getHospitalStats } = require('../models/hospitalModel');
 const { getRequestCountByStatus } = require('../models/bloodRequestModel');
 const { getDonorDirectoryStats } = require('../models/donorDirectoryModel');
@@ -61,10 +60,18 @@ const getTrends = async () => {
  * Everything the Blood Bank dashboard shows, read straight from MySQL.
  * Nothing on that screen is hardcoded.
  */
-const getBloodBankStats = async () => {
-  const [inventory, inventoryStats, hospitalStats, requestCounts, donorStats, trends] = await Promise.all([
-    getInventory(),
-    getInventoryStats(),
+const verifiedInventory = async actor => {
+  try {
+    const regional=await require('../models/bankInventoryModel').regional(actor);
+    const map=new Map();
+    for(const row of regional){const prior=map.get(row.bloodGroup)||{bloodGroup:row.bloodGroup,availableUnits:0};prior.availableUnits+=row.availableUnits;map.set(row.bloodGroup,prior);}
+    const groups=[...map.values()];
+    return {available:true,totalUnits:groups.reduce((n,r)=>n+r.availableUnits,0),availableUnits:groups.reduce((n,r)=>n+r.availableUnits,0),lowStockGroups:regional.filter(r=>r.level==='Low').length,criticalStockGroups:regional.filter(r=>r.level==='Critical').length,byBloodGroup:groups,regional};
+  }catch(e){if(['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code))return {available:false,totalUnits:null,availableUnits:null,lowStockGroups:null,criticalStockGroups:null,byBloodGroup:[],regional:[],reason:'Pending approved bank migrations'};throw e;}
+};
+const getBloodBankStats = async (actor) => {
+  const [inventory, hospitalStats, requestCounts, donorStats, trends] = await Promise.all([
+    verifiedInventory(actor),
     getHospitalStats(),
     getRequestCountByStatus(),
     getDonorDirectoryStats(),
@@ -78,7 +85,7 @@ const getBloodBankStats = async () => {
        JOIN donors d ON a.donor_id = d.donor_id
        JOIN hospitals h ON a.hospital_id = h.hospital_id
        JOIN users hu ON h.user_id = hu.user_id
-      WHERE a.appointment_date >= CURDATE() AND a.status IN ('pending', 'approved')
+      WHERE a.appointment_date >= CURDATE() AND a.status IN ('pending', 'approved') AND hu.account_status='active'
       ORDER BY a.appointment_date ASC, a.time_slot ASC
       LIMIT 5`
   );
@@ -99,16 +106,14 @@ const getBloodBankStats = async () => {
      FROM users`
   );
 
-  const lowStockGroups = inventory.filter((i) => i.isLow);
+  const [campaignCounts]=await pool.query("SELECT COUNT(*) AS active FROM campaigns WHERE status IN ('Upcoming','Active') AND campaign_date>=CURDATE()");
+  let operations={activeCampaigns:Number(campaignCounts[0]?.active||0),pendingTransfers:null,expiringUnits:null};
+  if(inventory.available){const [batches,transfers]=await Promise.all([require('../models/bankInventoryModel').batches(actor),require('../models/bankTransferModel').list(actor)]);operations={...operations,pendingTransfers:transfers.filter(r=>['requested','approved','dispatched'].includes(r.status)).length,expiringUnits:batches.filter(r=>r.expiryStatus==='expiring').reduce((n,r)=>n+r.quantity,0)};}
+  const lowStockGroups = inventory.regional.filter((i) => i.level!=='Available');
 
   return {
-    inventory: {
-      totalUnits: inventoryStats.totalUnits,
-      availableUnits: inventoryStats.availableUnits,
-      lowStockGroups: inventoryStats.lowStockGroups,
-      criticalStockGroups: inventoryStats.criticalStockGroups,
-      byBloodGroup: inventory,
-    },
+    inventory,
+    operations,
     hospitals: hospitalStats,
     requests: {
       ...requestCounts,
@@ -145,7 +150,7 @@ const getBloodBankStats = async () => {
 
 const stats = async (req, res, next) => {
   try {
-    const data = await getBloodBankStats();
+    const data = await getBloodBankStats(req.user.user_id);
     res.json({ success: true, stats: data });
   } catch (error) {
     next(toFriendlyError(error, 'Could not load blood bank statistics.'));

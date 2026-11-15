@@ -1,34 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Building2, Search, Filter, Eye, CheckCircle, XCircle, X, FileText, Check, AlertCircle, Loader2,
+  Building2, Search, Filter, Eye, CheckCircle, XCircle, FileText, Check, AlertCircle, Loader2,
 } from 'lucide-react';
 import { DashboardLayout } from './DashboardShell';
 import { StatCard, Badge, Button, SectionCard, Table } from './UIComponents';
 import { useHospitals, HOSPITAL_TYPES, hospitalStatusBadge } from '../data/hospitals';
 import { DISTRICTS } from '../data/districts';
+import { useAuth } from '../context/AuthContext';
+import { Dialog, useBankPermissions } from './bank/BankUI';
 
 /* ── Reusable modal shell ── */
-const Modal = ({ title, onClose, children, maxWidth = 'max-w-2xl' }) => (
-  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-    <div className={`bg-white rounded-xl shadow-xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-        <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-        <button onClick={onClose} aria-label="Close"><X className="w-5 h-5 text-gray-400" /></button>
-      </div>
-      <div className="p-6">{children}</div>
-    </div>
-  </div>
+const Modal = ({ title, onClose, busy = false, children }) => (
+  <Dialog title={title} onClose={onClose} busy={busy}>{children}</Dialog>
 );
 
 const DetailRow = ({ label, value }) => (
-  <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
-    <span className="w-44 text-xs font-semibold text-gray-500 uppercase tracking-wide pt-0.5 flex-shrink-0">{label}</span>
+  <div className="flex flex-col sm:flex-row gap-1 sm:gap-3 py-2 border-b border-gray-50 last:border-0">
+    <span className="sm:w-44 text-xs font-semibold text-gray-500 uppercase tracking-wide pt-0.5 flex-shrink-0">{label}</span>
     <span className="text-sm text-gray-700 break-words">{value || '—'}</span>
   </div>
 );
 
 /* ── Hospital details panel ── */
-const HospitalDetails = ({ hospital, onClose, onApprove, onReject, onReviewAgain }) => {
+const HospitalDetails = ({ hospital, onClose, onApprove, onReject, onReviewAgain, permitted }) => {
   const h = hospital;
   const isPending = h.status === 'Pending';
   const isActive = h.status === 'Active';
@@ -86,15 +80,15 @@ const HospitalDetails = ({ hospital, onClose, onApprove, onReject, onReviewAgain
         <div className="flex flex-wrap gap-3 pt-2">
           {isPending && (
             <>
-              <Button icon={CheckCircle} onClick={() => onApprove(h)}>Approve Hospital</Button>
-              <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" icon={XCircle} onClick={() => onReject(h)}>Reject Application</Button>
+              <Button disabled={!permitted} icon={CheckCircle} onClick={() => onApprove(h)}>Approve Hospital</Button>
+              <Button disabled={!permitted} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" icon={XCircle} onClick={() => onReject(h)}>Reject Application</Button>
             </>
           )}
           {isActive && (
             <Button variant="outline" onClick={() => onClose()}>Close</Button>
           )}
           {isRejected && (
-            <Button icon={CheckCircle} onClick={() => onReviewAgain(h)}>Review Again</Button>
+            <Button disabled={!permitted} icon={CheckCircle} onClick={() => onReviewAgain(h)}>Review Again</Button>
           )}
         </div>
       </div>
@@ -111,6 +105,11 @@ const Section = ({ title, children }) => (
 
 /* ── Main page ── */
 export const HospitalManagement = ({ nav }) => {
+  const { user } = useAuth();
+  const permitted = useBankPermissions();
+  const decisionLock = useRef(false);
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const [toastError, setToastError] = useState(false);
   const { hospitals, pendingCount, loading, error, approve, reject, reviewAgain, refresh } = useHospitals();
 
   const [tab, setTab] = useState('all');
@@ -174,20 +173,28 @@ export const HospitalManagement = ({ nav }) => {
   };
 
   const confirmApprove = async () => {
+    if (!permitted || decisionLock.current) return;
+    decisionLock.current = true;
+    setToastError(false);
     setActionBusy(true);
     try {
       await approve(approveTarget.id);
       setApproveTarget(null);
       setToast('Hospital registration approved successfully.');
     } catch (e) {
+      setToastError(true);
       setToast(e.message || 'Failed to approve hospital.');
       setApproveTarget(null);
     } finally {
+      decisionLock.current = false;
       setActionBusy(false);
     }
   };
   const confirmReject = async () => {
     if (!rejectReason.trim()) return;
+    if (!permitted || decisionLock.current) return;
+    decisionLock.current = true;
+    setToastError(false);
     setActionBusy(true);
     try {
       // The reason is persisted so the hospital can read exactly why it was rejected.
@@ -196,21 +203,31 @@ export const HospitalManagement = ({ nav }) => {
       setRejectReason('');
       setToast('Hospital registration has been rejected.');
     } catch (e) {
+      setToastError(true);
       setToast(e.message || 'Failed to reject hospital.');
     } finally {
+      decisionLock.current = false;
       setActionBusy(false);
     }
   };
-  const doReviewAgain = async (h) => {
+  const doReviewAgain = (h) => { setDetails(null); setReviewTarget(h); };
+  const confirmReviewAgain = async () => {
+    const h = reviewTarget;
+    if (!permitted || decisionLock.current) return;
+    decisionLock.current = true;
+    setToastError(false);
     setActionBusy(true);
     try {
       await reviewAgain(h.id);
       setDetails(null);
+      setReviewTarget(null);
       setToast('Hospital moved back to pending for review.');
     } catch (e) {
+      setToastError(true);
       setToast(e.message || 'Failed to move hospital to pending.');
       setDetails(null);
     } finally {
+      decisionLock.current = false;
       setActionBusy(false);
     }
   };
@@ -220,8 +237,8 @@ export const HospitalManagement = ({ nav }) => {
       return (
         <>
           <button onClick={() => setDetails(h)} title="View Details" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Eye className="w-4 h-4" /></button>
-          <button onClick={() => setApproveTarget(h)} title="Approve" className="p-1.5 text-gray-400 hover:text-green-600 rounded"><CheckCircle className="w-4 h-4" /></button>
-          <button onClick={() => { setRejectTarget(h); setRejectReason(''); }} title="Reject" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><XCircle className="w-4 h-4" /></button>
+          <button disabled={!permitted || actionBusy} onClick={() => setApproveTarget(h)} title="Approve" className="p-1.5 text-gray-400 hover:text-green-600 rounded"><CheckCircle className="w-4 h-4" /></button>
+          <button disabled={!permitted || actionBusy} onClick={() => { setRejectTarget(h); setRejectReason(''); }} title="Reject" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><XCircle className="w-4 h-4" /></button>
         </>
       );
     if (h.status === 'Active')
@@ -234,7 +251,7 @@ export const HospitalManagement = ({ nav }) => {
     return (
       <>
         <button onClick={() => setDetails(h)} title="View Details" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Eye className="w-4 h-4" /></button>
-        <button onClick={() => doReviewAgain(h)} title="Review Again" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><CheckCircle className="w-4 h-4" /></button>
+        <button disabled={!permitted || actionBusy} onClick={() => doReviewAgain(h)} title="Review Again" className="p-1.5 text-gray-400 hover:text-red-600 rounded"><CheckCircle className="w-4 h-4" /></button>
       </>
     );
   };
@@ -250,14 +267,14 @@ export const HospitalManagement = ({ nav }) => {
       {...nav}
       title="Hospital Management"
       subtitle="Review hospital registrations, manage approval requests, and view registered hospitals."
-      userName="Ruwan Jayasuriya"
+      userName={user?.username || 'Blood Bank'}
       role="Bank Manager"
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Building2} value={summary.total} label="Total Hospitals" accent="red" />
-        <StatCard icon={AlertCircle} value={summary.pending} label="Pending Approvals" accent="amber" />
-        <StatCard icon={CheckCircle} value={summary.active} label="Active Hospitals" accent="green" />
-        <StatCard icon={XCircle} value={summary.rejected} label="Rejected / Inactive" accent="blue" />
+        <StatCard icon={Building2} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.total} label="Total Hospitals" accent="red" />
+        <StatCard icon={AlertCircle} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.pending} label="Pending Approvals" accent="amber" />
+        <StatCard icon={CheckCircle} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.active} label="Active Hospitals" accent="green" />
+        <StatCard icon={XCircle} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.rejected} label="Rejected / Inactive" accent="blue" />
       </div>
 
       {/* Tabs */}
@@ -283,7 +300,7 @@ export const HospitalManagement = ({ nav }) => {
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              value={search}
+              aria-label="Search hospitals" value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search hospitals by name, code, or district..."
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
@@ -291,25 +308,25 @@ export const HospitalManagement = ({ nav }) => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Filter className="w-4 h-4 text-gray-400" />
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            <select aria-label="Hospital account status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
               <option>All</option>
               <option>Pending</option>
               <option>Active</option>
               <option>Rejected</option>
-              <option>Inactive</option>
+              <option>Suspended</option>
             </select>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+            <select aria-label="Hospital type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
               <option>All</option>
               {HOSPITAL_TYPES.map((t) => <option key={t}>{t}</option>)}
             </select>
-            <select value={districtFilter} onChange={(e) => setDistrictFilter(e.target.value)}
+            <select aria-label="Hospital district" value={districtFilter} onChange={(e) => setDistrictFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
               <option>All</option>
               {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
             </select>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}
+            <select aria-label="Hospital sort order" value={sort} onChange={(e) => setSort(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
               <option>Newest Registration</option>
               <option>Oldest Registration</option>
@@ -332,7 +349,7 @@ export const HospitalManagement = ({ nav }) => {
           <div className="py-16 text-center">
             <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-base font-medium text-gray-600 mb-1">{emptyMessage}</p>
-            <p className="text-sm text-gray-400">Hospitals that register will appear here once approved by the blood bank.</p>
+            <p className="text-sm text-gray-400">Hospital registrations appear here, including pending applications.</p>
           </div>
         ) : (
           <Table columns={['Hospital', 'Code', 'Type', 'District', 'Status', 'Actions']}>
@@ -370,18 +387,19 @@ export const HospitalManagement = ({ nav }) => {
           onApprove={(h) => { setDetails(null); setApproveTarget(h); }}
           onReject={(h) => { setDetails(null); setRejectTarget(h); setRejectReason(''); }}
           onReviewAgain={doReviewAgain}
+          permitted={permitted && !actionBusy}
         />
       )}
 
       {/* Approve confirmation */}
       {approveTarget && (
-        <Modal title="Approve Hospital Registration?" onClose={() => setApproveTarget(null)} maxWidth="max-w-md">
+        <Modal busy={actionBusy} title="Approve Hospital Registration?" onClose={() => setApproveTarget(null)} maxWidth="max-w-md">
           <p className="text-sm text-gray-600 mb-6">
             Are you sure you want to approve this hospital registration? The hospital will be marked as active.
           </p>
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setApproveTarget(null)} disabled={actionBusy}>Cancel</Button>
-            <Button className="flex-1" icon={CheckCircle} onClick={confirmApprove} disabled={actionBusy}>
+            <Button variant="outline" className="flex-1" onClick={() => setApproveTarget(null)} disabled={!permitted || actionBusy}>Cancel</Button>
+            <Button className="flex-1" icon={CheckCircle} onClick={confirmApprove} disabled={!permitted || actionBusy}>
               {actionBusy ? 'Processing…' : 'Approve Hospital'}
             </Button>
           </div>
@@ -390,10 +408,10 @@ export const HospitalManagement = ({ nav }) => {
 
       {/* Reject modal */}
       {rejectTarget && (
-        <Modal title="Reject Hospital Registration" onClose={() => setRejectTarget(null)} maxWidth="max-w-md">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
+        <Modal busy={actionBusy} title="Reject Hospital Registration" onClose={() => setRejectTarget(null)} maxWidth="max-w-md">
+          <label htmlFor="hospital-rejection" className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
           <textarea
-            rows={4}
+            id="hospital-rejection" maxLength={500} rows={4}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Enter the reason for rejecting this hospital registration..."
@@ -403,15 +421,20 @@ export const HospitalManagement = ({ nav }) => {
             <p className="text-xs text-red-600 mt-1">A rejection reason is required.</p>
           )}
           <div className="flex gap-3 mt-6">
-            <Button variant="outline" className="flex-1" onClick={() => setRejectTarget(null)} disabled={actionBusy}>Cancel</Button>
-            <Button className="flex-1 bg-red-600 hover:bg-red-700" icon={XCircle} onClick={confirmReject} disabled={!rejectReason.trim() || actionBusy}>
+            <Button variant="outline" className="flex-1" onClick={() => setRejectTarget(null)} disabled={!permitted || actionBusy}>Cancel</Button>
+            <Button className="flex-1 bg-red-600 hover:bg-red-700" icon={XCircle} onClick={confirmReject} disabled={!permitted || !rejectReason.trim() || actionBusy}>
               {actionBusy ? 'Processing…' : 'Reject Application'}
             </Button>
           </div>
         </Modal>
       )}
 
-      {/* View Activity placeholder */}
+      {reviewTarget && <Modal title="Return hospital to review?" busy={actionBusy} onClose={() => setReviewTarget(null)}>
+        <p className="text-sm text-gray-600 mb-4">Return {reviewTarget.hospitalName} to pending approval?</p>
+        <Button disabled={!permitted || actionBusy} onClick={confirmReviewAgain}>{actionBusy ? 'Processing...' : 'Confirm review'}</Button>
+      </Modal>}
+      {/* Available decision fields are shown in details; no audit endpoint exists. */}
+
       {activityTarget && (
         <Modal title={`Activity — ${activityTarget.hospitalName}`} onClose={() => setActivityTarget(null)} maxWidth="max-w-md">
           <div className="text-center py-10">
@@ -426,7 +449,7 @@ export const HospitalManagement = ({ nav }) => {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[60] bg-green-600 text-white px-5 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm">
+        <div role={toastError ? "alert" : "status"} className={`fixed bottom-6 right-6 z-[60] text-white px-5 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm ${toastError ? "bg-red-600" : "bg-green-600"}`}>
           <Check className="w-4 h-4" /> {toast}
         </div>
       )}

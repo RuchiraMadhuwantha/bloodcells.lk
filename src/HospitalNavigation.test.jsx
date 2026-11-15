@@ -1,0 +1,101 @@
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import App from './App';
+import HospitalRegistrationForm from './components/registration/HospitalRegistrationForm';
+import * as api from './services/api';
+import {apiGet} from './services/apiClient';
+jest.mock('./services/api');
+jest.mock('./services/apiClient',()=>({...jest.requireActual('./services/apiClient'),apiGet:jest.fn()}));
+const user = { username: 'testhospital', role: 'hospital', account_status: 'active' };
+beforeEach(() => {
+  localStorage.clear();
+  jest.resetAllMocks();
+  apiGet.mockImplementation(async path=>{
+    if(path.endsWith('/dashboard'))return {summary:{requests:{total:0},recentRequests:[],inventory:{available:false},usage:{available:false}}};
+    if(path.endsWith('/availability'))return {available:true,items:[{id:1,centreName:'Fixture bank',bloodGroup:'AB-',availableUnits:2,level:'Usable recorded stock',district:'Colombo'}]};
+    return {available:false,items:[],reason:'Pending migration'};
+  });
+  api.login.mockResolvedValue({ token: 'test-token', user });
+  api.me.mockResolvedValue({ user });
+  api.getMyHospital.mockResolvedValue({ hospital: { hospitalName: 'Test Hospital', hospitalCode: 'TEST', accountStatus: 'active', status: 'Active' } });
+  api.listActiveHospitals.mockResolvedValue({ hospitals: [] });
+  api.listMyRequests.mockResolvedValue({ requests: [], counts: { pending: 999 } });
+  api.listInventory.mockResolvedValue({ inventory: [] });
+  api.listHospitalAppointments.mockResolvedValue({ appointments: [] });
+});
+const login = async () => {
+  render(<App />);
+  fireEvent.click((await screen.findAllByRole('button', { name: /^login$/i }))[0]);
+  fireEvent.change(screen.getByPlaceholderText('Enter your username'), { target: { value: 'testhospital' } });
+  fireEvent.change(screen.getByPlaceholderText(/\u2022/), { target: { value: 'test-password' } });
+  fireEvent.click(screen.getAllByRole('button', { name: /^login$/i }).at(-1));
+};
+test('hospital login, all sidebar routes and logout retain existing navigation and auth', async () => {
+  await login();
+  await screen.findByRole('heading', { name: 'Hospital Dashboard', level: 1 });
+  for (const [label, title] of [
+    ['New Blood Request', 'New Blood Request'], ['My Blood Requests', 'My Blood Requests'],
+    ['Blood Availability', 'Blood Availability'], ['Hospital Inventory', 'Hospital Inventory'],
+    ['Blood Usage', 'Blood Usage'], ['Reports', 'Hospital Reports'],
+    ['Hospital Profile', 'Hospital Profile'], ['Dashboard', 'Hospital Dashboard'],
+  ]) {
+    fireEvent.click(screen.getAllByRole('button', { name: label, exact: true })[0]);
+    expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
+  }
+  fireEvent.click(screen.getByTitle('Logout'));
+  expect(await screen.findByText(/welcome to/i)).toBeInTheDocument();
+  expect(localStorage.getItem('authToken')).toBeNull();
+});
+test('availability request action preselects the requested blood group in the existing form', async () => {
+  api.listInventory.mockResolvedValue({ inventory: [{ id: 1, bloodGroup: 'AB-', availableUnits: 2, level: 'Low' }] });
+  await login();
+  fireEvent.click(await screen.findByRole('button', { name: 'Blood Availability' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Request blood AB-' }));
+  expect(await screen.findByLabelText('Blood group')).toHaveValue('AB-');
+});
+test.each(['pending', 'inactive', 'suspended'])('a %s session never renders hospital data or starts hospital requests', async (status) => {
+  api.login.mockResolvedValue({ token: 'test-token', user: { ...user, account_status: status } });
+  await login();
+  expect(await screen.findByRole('heading', { name: 'Hospital approval required' })).toBeInTheDocument();
+  expect(api.getMyHospital).not.toHaveBeenCalled();
+  expect(api.listMyRequests).not.toHaveBeenCalled();
+});
+test('login shows the actual approval/rejection response without opening a dashboard', async () => {
+  api.login.mockRejectedValue(new Error('Your hospital registration is awaiting approval from the Blood Bank.'));
+  await login();
+  expect(await screen.findByText('Your hospital registration is awaiting approval from the Blood Bank.')).toBeInTheDocument();
+  expect(screen.queryByText('Hospital Portal')).not.toBeInTheDocument();
+});
+
+const fillRegistration = () => {
+  const values = {
+    Username: 'testhospital', 'Official Email Address': 'hospital@example.invalid', Password: 'TestPassword123', 'Confirm Password': 'TestPassword123',
+    'Hospital Name': 'Test Hospital', 'Hospital Registration Number / Code': 'TEST-REG', 'Hospital Type': 'Government Hospital',
+    'Hospital Address': 'Test address', 'Official Contact Number': '0112345678', 'Contact Person Name': 'Test Contact',
+    Designation: 'Medical Officer', 'Contact Person Phone': '0771234567', 'Contact Person Email': 'contact@example.invalid',
+  };
+  for (const [label, value] of Object.entries(values)) fireEvent.change(screen.getByLabelText(label), { target: { value } });
+};
+test('hospital registration uses the shared API client, locks duplicate submits and explains approval', async () => {
+  let resolve;
+  api.registerHospital.mockImplementation(() => new Promise((done) => { resolve = done; }));
+  render(<HospitalRegistrationForm onCancel={jest.fn()} />);
+  fillRegistration();
+  fireEvent.click(screen.getByRole('button', { name: 'Submit Registration' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'Hospital registration' }));
+  expect(api.registerHospital).toHaveBeenCalledTimes(1);
+  expect(api.registerHospital).toHaveBeenCalledWith(expect.objectContaining({ hospital_name: 'Test Hospital', hospital_code: 'TEST-REG', official_phone: '0112345678' }));
+  expect(screen.getByRole('button', { name: 'Submitting...' })).toBeDisabled();
+  resolve({ success: true, message: 'Registration saved, awaiting Blood Bank approval.' });
+  expect(await screen.findByText('Registration saved, awaiting Blood Bank approval.')).toBeInTheDocument();
+  expect(screen.getByText('Hospital accounts require verification and approval before access to the Hospital Dashboard is granted.')).toBeInTheDocument();
+});
+test('registration failure is inline and preserves entered values for correction', async () => {
+  api.registerHospital.mockRejectedValue(new Error('Hospital code already registered'));
+  render(<HospitalRegistrationForm onCancel={jest.fn()} />);
+  fillRegistration();
+  fireEvent.click(screen.getByRole('button', { name: 'Submit Registration' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Hospital code already registered');
+  expect(screen.getByLabelText('Hospital Name')).toHaveValue('Test Hospital');
+  expect(screen.getByRole('button', { name: 'Submit Registration' })).toBeEnabled();
+});

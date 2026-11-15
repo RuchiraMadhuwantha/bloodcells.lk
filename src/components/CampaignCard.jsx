@@ -5,7 +5,7 @@ import { BloodTypeBadge } from './UIComponents';
 // Reusable donor-visible campaign card.
 // Can later be used on the Public Home Page, Donor Dashboard, and Campaign Listing.
 // Uses only the campaign object shape defined in src/data/campaigns.js.
-const CampaignCard = ({ campaign, onView }) => {
+const CampaignCard = ({ campaign, onView, donorView = false }) => {
   const formatDate = (d) => {
     try {
       return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -16,8 +16,8 @@ const CampaignCard = ({ campaign, onView }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
-      <div className="relative h-44">
-        <img src={campaign.image} alt={campaign.name} className="w-full h-full object-cover" loading="lazy" />
+      <div className="relative h-44 bg-red-50">
+        {campaign.image && <img src={campaign.image} alt={campaign.name} className="w-full h-full object-cover" loading="lazy" />}
         <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
           {campaign.status}
         </span>
@@ -35,12 +35,13 @@ const CampaignCard = ({ campaign, onView }) => {
           <MapPin className="w-3.5 h-3.5 text-red-400" /> {campaign.city}, {campaign.district}
         </p>
 
+        {donorView && <p className="text-sm text-gray-600 mb-3">{campaign.venueName || campaign.address || 'Location not provided'}<span className="block">Organizer: {campaign.organizerName || 'Not provided'}</span></p>}
         <p className="text-sm text-gray-600 leading-relaxed mb-4 line-clamp-3">{campaign.shortDescription}</p>
 
         <div className="mb-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Needed Blood Groups</p>
           <div className="flex flex-wrap gap-1.5">
-            {campaign.neededBloodGroups.map((g) => (
+            {(campaign.neededBloodGroups || []).map((g) => (
               <BloodTypeBadge key={g} group={g} size="sm" />
             ))}
           </div>
@@ -48,7 +49,7 @@ const CampaignCard = ({ campaign, onView }) => {
 
         <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100">
           <span className="flex items-center gap-1.5 text-xs text-gray-500">
-            <Users className="w-4 h-4" /> {campaign.participants}/{campaign.targetDonors}
+            {campaign.participants != null && campaign.targetDonors != null && <><Users className="w-4 h-4" /> {campaign.participants}/{campaign.targetDonors}</>}
           </span>
           <button
             onClick={() => onView && onView(campaign)}

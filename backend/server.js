@@ -9,6 +9,10 @@ const inventoryRoutes = require('./routes/inventoryRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const donorDirectoryRoutes = require('./routes/donorDirectoryRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const donationRoutes = require('./routes/donationRoutes');
+const campaignRoutes = require('./routes/campaignRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const emergencyAlertRoutes = require('./routes/emergencyAlertRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const pool = require('./config/db');
 
@@ -35,12 +39,19 @@ app.get('/health/db', async (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/hospitals/mine', require('./routes/hospitalOperationsRoutes'));
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/blood-requests', bloodRequestRoutes);
+app.use('/api/bank', require('./routes/bankOperationsRoutes'));
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/appointments', appointmentRoutes);
+// Self-service donor routes first so /me/donations resolves here, not as a directory id.
+app.use('/api/donors', donationRoutes);
 app.use('/api/donors', donorDirectoryRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/emergency-alerts', emergencyAlertRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'The requested endpoint does not exist.' });

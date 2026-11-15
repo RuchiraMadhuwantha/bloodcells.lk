@@ -42,9 +42,10 @@ const onUnauthorized = () => {
   window.dispatchEvent(new CustomEvent('auth:expired'));
 };
 
-const request = async (path, { method = 'GET', body, auth = true, signal } = {}) => {
+const request = async (path, { method = 'GET', body, auth = true, signal, idempotencyKey, responseType = 'json' } = {}) => {
   const headers = { 'Content-Type': 'application/json' };
   const token = getToken();
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   let res;
@@ -60,6 +61,7 @@ const request = async (path, { method = 'GET', body, auth = true, signal } = {})
     throw new ApiError('Cannot reach the server. Is the backend running?', 0, null);
   }
 
+  if (res.ok && responseType === 'blob') return res.blob();
   let data = null;
   try {
     data = await res.json();
@@ -90,3 +92,5 @@ export const api = {
   delete: apiDelete,
   request,
 };
+
+export const apiDownload = (path, opts) => request(path, { ...opts, method:'GET', responseType:'blob' });
