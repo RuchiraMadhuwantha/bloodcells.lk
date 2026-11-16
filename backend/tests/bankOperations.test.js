@@ -13,7 +13,9 @@ const query=async(sql,p=[])=>{
  queries.push({sql,p});
  if(sql.includes('SELECT user_id, username, role'))return [[{user_id:p[0],username:'fixture',role:p[0]===8?'donor':p[0]===9?'hospital':'blood_bank',account_status:p[0]===7?'inactive':'active'}]];
  if(sql.includes("WHERE role = 'blood_bank'"))return [[{user_id:1},{user_id:2}]];
+ if(sql.startsWith('SELECT u.user_id FROM users u JOIN hospitals'))return [[{user_id:9},{user_id:10}]];
  if(sql.startsWith('SELECT hospital_id FROM hospitals WHERE user_id'))return [[{hospital_id:10}]];
+ if(sql.startsWith('SELECT donor_id FROM donors WHERE user_id'))return [[{donor_id:4}]];
  if(sql.startsWith('SELECT user_id FROM users'))return [[{user_id:p[0]}]];
  if(sql.includes('FROM bank_operations WHERE'))return [db.keys.filter(k=>k.actor===p[0]&&k.operation===p[1]&&k.key===p[2]).map(k=>({payload_hash:k.hash,result_json:k.result}))];
  if(sql.startsWith('INSERT INTO bank_operations')){db.keys.push({actor:p[0],operation:p[1],key:p[2],hash:p[3],result:p[4]});return [{insertId:db.keys.length}];}
@@ -50,8 +52,11 @@ const query=async(sql,p=[])=>{
  if(sql.startsWith('UPDATE users')){db.hospitalStatus=p[0];return [{affectedRows:1}];}
  if(sql.startsWith('UPDATE hospitals'))return [{affectedRows:1}];
  if(sql.startsWith('SELECT * FROM appointments'))return [[db.appointment]];
+ if(sql.startsWith('INSERT INTO appointments')){Object.assign(db.appointment,{donor_id:p[0],hospital_id:p[1],appointment_date:p[2],time_slot:p[3],notes:p[4],booking_nic:p[5]});return [{insertId:9}];}
+ if(sql.startsWith('SELECT a.appointment_id AS id'))return [db.appointment.status==='completed'?[{id:9,date:db.appointment.appointment_date,bloodGroup:'O+',location:'Fixture hospital',district:'Fixture',collectedUnits:db.appointment.collected_units,collectedVolumeMl:db.appointment.collected_volume_ml}]:[]];
  if(sql.includes('FROM appointments a'))return [[db.appointment]];
  if(sql.startsWith('UPDATE appointments SET appointment_date')){db.appointment.appointment_date=p[0];db.appointment.time_slot=p[1];return [{affectedRows:1}];}
+ if(sql.startsWith('UPDATE appointments SET collected_units')){Object.assign(db.appointment,{collected_units:p[0],collected_volume_ml:p[1],collection_recorded_by_user_id:p[2]});return [{affectedRows:1}];}
  if(sql.startsWith('UPDATE appointments')){if(!['pending','approved'].includes(db.appointment.status)||db.appointment.status===p[0])return [{affectedRows:0}];db.appointment.status=p[0];return [{affectedRows:1}];}
  if(sql.includes('SELECT time_slot')||sql.includes('FROM appointments\n'))return [[]];
  if(sql.includes('SELECT d.donor_id, d.user_id'))return [[{donor_id:4,user_id:104,full_name:'Fixture',nic:'private',email:'private',phone:'private',blood_group:'O+',district:'Fixture',last_donation_date:null,created_at:'2026-01-01',account_status:'active'}]];
@@ -117,6 +122,32 @@ test('bank creates a campaign in the shared campaign model',async()=>{const r=aw
 test('campaign publishing persists and becomes visible to donors',async()=>{assert.equal((await call('/campaigns',{actor:8})).data.campaigns.length,0);const published=await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}});assert.equal(published.status,200);assert.equal(db.campaign.status,'Upcoming');const donor=await call('/campaigns',{actor:8});assert.equal(donor.data.campaigns[0].name,db.campaign.name);});
 test('invalid campaign dates and time ranges are rejected',async()=>{assert.equal((await call('/campaigns',{method:'POST',body:{...campaignPayload,date:'2026-02-30'}})).status,400);assert.equal((await call('/campaigns',{method:'POST',body:{...campaignPayload,endTime:'08:00'}})).status,400);});
 test('closed campaigns cannot be republished',async()=>{db.campaign.status='Cancelled';assert.equal((await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}})).status,409);});
+
+test('publishing a campaign notifies hospitals once and lets hospitals view it',async()=>{
+ const r=await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}});
+ assert.equal(r.status,200);assert.deepEqual(db.notifications.map(n=>n[0]),[9,10]);
+ assert.ok(db.notifications.every(n=>n[1]==='campaign'&&n[6]==='hospital-campaigns'));
+ assert.equal((await call('/campaigns/1',{actor:9})).status,200);
+ assert.equal((await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}})).status,200);
+ assert.equal(db.notifications.length,2);
+});
+test('hospital cannot view or modify a draft campaign',async()=>{
+ assert.equal((await call('/campaigns/1',{actor:9})).status,404);
+ assert.equal((await call('/campaigns/1',{method:'PUT',actor:9,body:{status:'Upcoming'}})).status,403);
+});
+test('campaign publication rolls back when hospital notifications fail',async()=>{
+ failAudit=true;
+ assert.equal((await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}})).status,500);
+ assert.equal(db.campaign.status,'Draft');assert.equal(db.notifications.length,0);
+});
+test('creating an upcoming campaign immediately notifies hospitals',async()=>{
+ const r=await call('/campaigns',{method:'POST',body:{name:'Published drive',organizerName:'Bank',date:'2099-01-01',startTime:'09:00',endTime:'12:00',status:'Upcoming'}});
+ assert.equal(r.status,201);assert.equal(db.notifications.length,2);
+});
+test('creating a draft campaign does not notify hospitals',async()=>{
+ const r=await call('/campaigns',{method:'POST',body:{name:'Draft drive',organizerName:'Bank',date:'2099-01-01',startTime:'09:00',endTime:'12:00',status:'Draft'}});
+ assert.equal(r.status,201);assert.equal(db.notifications.length,0);
+});
 test('hospital approval notifies donor and active banks once',async()=>{
  const r=await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}});
  assert.equal(r.status,200);assert.equal(db.appointment.status,'approved');
@@ -141,7 +172,59 @@ test('hospital cannot approve a completed appointment',async()=>{
  assert.equal((await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}})).status,409);
  assert.equal(db.notifications.length,0);
 });
-test('appointment approval and donor inbox notification commit together',async()=>{const r=await call('/appointments/9/status',{method:'PUT',body:{status:'approved'}});assert.equal(r.status,200);assert.equal(db.appointment.status,'approved');assert.equal(db.notifications.length,1);assert.equal(db.notifications[0][0],104);assert.equal(db.notifications[0][1],'appointment_approved');assert.equal((await call('/appointments/9/status',{method:'PUT',body:{status:'approved'}})).status,409);assert.equal(db.notifications.length,1);});
+test('bank cannot approve appointments',async()=>{assert.equal((await call('/appointments/9/status',{method:'PUT',body:{status:'approved'}})).status,403);assert.equal(db.appointment.status,'pending');assert.equal(db.notifications.length,0);});
+
+for(const nic of ['901234567v','199012345678'])test('booking persists optional NIC '+nic,async()=>{
+ const r=await call('/appointments',{method:'POST',actor:8,body:{hospital_id:10,appointment_date:'2099-01-01',time_slot:'09:00',nic}});
+ assert.equal(r.status,201);assert.equal(db.appointment.booking_nic,nic.toUpperCase());assert.equal(r.data.appointment.nic,nic.toUpperCase());
+});
+test('booking still accepts an omitted optional NIC',async()=>{
+ const r=await call('/appointments',{method:'POST',actor:8,body:{hospital_id:10,appointment_date:'2099-01-01',time_slot:'09:00'}});
+ assert.equal(r.status,201);assert.equal(r.data.appointment.nic,null);
+});
+for(const nic of ['wrong','123','123456789Z'])test('invalid booking NIC rejected '+nic,async()=>{
+ assert.equal((await call('/appointments',{method:'POST',actor:8,body:{hospital_id:10,appointment_date:'2099-01-01',time_slot:'09:00',nic}})).status,400);
+ assert.equal(db.appointment.booking_nic,undefined);
+});
+
+test('hospital collection saves quantities and notifies donor and banks exactly once',async()=>{
+ Object.assign(db.appointment,{status:'approved',appointment_date:'2020-01-01'});
+ const r=await call('/appointments/9/collection',{method:'PUT',actor:9,body:{collectedUnits:1,collectedVolumeMl:450}});
+ assert.equal(r.status,200);assert.equal(r.data.appointment.collectedUnits,1);assert.equal(r.data.appointment.collectedVolumeMl,450);
+ assert.equal(db.appointment.status,'completed');assert.equal(db.appointment.collection_recorded_by_user_id,9);
+ assert.deepEqual(db.notifications.map(n=>n[0]),[104,1,2]);
+ assert.ok(db.notifications.every(n=>n[1]==='appointment_completed'));
+ assert.match(db.notifications[1][3],/450 mL/);
+ const report=await reports.reportData(1,{type:'donations'});
+ assert.equal(report.summary['Collected units'],1);assert.equal(report.summary['Collected volume (mL)'],450);
+ assert.equal((await call('/appointments/9/collection',{method:'PUT',actor:9,body:{collectedUnits:2,collectedVolumeMl:900}})).status,409);
+ assert.equal(db.appointment.collected_units,1);assert.equal(db.notifications.length,3);
+});
+test('collection notification failure rolls back quantities and completion',async()=>{
+ Object.assign(db.appointment,{status:'approved',appointment_date:'2020-01-01'});failAudit=true;
+ assert.equal((await call('/appointments/9/collection',{method:'PUT',actor:9,body:{collectedUnits:1,collectedVolumeMl:450}})).status,500);
+ assert.equal(db.appointment.status,'approved');assert.equal(db.appointment.collected_units,undefined);assert.equal(db.notifications.length,0);
+});
+test('another hospital cannot record collected blood',async()=>{
+ Object.assign(db.appointment,{status:'approved',hospital_id:11,appointment_date:'2020-01-01'});
+ assert.equal((await call('/appointments/9/collection',{method:'PUT',actor:9,body:{collectedUnits:1,collectedVolumeMl:450}})).status,403);
+ assert.equal(db.appointment.collected_units,undefined);
+});
+test('collection requires approval and cannot be recorded for a future appointment',async()=>{
+ assert.equal((await call('/appointments/9/collection',{method:'PUT',actor:9,body:{collectedUnits:1,collectedVolumeMl:450}})).status,409);
+ db.appointment.status='approved';
+ assert.equal((await call('/appointments/9/collection',{method:'PUT',actor:9,body:{collectedUnits:1,collectedVolumeMl:450}})).status,409);
+});
+for(const body of [{collectedUnits:0,collectedVolumeMl:450},{collectedUnits:1.5,collectedVolumeMl:450},{collectedUnits:1,collectedVolumeMl:0},{collectedUnits:1},{collectedUnits:1,collectedVolumeMl:-450}])test('invalid collection rejected '+JSON.stringify(body),async()=>{
+ db.appointment.status='approved';
+ assert.equal((await call('/appointments/9/collection',{method:'PUT',actor:9,body})).status,400);
+ assert.equal(db.appointment.collected_units,undefined);
+});
+for(const actor of [1,8])test('only hospital can record collections '+actor,async()=>assert.equal((await call('/appointments/9/collection',{method:'PUT',actor,body:{collectedUnits:1,collectedVolumeMl:450}})).status,403));
+test('bank cannot bypass collection recording by marking completed',async()=>{
+ assert.equal((await call('/appointments/9/status',{method:'PUT',body:{status:'completed'}})).status,403);
+ assert.equal(db.appointment.status,'pending');
+});
 test('appointment cancellation persists with donor notification',async()=>{assert.equal((await call('/appointments/9/status',{method:'PUT',body:{status:'cancelled'}})).status,200);assert.equal(db.appointment.status,'cancelled');assert.equal(db.notifications[0][1],'appointment_cancelled');});
 test('bank reschedule changes the original donor appointment and notifies once',async()=>{const r=await call('/bank/appointments/9/reschedule',{method:'PUT',body:{newDate:'2099-02-01',newTimeSlot:'10:00'}});assert.equal(r.status,201);assert.equal(db.appointment.appointment_date,'2099-02-01');assert.equal(db.notifications[0][1],'appointment_rescheduled');});
 test('valid batch receipt is stored at the assigned centre with audit',async()=>{const r=await call('/bank/inventory',{method:'POST',body:{locationId:1,reference:'FIXTURE-NEW',bloodGroup:'O+',component:'Recorded component',quantity:5,status:'quarantined',collectionDate:'2026-01-01',expiryDate:'2099-01-01',reason:'Physical receipt'}});assert.equal(r.status,201);assert.equal(db.batches[1].quantity,5);assert.equal(db.batches[1].status,'quarantined');assert.equal(db.audit[0][1],'batch-receipt');});

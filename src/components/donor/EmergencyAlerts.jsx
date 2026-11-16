@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Button, Badge, BloodTypeBadge, SectionCard } from '../UIComponents';
 import * as donor from '../../services/donorService';
 import { DISTRICTS } from '../../data/districts';
-import { DonorLayout, useDonorResource, ResourceState, EmptyState, Filters, Field, Dialog, Details, Notice, ErrorPanel, inputClass, disabledClass } from './DonorUI';
+import { DonorLayout, useDonorResource, ResourceState, EmptyState, Filters, Field, Dialog, Details, ErrorPanel, inputClass, disabledClass } from './DonorUI';
 import { BLOOD_GROUPS, formatDate, statusColor } from './donorUtils';
 
 export const EmergencyAlerts = ({ nav }) => {
@@ -31,7 +31,6 @@ export const EmergencyAlerts = ({ nav }) => {
     }
   };
   return <DonorLayout nav={nav} title="Emergency Donation Alerts" subtitle="Active alerts published by the blood bank for matching registered blood groups">
-    <Notice>Alerts are published only by authorized blood bank personnel for genuine requests. A matching blood group does not establish medical eligibility — the donation centre screens you before donation. Your identity and clinical details are never shown to other donors.</Notice>
     {success && <p role="status" className="p-4 mb-4 rounded-lg bg-green-50 text-green-800">{success}</p>}
     {error && <div className="mb-4"><ErrorPanel message={error} /></div>}
     <SectionCard title="Active donation alerts">

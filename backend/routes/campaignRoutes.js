@@ -40,8 +40,8 @@ const listQuery = [
 router.get('/registrations/mine', authMiddleware, allowRoles('donor'), listMyRegistrations);
 
 /* Donor + blood bank: browse. Donors only see published campaigns. */
-router.get('/', authMiddleware, allowRoles('donor', 'blood_bank'), listQuery, handleValidationErrors, listPublished);
-router.get('/:id', authMiddleware, allowRoles('donor', 'blood_bank'), idParam, handleValidationErrors, getCampaign);
+router.get('/', authMiddleware, allowRoles('donor', 'hospital', 'blood_bank'), listQuery, handleValidationErrors, listPublished);
+router.get('/:id', authMiddleware, allowRoles('donor', 'hospital', 'blood_bank'), idParam, handleValidationErrors, getCampaign);
 
 /* Donor: register / cancel own registration. */
 router.post(

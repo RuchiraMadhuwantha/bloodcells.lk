@@ -21,6 +21,17 @@ const { toDateString } = require('../utils/date');
 
 const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode });
 
+const notifyHospitals = async (campaign, connection) => {
+  const [hospitals] = await connection.query("SELECT u.user_id FROM users u JOIN hospitals h ON h.user_id = u.user_id WHERE u.role = 'hospital' AND u.account_status = 'active'");
+  for (const hospital of hospitals) {
+    await createNotification({
+      userId: hospital.user_id, type: 'campaign', title: 'New blood donation campaign',
+      message: `${campaign.name} on ${campaign.date}, ${campaign.startTime}–${campaign.endTime}, at ${campaign.venueName || campaign.district || 'the published venue'}. Organized by ${campaign.organizerName}.`,
+      relatedType: 'campaign', relatedId: campaign.id, actionRoute: 'hospital-campaigns',
+    }, connection);
+  }
+};
+
 /* ───────────────────────── Browser (donor + blood bank) ───────────────────────── */
 
 const listPublished = async (req, res, next) => {
@@ -178,16 +189,23 @@ const cancelMyRegistration = async (req, res, next) => {
 /* ───────────────────────── Blood bank: manage campaigns ───────────────────────── */
 
 const createManagedCampaign = async (req, res, next) => {
+  let connection;
   try {
     if (req.body.startTime && req.body.endTime && req.body.endTime <= req.body.startTime) {
       throw httpError(400, 'Campaign end time must be after the start time.');
     }
     if(['Upcoming','Active'].includes(req.body.status) && req.body.date<toDateString(new Date())) throw httpError(400,'Cannot publish a campaign in the past.');
-    const campaign = await createCampaign(req.body, req.user.user_id);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const campaign = await createCampaign(req.body, req.user.user_id, connection);
+    if (REGISTRATION_OPEN_STATUSES.includes(campaign.status)) await notifyHospitals(campaign, connection);
+    await connection.commit();
     res.status(201).json({ success: true, message: 'Campaign saved.', campaign });
   } catch (error) {
+    if (connection) await connection.rollback();
     next(toFriendlyError(error, 'Could not save the campaign.'));
   }
+  finally { if (connection) connection.release(); }
 };
 
 const updateManagedCampaign = async (req, res, next) => {
@@ -209,7 +227,11 @@ const updateManagedCampaign = async (req, res, next) => {
     if (endTime <= startTime) {
       throw httpError(400, 'Campaign end time must be after the start time.');
     }
+    const newlyPublished = !REGISTRATION_OPEN_STATUSES.includes(existing.status) && REGISTRATION_OPEN_STATUSES.includes(nextStatus);
     const campaign = await updateCampaign(campaignId, req.body,connection);
+    if (newlyPublished) {
+      await notifyHospitals(campaign, connection);
+    }
     await connection.commit();
     res.json({ success: true, message: 'Campaign updated.', campaign });
   } catch (error) {

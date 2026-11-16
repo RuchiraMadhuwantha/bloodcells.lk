@@ -1,9 +1,9 @@
-import React from 'react';
-import { Heart, Droplet, Calendar, Clock } from 'lucide-react';
+import React, { useCallback, useEffect } from 'react';
+import { Heart, Droplet, Droplets, Calendar, Clock, RefreshCw } from 'lucide-react';
 import { Button, Badge, StatCard, SectionCard } from '../UIComponents';
 import { useAuth } from '../../context/AuthContext';
 import * as donor from '../../services/donorService';
-import { DonorLayout, useDonorResource, Loading, ErrorPanel, EmptyState, Notice } from './DonorUI';
+import { DonorLayout, useDonorResource, Loading, ErrorPanel, EmptyState } from './DonorUI';
 import { formatDate, todayStr, statusColor, notificationLabel, formatDateTime } from './donorUtils';
 
 export const DonorDashboard = ({ nav }) => {
@@ -13,25 +13,37 @@ export const DonorDashboard = ({ nav }) => {
   const alerts = useDonorResource(donor.getEmergencyAlerts);
   const campaigns = useDonorResource(donor.getCampaigns);
   const notifications = useDonorResource(donor.getNotifications);
+  const refreshSummary = summary.refresh;
+  const refreshAppointments = appointments.refresh;
+  const refreshNotifications = notifications.refresh;
+  const refreshDashboard = useCallback(() => {
+    refreshSummary(); refreshAppointments(); refreshNotifications();
+  }, [refreshSummary, refreshAppointments, refreshNotifications]);
+  useEffect(() => {
+    window.addEventListener('focus', refreshDashboard);
+    const timer = window.setInterval(() => { if (!document.hidden) refreshDashboard(); }, 30000);
+    return () => { window.removeEventListener('focus', refreshDashboard); window.clearInterval(timer); };
+  }, [refreshDashboard]);
   const s = summary.data;
   const records = appointments.data?.items || [];
   const upcoming = records.filter((a) => ['pending', 'approved'].includes(a.status) && a.appointmentDate >= todayStr())
     .sort((a, b) => (a.appointmentDate + a.timeSlot).localeCompare(b.appointmentDate + b.timeSlot));
   const history = records.filter((a) => a.status === 'completed').sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate));
+  const totalUnits = history.reduce((n,a) => n + (a.collectedUnits || 0), 0);
+  const totalVolumeMl = history.reduce((n,a) => n + (a.collectedVolumeMl || 0), 0);
+  const collectionValue = value => appointments.loading ? 'Loading...' : appointments.error ? 'Unavailable' : value;
   const next = upcoming[0];
   const displayName = s?.fullName || user?.username || 'Donor';
   return <DonorLayout nav={nav} title="Donor Dashboard" subtitle={`Welcome back, ${displayName}`} userName={displayName} role={`Donor · ${s?.bloodGroup || 'Blood group unavailable'}`}>
+    <div className="flex justify-end mb-4"><Button icon={RefreshCw} disabled={summary.loading || appointments.loading} onClick={refreshDashboard}>Refresh dashboard</Button></div>
     {summary.loading ? <Loading label="Loading your donor summary…" /> : summary.error ? <div className="mb-5"><ErrorPanel message={summary.error} onRetry={summary.refresh} /></div> : <>
-      <Notice>{s?.eligibleNow
-        ? 'Your recorded donation interval allows you to arrange a screening appointment.'
-        : `Your recorded donation interval is ${s?.donationIntervalDays ?? 'not available'} days. Next date based on your record: ${formatDate(s?.nextEligibleDate)}.`}
-        {' '}Final donation eligibility is determined by the centre after screening.
-      </Notice>
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         <StatCard icon={Heart} value={s?.totalDonations ?? 'Unavailable'} label="Completed Donations" accent="red" />
         <StatCard icon={Droplet} value={s?.bloodGroup || 'Unavailable'} label="Blood Group" accent="pink" />
         <StatCard icon={Calendar} value={s?.upcomingAppointments ?? 'Unavailable'} label="Upcoming Appointments" accent="green" />
         <StatCard icon={Clock} value={s?.eligibleNow ? 'Screening due' : formatDate(s?.nextEligibleDate)} label="Donation interval" accent="amber" />
+        <StatCard icon={Droplets} value={collectionValue(totalUnits)} label="Recorded collected units" accent="red" />
+        <StatCard icon={Droplets} value={collectionValue(totalVolumeMl)} label="Recorded collected volume (mL)" accent="blue" />
       </div>
     </>}
     <div className="grid lg:grid-cols-3 gap-6">
@@ -43,7 +55,7 @@ export const DonorDashboard = ({ nav }) => {
         </div>}
       </SectionCard>
       <SectionCard title="Recent Donation History" className="lg:col-span-2" action={<Button variant="ghost" className="text-xs" onClick={() => nav.onNavigate('donor-history')}>View history</Button>}>
-        {appointments.loading ? <Loading /> : appointments.error ? <ErrorPanel message={appointments.error} onRetry={appointments.refresh} /> : !history.length ? <EmptyState title="No completed donations recorded" /> : <div className="space-y-3">{history.slice(0, 4).map((a) => <div key={a.id} className="flex flex-wrap justify-between items-center gap-3 border border-gray-100 rounded-lg p-3"><div><p className="text-sm font-semibold">{formatDate(a.appointmentDate)}</p><p className="text-xs text-gray-500">{a.hospitalName} · {a.reference}</p></div><Badge color="green">{a.statusLabel || a.status}</Badge></div>)}</div>}
+        {appointments.loading ? <Loading /> : appointments.error ? <ErrorPanel message={appointments.error} onRetry={appointments.refresh} /> : !history.length ? <EmptyState title="No completed donations recorded" /> : <div className="space-y-3">{history.slice(0, 4).map((a) => <div key={a.id} className="flex flex-wrap justify-between items-center gap-3 border border-gray-100 rounded-lg p-3"><div><p className="text-sm font-semibold">{formatDate(a.appointmentDate)}</p><p className="text-xs text-gray-500">{a.hospitalName} · {a.reference}</p><p className="text-sm font-medium text-red-700 mt-2">{a.collectedUnits != null ? `${a.collectedUnits} unit(s), ${a.collectedVolumeMl} mL collected` : 'Collected blood not recorded'}</p></div><Badge color="green">{a.statusLabel || a.status}</Badge></div>)}</div>}
       </SectionCard>
       <SectionCard title="Emergency Donation Alerts" className="lg:col-span-3" action={<Button variant="ghost" className="text-xs" onClick={() => nav.onNavigate('donor-emergency-alerts')}>View alerts</Button>}>
         {alerts.loading ? <Loading /> : alerts.error ? <ErrorPanel message={alerts.error} onRetry={alerts.refresh} /> : !alerts.data.items.length ? <EmptyState title="No active alerts for your blood group" /> : <div className="grid md:grid-cols-2 gap-3">{alerts.data.items.slice(0, 4).map((r) => <div key={r.id} className="border border-gray-100 rounded-lg p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-sm">{r.title || 'Emergency alert'} · {r.bloodGroup}</h3><Badge color={statusColor(r.urgency)}>{r.urgencyLabel || r.urgency}</Badge></div><p className="text-xs text-gray-500 mt-2">{r.district || 'District not provided'} · {r.quantity != null ? `${r.quantity} unit(s) · ` : ''}Required: {formatDate(r.requiredDate)}</p></div>)}</div>}

@@ -51,7 +51,7 @@ const bookAppointment = async (req, res, next) => {
       throw httpError(404, 'No donor profile is linked to this account.');
     }
 
-    const { hospital_id: hospitalId, appointment_date: appointmentDate, time_slot: timeSlot, notes } = req.body;
+    const { hospital_id: hospitalId, appointment_date: appointmentDate, time_slot: timeSlot, notes, nic } = req.body;
 
     if (toDateString(appointmentDate) < toDateString(new Date())) {
       throw httpError(400, 'Appointments cannot be booked in the past.');
@@ -67,6 +67,7 @@ const bookAppointment = async (req, res, next) => {
       appointmentDate: dateStr,
       timeSlot,
       notes,
+      nic,
     }, connection);
 
     const booked = await getAppointmentById(appointmentId, connection);
@@ -261,6 +262,9 @@ const setStatus = async (req, res, next) => {
     }
 
     const { status } = req.body;
+    if (req.user.role === 'blood_bank' && ['approved', 'completed'].includes(status)) {
+      throw httpError(403, 'The hospital must approve appointments and record collected blood.');
+    }
     if (req.user.role === 'hospital') {
       const [owners] = await connection.query(
         'SELECT hospital_id FROM hospitals WHERE user_id = ?', [req.user.user_id]
@@ -268,7 +272,24 @@ const setStatus = async (req, res, next) => {
       if (!owners[0] || owners[0].hospital_id !== appointment.hospitalId) {
         throw httpError(403, 'You can only approve appointments at your own hospital.');
       }
-      if (status !== 'approved') throw httpError(403, 'Hospitals can only approve appointments.');
+      if (!['approved', 'completed'].includes(status)) throw httpError(403, 'Hospitals can approve appointments and record collected blood.');
+      if (status === 'completed') {
+        if (appointment.status !== 'approved') throw httpError(409, 'Approve this appointment before recording collected blood.');
+        if (appointment.appointmentDate > toDateString(new Date())) throw httpError(409, 'Collected blood cannot be recorded before the appointment date.');
+        const { collectedUnits, collectedVolumeMl } = req.body;
+        if (!Number.isInteger(collectedUnits) || collectedUnits < 1 || collectedUnits > 1000 ||
+            !Number.isInteger(collectedVolumeMl) || collectedVolumeMl < 1 || collectedVolumeMl > 100000) {
+          throw httpError(400, 'Enter positive whole numbers for collected units and volume in millilitres.');
+        }
+        await connection.query(
+          'UPDATE appointments SET collected_units = ?, collected_volume_ml = ?, collection_recorded_at = NOW(), collection_recorded_by_user_id = ? WHERE appointment_id = ?',
+          [collectedUnits, collectedVolumeMl, req.user.user_id, appointment.id]
+        );
+        await connection.query(
+          "UPDATE donors SET last_donation_date = GREATEST(COALESCE(last_donation_date, '1000-01-01'), ?) WHERE donor_id = ?",
+          [appointment.appointmentDate, appointment.donorId]
+        );
+      }
     }
     // Explicit state machine. Previously ANY of the final states blocked ALL
     // bank transitions, which made it impossible to ever mark an appointment
@@ -295,7 +316,7 @@ const setStatus = async (req, res, next) => {
       completed: {
         type: 'appointment_completed',
         title: 'Donation recorded',
-        message: `Your appointment ${appointment.reference} at ${appointment.hospitalName} on ${appointment.appointmentDate} was marked as completed and recorded as a donation.`,
+        message: `Your donation at ${appointment.hospitalName} for ${appointment.reference} was recorded: ${req.body.collectedUnits} unit(s), ${req.body.collectedVolumeMl} mL.`,
       },
       cancelled: {
         type: 'appointment_cancelled',
@@ -308,15 +329,17 @@ const setStatus = async (req, res, next) => {
       await notifyDonor({ ...payload, donorId: appointment.donorId, relatedId: appointment.id }, connection);
     }
 
-    if (req.user.role === 'hospital' && status === 'approved') {
+    if (req.user.role === 'hospital' && ['approved', 'completed'].includes(status)) {
       const [banks] = await connection.query(
         "SELECT user_id FROM users WHERE role = 'blood_bank' AND account_status = 'active'"
       );
       for (const bank of banks) {
         await createNotification({
-          userId: bank.user_id, type: 'appointment_approved',
-          title: 'Hospital approved a donor appointment',
-          message: `${appointment.hospitalName} approved appointment ${appointment.reference} for ${appointment.donorName} (${appointment.bloodGroup}) on ${appointment.appointmentDate} at ${appointment.timeSlot}.`,
+          userId: bank.user_id, type: status === 'completed' ? 'appointment_completed' : 'appointment_approved',
+          title: status === 'completed' ? 'Hospital recorded collected blood' : 'Hospital approved a donor appointment',
+          message: status === 'completed'
+            ? `${appointment.hospitalName} collected ${req.body.collectedUnits} unit(s), ${req.body.collectedVolumeMl} mL from ${appointment.donorName} (${appointment.bloodGroup}), appointment ${appointment.reference}.`
+            : `${appointment.hospitalName} approved appointment ${appointment.reference} for ${appointment.donorName} (${appointment.bloodGroup}) on ${appointment.appointmentDate} at ${appointment.timeSlot}.`,
           relatedType: 'appointment', relatedId: appointment.id, actionRoute: 'bank-appointments',
         }, connection);
       }

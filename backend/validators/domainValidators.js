@@ -31,6 +31,7 @@ const thresholdValidation = [
 ];
 
 const createAppointmentValidation = [
+  body('nic').optional({ values: 'falsy' }).trim().toUpperCase().matches(/^(?:\d{9}[VX]|\d{12})$/).withMessage('Enter a valid NIC: 9 digits followed by V or X, or 12 digits.'),
   body('hospital_id').isInt({ min: 1 }).withMessage('Select a donation centre.'),
   body('appointment_date').isISO8601().withMessage('Select a valid appointment date.'),
   body('time_slot')

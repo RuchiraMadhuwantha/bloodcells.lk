@@ -22,6 +22,8 @@ import { DonorNotifications } from './components/donor/DonorNotifications';
 import { EmergencyAlerts } from './components/donor/EmergencyAlerts';
 import { HospitalDashboard, BloodRequestPage } from './Hospital';
 import { HospitalPortal } from './components/hospital/HospitalUI';
+import { HospitalAppointments } from './components/hospital/HospitalAppointments';
+import { HospitalCampaigns, HospitalNotifications } from './components/hospital/HospitalCampaigns';
 import { MyBloodRequests } from './components/hospital/HospitalRequests';
 import { BloodAvailability, HospitalInventory } from './components/hospital/HospitalStock';
 import { HospitalUsage } from './components/hospital/HospitalUsage';
@@ -58,6 +60,8 @@ const DONOR_NAV = [
 
 const HOSPITAL_NAV = [
   { route: 'hospital-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { route: 'hospital-appointments', label: 'Appointment Management', icon: Calendar },
+  { route: 'hospital-campaigns', label: 'Blood Donation Campaigns', icon: Megaphone },
   { route: 'hospital-request', label: 'New Blood Request', icon: Calendar },
   { route: 'hospital-requests', label: 'My Blood Requests', icon: ClipboardList },
   { route: 'hospital-availability', label: 'Blood Availability', icon: Droplet },
@@ -259,6 +263,9 @@ const AppInner = () => {
     'donor-emergency-alerts': <EmergencyAlerts nav={navFor('Donor Portal', DONOR_NAV)} />,
     'donor-profile': <DonorProfile nav={navFor('Donor Portal', DONOR_NAV)} />,
     'hospital-dashboard': <HospitalDashboard nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
+    'hospital-appointments': <HospitalAppointments nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
+    'hospital-campaigns': <HospitalCampaigns nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
+    'hospital-notifications': <HospitalNotifications nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-request': <BloodRequestPage initialGroup={hospitalRequestGroup} nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-requests': <MyBloodRequests nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-availability': <BloodAvailability onRequest={openHospitalRequest} nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,

@@ -3,7 +3,7 @@ import { Button, Badge, Table, SectionCard } from '../UIComponents';
 import {SavedForm} from './BankForms';
 import * as service from '../../services/bankService';
 import { DISTRICTS } from '../../data/districts';
-import { BankLayout, useBankResource, useBankSelection, ResourceState, EmptyState, Notice, Field, Filters, Dialog, Details, Loading, ErrorPanel, inputClass, disabledClass, BLOOD_GROUPS, formatDate, titleCase } from './BankUI';
+import { BankLayout, useBankResource, useBankSelection, ResourceState, EmptyState, Field, Filters, Dialog, Details, Loading, ErrorPanel, inputClass, disabledClass, BLOOD_GROUPS, formatDate, titleCase } from './BankUI';
 const DonorDetails = ({ id, onClose }) => {
   const loader = useCallback(() => service.getDonorDetails(id), [id]);
   const resource = useBankResource(loader);
@@ -35,7 +35,6 @@ export const DonorManagement = ({ nav, candidates = false }) => {
   const recipients = selection?.recipients || [];
   const toggle = (id) => selection?.setRecipients((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   return <BankLayout nav={nav} title={candidates ? 'Eligible Donor Search' : 'Donor Management'} subtitle={candidates ? 'Potential matches subject to medical screening' : 'Authorized registered donor directory'}>
-    <Notice>The server's eligibility flag checks only the recorded donation interval, using a profile date fallback. It is not verified medical eligibility or current willingness to donate. Availability is not supplied. All candidates require screening and contact confirmation.</Notice>
     <SectionCard title={candidates ? 'Potential Donor Matches' : 'Registered Donors'} action={<Button variant="outline" disabled={resource.loading} onClick={resource.refresh}>Refresh</Button>}>
       <Filters>
         <Field label="Search donors"><input className={inputClass} maxLength={100} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Reference, name or authorized contact" /></Field>

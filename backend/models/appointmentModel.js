@@ -23,8 +23,12 @@ const mapAppointmentRow = (r) => ({
   appointmentDate: toDateString(r.appointment_date),
   timeSlot: r.time_slot,
   notes: r.notes,
+  nic: r.booking_nic || null,
   status: r.status,
   statusLabel: STATUS_LABELS[r.status] || r.status,
+  collectedUnits: r.collected_units == null ? null : Number(r.collected_units),
+  collectedVolumeMl: r.collected_volume_ml == null ? null : Number(r.collected_volume_ml),
+  collectionRecordedAt: r.collection_recorded_at || null,
   createdAt: toDateString(r.created_at),
 });
 
@@ -59,7 +63,7 @@ const getAppointmentsForHospital = async (hospitalId) => {
 };
 
 const getAppointmentsForBank = async ({ date, hospitalId, status, search } = {}) => {
-  const conditions = ["hu.account_status = 'active'"];
+  const conditions = ['1 = 1'];
   const params = [];
   if (date) {
     conditions.push('a.appointment_date = ?');
@@ -88,7 +92,7 @@ const getBookedSlots = async (hospitalId, date) => {
   return rows.map((r) => r.time_slot);
 };
 
-const createAppointment = async ({ donorId, hospitalId, appointmentDate, timeSlot, notes }, executor) => {
+const createAppointment = async ({ donorId, hospitalId, appointmentDate, timeSlot, notes, nic }, executor) => {
   const db = executor || pool;
 
   // Lock the hospital row for the duration of the transaction. Every booking
@@ -129,9 +133,9 @@ const createAppointment = async ({ donorId, hospitalId, appointmentDate, timeSlo
   }
 
   const [result] = await db.query(
-    `INSERT INTO appointments (donor_id, hospital_id, appointment_date, time_slot, notes)
-     VALUES (?, ?, ?, ?, ?)`,
-    [donorId, hospitalId, appointmentDate, timeSlot, notes || null]
+    `INSERT INTO appointments (donor_id, hospital_id, appointment_date, time_slot, notes, booking_nic)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [donorId, hospitalId, appointmentDate, timeSlot, notes || null, nic || null]
   );
   return result.insertId;
 };

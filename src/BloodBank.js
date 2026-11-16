@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Database, AlertTriangle, Users, Clock, Loader2,
-  Building2, TrendingUp, Sparkles, AlertCircle, Zap, User
+  AlertTriangle, Users, Clock, Loader2,
+  TrendingUp, Sparkles, AlertCircle, Zap, User,
+  Droplets, TrendingDown, ClipboardList, Megaphone, Truck, Hourglass, Hospital, CalendarCheck, ShieldCheck, Siren
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, ProgressBar } from './components/UIComponents';
@@ -133,32 +134,32 @@ export const BankDashboard = ({ nav }) => {
       {editProfile&&<BankProfileEditor onClose={()=>setEditProfile(false)}/>}
       {stats?.inventory?.available===false&&<p role="status" className="p-4 bg-amber-50">Verified stock is unavailable until the approved bank migrations are applied. Legacy aggregate stock is excluded.</p>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Database} value={totalUnits} label="Usable Unreserved Units" accent="red" />
-        <StatCard icon={AlertTriangle} value={stats?.inventory?.available===false?'Unavailable':lowStock.length} label="Centre / Groups Below Threshold" accent="amber" />
+        <StatCard icon={Droplets} value={totalUnits} label="Usable Unreserved Units" accent="red" />
+        <StatCard icon={TrendingDown} value={stats?.inventory?.available===false?'Unavailable':lowStock.length} label="Centre / Groups Below Threshold" accent="amber" />
         <StatCard icon={Users} value={stats?.donors?.totalDonors ?? 0} label="Registered Donors" accent="blue" />
-        <StatCard icon={Clock} value={stats?.requests?.pending ?? 0} label="Pending Requests" accent="green" />
+        <StatCard icon={ClipboardList} value={stats?.requests?.pending ?? 0} label="Pending Requests" accent="green" />
       </div>
 
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Clock} value={stats?.operations?.activeCampaigns ?? 'Unavailable'} label="Active / Upcoming Campaigns" accent="green" />
-        <StatCard icon={Clock} value={stats?.operations?.pendingTransfers ?? 'Unavailable'} label="Pending Assigned Transfers" accent="amber" />
-        <StatCard icon={Clock} value={stats?.operations?.expiringUnits ?? 'Unavailable'} label="Units Expiring Within 7 Days" accent="red" />
-        <StatCard icon={Building2} value={stats?.accounts?.hospitals ?? 'Unavailable'} label="Registered Hospitals" accent="blue" />
-        <StatCard icon={Clock} value={stats?.appointments?.upcoming ?? 'Unavailable'} label="Upcoming Appointments" accent="green" />
-        <StatCard icon={AlertCircle} value={stats?.inventory?.criticalStockGroups ?? 'Unavailable'} label="Critical Stock Groups" accent="red" />
-        <StatCard icon={Clock} value={stats?.hospitals?.pending ?? 'Unavailable'} label="Pending Hospital Approvals" accent="amber" />
-        <StatCard icon={AlertCircle} value={requests.filter(r => r.urgency === 'emergency').length} label="Pending Emergency Requests" accent="red" />
+        <StatCard icon={Megaphone} value={stats?.operations?.activeCampaigns ?? 'Unavailable'} label="Active / Upcoming Campaigns" accent="green" />
+        <StatCard icon={Truck} value={stats?.operations?.pendingTransfers ?? 'Unavailable'} label="Pending Assigned Transfers" accent="amber" />
+        <StatCard icon={Hourglass} value={stats?.operations?.expiringUnits ?? 'Unavailable'} label="Units Expiring Within 7 Days" accent="red" />
+        <StatCard icon={Hospital} value={stats?.accounts?.hospitals ?? 'Unavailable'} label="Registered Hospitals" accent="blue" />
+        <StatCard icon={CalendarCheck} value={stats?.appointments?.upcoming ?? 'Unavailable'} label="Upcoming Appointments" accent="green" />
+        <StatCard icon={AlertTriangle} value={stats?.inventory?.criticalStockGroups ?? 'Unavailable'} label="Critical Stock Groups" accent="red" />
+        <StatCard icon={ShieldCheck} value={stats?.hospitals?.pending ?? 'Unavailable'} label="Pending Hospital Approvals" accent="amber" />
+        <StatCard icon={Siren} value={requests.filter(r => r.urgency === 'emergency').length} label="Pending Emergency Requests" accent="red" />
       </div>
 
       <SectionCard
         title="Pending Hospital Approvals"
         className="mb-6"
-        action={<Button variant="outline" icon={Users} onClick={() => nav.onNavigate('bank-hospitals')}>Review Applications</Button>}
+        action={<Button variant="outline" icon={ShieldCheck} onClick={() => nav.onNavigate('bank-hospitals')}>Review Applications</Button>}
       >
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-7 h-7" />
+          <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+            <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
             <p className="text-3xl font-bold text-gray-800">{pendingCount ?? 'Unavailable'}</p>

@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { DonationHistory, MyAppointments } from './DonorRecords';
 import { AppointmentBooking } from './AppointmentBooking';
+import { DonorDashboard } from './DonorDashboard';
 import { DonorCampaigns } from './DonorCampaigns';
 import { DonorNotifications } from './DonorNotifications';
 import { EmergencyAlerts } from './EmergencyAlerts';
@@ -22,6 +23,20 @@ beforeEach(() => {
   donor.getCampaigns.mockResolvedValue({ available: true, items: [{ id: 11, name: 'Community Drive', status: 'Upcoming', date: '2026-12-01', startTime: '09:00', endTime: '12:00', district: 'Colombo', organizerName: 'Blood bank', shortDescription: 'Help your community.', targetDonors: 100, participants: 5 }] });
   donor.getMyCampaigns.mockResolvedValue({ available: true, items: [{ id: 31, status: 'registered', campaign: { id: 11, name: 'Community Drive', status: 'Upcoming', date: '2026-12-01', district: 'Colombo', organizerName: 'Blood bank' } }] });
   donor.getNotifications.mockResolvedValue({ available: true, items: [{ id: 41, title: 'Appointment booked', type: 'appointment_confirmation', description: 'Your booking was recorded.', isRead: false, createdAt: '2026-04-01 10:00' }], unreadCount: 1 });
+});
+
+test('donor dashboard shows completed donations and recorded collection totals',async()=>{
+ donor.getSummary.mockResolvedValue({fullName:'Test donor',totalDonations:2,bloodGroup:'O+',upcomingAppointments:0});
+ donor.getEmergencyAlerts.mockResolvedValue({items:[]});
+ donor.getAppointments.mockResolvedValue({items:[{...record,collectedUnits:1,collectedVolumeMl:450},{...record,id:2,reference:'AP-OLD',appointmentDate:'2024-01-01'}, {...record,id:3,reference:'AP-PENDING',status:'approved',appointmentDate:'2099-01-01',collectedUnits:99,collectedVolumeMl:9999}]});
+ render(<DonorDashboard nav={nav}/>);
+ expect(await screen.findByText('1 unit(s), 450 mL collected')).toBeInTheDocument();
+ expect(screen.getByText('Collected blood not recorded')).toBeInTheDocument();
+ expect(screen.getByText('Recorded collected units').parentElement).toHaveTextContent('1');
+ expect(screen.getByText('Recorded collected volume (mL)').parentElement).toHaveTextContent('450');
+ donor.getAppointments.mockResolvedValue({items:[{...record,collectedUnits:2,collectedVolumeMl:900}]});
+ fireEvent.click(screen.getByRole('button',{name:'Refresh dashboard'}));
+ expect(await screen.findByText('2 unit(s), 900 mL collected')).toBeInTheDocument();
 });
 
 test('history supports search, year, date, sorting and keyboard-dismissable details', async () => {
@@ -49,6 +64,18 @@ test('history exposes loading, API failure, retry and empty states', async () =>
   expect(await screen.findByRole('alert')).toHaveTextContent('History unavailable');
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('No completed donations recorded')).toBeInTheDocument();
+});
+
+test('donation history refresh shows a newly completed donation with both collected amounts',async()=>{
+ donor.getDonationHistory.mockResolvedValueOnce({available:true,items:[],totalCompleted:0});
+ render(<DonationHistory nav={nav}/>);
+ await screen.findByText('No completed donations recorded');
+ donor.getDonationHistory.mockResolvedValue({available:true,totalCompleted:1,items:[{...record,collectedUnits:1,collectedVolumeMl:450}]});
+ fireEvent.click(screen.getByRole('button',{name:'Refresh history'}));
+ const row=(await screen.findByText('AP-TEST1')).closest('tr');
+ expect(row).toHaveTextContent('450');expect(row).toHaveTextContent('Completed');
+ expect(screen.getByRole('columnheader',{name:'Collected units'})).toBeInTheDocument();
+ expect(screen.getByRole('columnheader',{name:'Collected volume (mL)'})).toBeInTheDocument();
 });
 
 test('cancellation requires confirmation and duplicate clicks cannot submit twice', async () => {
@@ -137,6 +164,25 @@ test('booking uses the actual payload and shows returned status only after succe
   expect(await screen.findByText('Appointment booked')).toBeInTheDocument();
   expect(donor.bookAppointment).toHaveBeenCalledWith({ hospital_id: 1, appointment_date: todayStr(1), time_slot: '09:00', notes: undefined });
   expect(screen.getByText('Pending')).toBeInTheDocument();
+});
+
+test('booking accepts an optional NIC and sends its normalized value',async()=>{
+ donor.bookAppointment.mockResolvedValue({appointment:{...record,status:'pending',nic:'901234567V'}});
+ render(<AppointmentBooking nav={nav}/>);
+ await selectBooking();
+ fireEvent.change(screen.getByLabelText('NIC (optional)'),{target:{value:'901234567v'}});
+ fireEvent.click(screen.getByRole('button',{name:'Confirm booking'}));
+ expect(await screen.findByText('Appointment booked')).toBeInTheDocument();
+ expect(donor.bookAppointment).toHaveBeenCalledWith(expect.objectContaining({nic:'901234567V'}));
+});
+
+test('invalid booking NIC is rejected before submitting',async()=>{
+ render(<AppointmentBooking nav={nav}/>);
+ await selectBooking();
+ fireEvent.change(screen.getByLabelText('NIC (optional)'),{target:{value:'invalid'}});
+ fireEvent.click(screen.getByRole('button',{name:'Confirm booking'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Enter a valid NIC');
+ expect(donor.bookAppointment).not.toHaveBeenCalled();
 });
 
 test('late availability responses cannot overwrite the newly selected centre', async () => {

@@ -16,6 +16,7 @@ export const AppointmentBooking = ({ nav }) => {
   const [date, setDate] = useState(() => todayStr(1));
   const [slot, setSlot] = useState('');
   const [notes, setNotes] = useState('');
+  const [nic, setNic] = useState('');
   const [availability, setAvailability] = useState({ key: '', booked: [], loading: false, error: null });
   const [slotRevision, setSlotRevision] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -47,9 +48,11 @@ export const AppointmentBooking = ({ nav }) => {
     e.preventDefault();
     if (lock.current) return;
     if (!district || !canBook) { setError('Select a district, hospital, valid date and available future time.'); return; }
+    const bookingNic = nic.trim().toUpperCase();
+    if (bookingNic && !/^(?:\d{9}[VX]|\d{12})$/.test(bookingNic)) { setError('Enter a valid NIC: 9 digits followed by V or X, or 12 digits.'); return; }
     lock.current = true; setSubmitting(true); setError(null);
     try {
-      const data = await donor.bookAppointment({ hospital_id: Number(hospitalId), appointment_date: date, time_slot: slot, notes: notes.trim() || undefined });
+      const data = await donor.bookAppointment({ hospital_id: Number(hospitalId), appointment_date: date, time_slot: slot, notes: notes.trim() || undefined, ...(bookingNic ? {nic: bookingNic} : {}) });
       if (!data?.appointment) throw new Error('The server did not return a booking confirmation. Check My Appointments before trying again.');
       setConfirmed(data.appointment);
     } catch (e) {
@@ -64,7 +67,7 @@ export const AppointmentBooking = ({ nav }) => {
       <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
       <h2 className="text-xl font-bold text-center mb-2">Appointment booked</h2>
       <p role="status" className="text-sm text-gray-600 text-center mb-5">Your booking has been saved. The current status is shown below.</p>
-      <Details entries={[[ 'Reference', confirmed.reference ], ['Hospital', confirmed.hospitalName], ['District', confirmed.district], ['Date', formatDate(confirmed.appointmentDate)], ['Time', confirmed.timeSlot], ['Status', <Badge color={statusColor(confirmed.status)}>{confirmed.statusLabel || confirmed.status}</Badge>]]} />
+      <Details entries={[[ 'Reference', confirmed.reference ], ['Hospital', confirmed.hospitalName], ...(confirmed.nic ? [['NIC', confirmed.nic]] : []), ['District', confirmed.district], ['Date', formatDate(confirmed.appointmentDate)], ['Time', confirmed.timeSlot], ['Status', <Badge color={statusColor(confirmed.status)}>{confirmed.statusLabel || confirmed.status}</Badge>]]} />
       <div className="flex flex-wrap gap-3 mt-6"><Button onClick={() => nav.onNavigate('donor-appointments')}>My Appointments</Button><Button variant="outline" onClick={() => { setConfirmed(null); setSlot(''); setNotes(''); setSlotRevision((n) => n + 1); }}>Book another</Button></div>
     </Card>
   </DonorLayout>;
@@ -74,6 +77,9 @@ export const AppointmentBooking = ({ nav }) => {
     <form onSubmit={submit} className="grid lg:grid-cols-3 gap-6">
       <fieldset disabled={submitting} className="lg:col-span-2 space-y-5 min-w-0">
         <legend className="sr-only">Appointment booking</legend>
+        <SectionCard title="Donor identification">
+          <Field label="NIC (optional)"><input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={nic} onChange={e => setNic(e.target.value.toUpperCase())} className={inputClass} placeholder="e.g. 199012345678 or 901234567V" /></Field>
+        </SectionCard>
         <SectionCard title="Select Donation Centre">
           {centres.loading ? <Loading label="Loading approved centres…" /> : centres.error ? <ErrorPanel message={centres.error} onRetry={centres.refresh} /> : hospitals.length === 0 ? <EmptyState title="No approved centres available" /> : <div className="space-y-4">
             <Field label="District"><select required className={inputClass} value={district} onChange={(e) => { setDistrict(e.target.value); setHospitalId(''); setSlot(''); }}>
@@ -104,7 +110,7 @@ export const AppointmentBooking = ({ nav }) => {
         </SectionCard>
       </fieldset>
       <div><SectionCard title="Booking Summary" className="lg:sticky lg:top-20">
-        <Details entries={[[ 'Centre', selected?.name ], ['District', district || undefined], ['Date', formatDate(date)], ['Time', slot || undefined]]} />
+        <Details entries={[[ 'Centre', selected?.name ], ...(nic.trim() ? [['NIC', nic.trim()]] : []), ['District', district || undefined], ['Date', formatDate(date)], ['Time', slot || undefined]]} />
         <div className="mt-5"><Field label="Note to the centre (optional)"><textarea disabled={submitting} rows={3} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} /></Field></div>
         <Button type="submit" icon={Calendar} disabled={!district || !canBook || submitting} className={`w-full mt-5 ${disabledClass}`}>{submitting ? 'Booking…' : 'Confirm booking'}</Button>
         <p className="text-xs text-gray-500 mt-3">Manage or cancel your booking in My Appointments. Hospital screening determines donation eligibility.</p>

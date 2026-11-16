@@ -142,7 +142,12 @@ CREATE TABLE IF NOT EXISTS appointments (
   appointment_date DATE NOT NULL,
   time_slot VARCHAR(10) NOT NULL,
   notes VARCHAR(500) NULL,
+  booking_nic VARCHAR(20) NULL,
   status ENUM('pending','approved','completed','cancelled') NOT NULL DEFAULT 'pending',
+  collected_units INT UNSIGNED NULL,
+  collected_volume_ml INT UNSIGNED NULL,
+  collection_recorded_at DATETIME NULL,
+  collection_recorded_by_user_id INT UNSIGNED NULL,
   active_donor_slot VARCHAR(64)
     GENERATED ALWAYS AS (IF(status = 'cancelled', NULL, CONCAT_WS('|', donor_id, appointment_date, time_slot))) VIRTUAL,
   active_centre_slot VARCHAR(64)

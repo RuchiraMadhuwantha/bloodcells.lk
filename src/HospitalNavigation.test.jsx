@@ -22,6 +22,8 @@ beforeEach(() => {
   api.listMyRequests.mockResolvedValue({ requests: [], counts: { pending: 999 } });
   api.listInventory.mockResolvedValue({ inventory: [] });
   api.listHospitalAppointments.mockResolvedValue({ appointments: [] });
+  api.listCampaigns.mockResolvedValue({campaigns:[]});
+  api.listNotifications.mockResolvedValue({notifications:[],unreadCount:0});
 });
 const login = async () => {
   render(<App />);
@@ -42,11 +44,42 @@ test('hospital approves a pending appointment and shows notification confirmatio
   expect(await screen.findByText('Approved')).toBeInTheDocument();
   expect(screen.queryByRole('button',{name:'Approve AP-00012'})).not.toBeInTheDocument();
 });
+
+test('hospital sidebar appointment page records units and millilitres',async()=>{
+ const appointment={id:12,reference:'AP-00012',donorName:'Test Donor',appointmentDate:'2020-01-01',timeSlot:'09:00',status:'approved',statusLabel:'Approved',bloodGroup:'O+'};
+ api.listHospitalAppointments.mockResolvedValue({appointments:[appointment]});
+ apiPut.mockResolvedValue({success:true});
+ await login();
+ fireEvent.click(await screen.findByRole('button',{name:'Appointment Management'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Record collection'}));
+ fireEvent.change(screen.getByLabelText('Collected units'),{target:{value:'1'}});
+ fireEvent.change(screen.getByLabelText('Collected volume (mL)'),{target:{value:'450'}});
+ api.listHospitalAppointments.mockResolvedValue({appointments:[{...appointment,status:'completed',statusLabel:'Completed',collectedUnits:1,collectedVolumeMl:450}]});
+ fireEvent.click(screen.getByRole('button',{name:'Save collection and complete'}));
+ expect(await screen.findByText('Collection saved. The donor and blood bank have been notified.')).toBeInTheDocument();
+ expect(apiPut).toHaveBeenCalledWith('/appointments/12/collection',{collectedUnits:1,collectedVolumeMl:450});
+ expect(await screen.findByText('450 mL')).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Record collection'})).not.toBeInTheDocument();
+});
+
+test('hospital can browse campaigns and open its campaign notifications from the bell',async()=>{
+ api.listCampaigns.mockResolvedValue({campaigns:[{id:20,name:'Hospital blood drive',status:'Upcoming',date:'2099-01-01',startTime:'09:00',endTime:'12:00',district:'Colombo',venueName:'Community Hall',organizerName:'Blood Bank',shortDescription:'Published campaign',neededBloodGroups:['O+']}]});
+ api.listNotifications.mockResolvedValue({notifications:[{id:25,title:'New blood donation campaign',message:'Hospital blood drive is published.',type:'campaign',isRead:false,actionRoute:'hospital-campaigns',createdAt:'2026-11-17 09:00:00'}],unreadCount:1});
+ await login();
+ await screen.findByRole('heading',{name:'Hospital Dashboard',level:1});
+ fireEvent.click(screen.getByTitle('Notifications'));
+ expect(await screen.findByText('Hospital blood drive is published.')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'View campaigns'}));
+ expect(await screen.findByText('Hospital blood drive')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'View campaign'}));
+ expect(screen.getByRole('dialog')).toHaveTextContent('Community Hall');
+ expect(api.listCampaigns).toHaveBeenCalledWith({period:'upcoming'});
+});
 test('hospital login, all sidebar routes and logout retain existing navigation and auth', async () => {
   await login();
   await screen.findByRole('heading', { name: 'Hospital Dashboard', level: 1 });
   for (const [label, title] of [
-    ['New Blood Request', 'New Blood Request'], ['My Blood Requests', 'My Blood Requests'],
+    ['Appointment Management', 'Appointment Management'], ['Blood Donation Campaigns','Blood Donation Campaigns'], ['New Blood Request', 'New Blood Request'], ['My Blood Requests', 'My Blood Requests'],
     ['Blood Availability', 'Blood Availability'], ['Hospital Inventory', 'Hospital Inventory'],
     ['Blood Usage', 'Blood Usage'], ['Reports', 'Hospital Reports'],
     ['Hospital Profile', 'Hospital Profile'], ['Dashboard', 'Hospital Dashboard'],

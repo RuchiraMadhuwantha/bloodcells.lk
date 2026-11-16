@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Building2, Search, Filter, Eye, CheckCircle, XCircle, FileText, Check, AlertCircle, Loader2,
+  Hospital as HospitalIcon, ClipboardClock, ShieldCheck, ShieldX, Search, Filter, Eye, CheckCircle, XCircle, FileText, Check, AlertCircle, Loader2,
 } from 'lucide-react';
 import { DashboardLayout } from './DashboardShell';
 import { StatCard, Badge, Button, SectionCard, Table } from './UIComponents';
@@ -34,7 +34,7 @@ const HospitalDetails = ({ hospital, onClose, onApprove, onReject, onReviewAgain
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
-              <Building2 className="w-6 h-6" />
+              <HospitalIcon className="w-6 h-6" />
             </div>
             <div>
               <h4 className="text-lg font-bold text-gray-900">{h.hospitalName}</h4>
@@ -271,10 +271,10 @@ export const HospitalManagement = ({ nav }) => {
       role="Bank Manager"
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Building2} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.total} label="Total Hospitals" accent="red" />
-        <StatCard icon={AlertCircle} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.pending} label="Pending Approvals" accent="amber" />
-        <StatCard icon={CheckCircle} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.active} label="Active Hospitals" accent="green" />
-        <StatCard icon={XCircle} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.rejected} label="Rejected / Inactive" accent="blue" />
+        <StatCard icon={HospitalIcon} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.total} label="Total Hospitals" accent="red" />
+        <StatCard icon={ClipboardClock} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.pending} label="Pending Approvals" accent="amber" />
+        <StatCard icon={ShieldCheck} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.active} label="Active Hospitals" accent="green" />
+        <StatCard icon={ShieldX} value={loading ? 'Loading...' : error ? 'Unavailable' : summary.rejected} label="Rejected / Inactive" accent="red" />
       </div>
 
       {/* Tabs */}
@@ -347,7 +347,7 @@ export const HospitalManagement = ({ nav }) => {
           </div>
         ) : list.length === 0 ? (
           <div className="py-16 text-center">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <HospitalIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-base font-medium text-gray-600 mb-1">{emptyMessage}</p>
             <p className="text-sm text-gray-400">Hospital registrations appear here, including pending applications.</p>
           </div>
@@ -358,7 +358,7 @@ export const HospitalManagement = ({ nav }) => {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Building2 className="w-4 h-4" />
+                      <HospitalIcon className="w-4 h-4" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-800">{h.hospitalName}</p>

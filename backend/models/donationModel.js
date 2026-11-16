@@ -1,18 +1,7 @@
 const pool = require('../config/db');
 const { toDateString } = require('../utils/date');
 
-/**
- * D01 — Donation history.
- *
- * This system records a completed donation as an appointment that the blood
- * bank marked 'completed' — there is no separate donation ledger in the
- * current schema (see database/schema.sql). A booked (but not yet completed)
- * appointment is NOT a donation and is never reported as one here.
- *
- * Donation quantity is not recorded anywhere today, so `quantity` is null
- * rather than fabricated. If a ledger is introduced later, this module is the
- * single place that needs to change.
- */
+// Completed appointments are donation records. Older unknown quantities remain null.
 
 const mapDonationRow = (r) => ({
   id: r.appointment_id,
@@ -29,7 +18,9 @@ const mapDonationRow = (r) => ({
   bloodGroup: r.blood_group,
   status: 'completed',
   statusLabel: 'Completed',
-  quantity: null,
+  quantity: r.collected_units == null ? null : Number(r.collected_units),
+  collectedUnits: r.collected_units == null ? null : Number(r.collected_units),
+  collectedVolumeMl: r.collected_volume_ml == null ? null : Number(r.collected_volume_ml),
   notes: r.notes,
   recordedAt: toDateString(r.updated_at),
 });

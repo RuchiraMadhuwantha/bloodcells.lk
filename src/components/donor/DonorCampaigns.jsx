@@ -3,7 +3,7 @@ import { Button, Badge, SectionCard } from '../UIComponents';
 import CampaignCard from '../CampaignCard';
 import * as donor from '../../services/donorService';
 import { DISTRICTS } from '../../data/districts';
-import { DonorLayout, useDonorResource, ResourceState, EmptyState, Filters, Field, Dialog, Details, Notice, ErrorPanel, inputClass, disabledClass } from './DonorUI';
+import { DonorLayout, useDonorResource, ResourceState, EmptyState, Filters, Field, Dialog, Details, ErrorPanel, inputClass, disabledClass } from './DonorUI';
 import { todayStr, formatDate } from './donorUtils';
 
 export const DonorCampaigns = ({ nav, mine = false }) => {
@@ -42,7 +42,6 @@ export const DonorCampaigns = ({ nav, mine = false }) => {
   const handleCancel = (id) => runAction(() => donor.cancelCampaignRegistration(id));
   return <DonorLayout nav={nav} title={mine ? 'My Campaigns' : 'Blood Donation Campaigns'} subtitle={mine ? 'Your registrations and participation status' : 'Find published donation campaigns near you'}>
     <div className="flex flex-wrap gap-3 mb-5"><Button variant={mine ? 'outline' : 'primary'} onClick={() => nav.onNavigate('donor-campaigns')}>Browse campaigns</Button><Button variant={mine ? 'primary' : 'outline'} onClick={() => nav.onNavigate('donor-my-campaigns')}>My Campaigns</Button></div>
-    <Notice>Only campaigns published by the blood bank are shown. Registering records your interest — the donation centre still screens you on the day.</Notice>
     {success && <p role="status" className="p-4 mb-4 rounded-lg bg-green-50 text-green-800">{success}</p>}
     {error && <div className="mb-4"><ErrorPanel message={error} /></div>}
     <SectionCard title={mine ? 'Registered campaigns' : 'Published campaigns'}>

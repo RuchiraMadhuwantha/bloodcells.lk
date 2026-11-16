@@ -11,7 +11,6 @@ export const BloodExpiry = ({ nav }) => {
   const [period, setPeriod] = useState('');
   const [selected, setSelected] = useState(null);
   return <BankLayout nav={nav} title="Blood Expiry" subtitle="Batch-based expiry monitoring">
-    <Notice>Expiry comes from actual batches at assigned centres. The approaching-expiry window is seven days; no component shelf life is inferred. Review and dispose of batches through inventory.</Notice>
     <SectionCard title="Expiring and Expired Blood">
       <Filters><Field label="Expiry blood group"><select className={inputClass} value={group} onChange={(e) => setGroup(e.target.value)}><option value="">All groups</option>{BLOOD_GROUPS.map((g) => <option key={g}>{g}</option>)}</select></Field><Field label="Expiry period"><select className={inputClass} value={period} onChange={(e) => setPeriod(e.target.value)}><option value="">All recorded expiry periods</option><option value="expired">Expired records</option><option value="expiring">Backend expiring classification</option></select></Field><Field label="Expiry order"><select className={inputClass} disabled><option>Nearest expiry first (source unavailable)</option></select></Field></Filters>
       <ResourceState resource={resource} emptyTitle="No expiry records returned"><Table columns={['Batch', 'Group', 'Collected', 'Expiry', 'Location', 'Quantity', 'Status', 'Details']}>

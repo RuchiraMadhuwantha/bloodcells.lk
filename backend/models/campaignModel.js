@@ -117,8 +117,8 @@ const getCampaignRowById = async (campaignId, executor, lock = false) => {
   return rows[0] || null;
 };
 
-const createCampaign = async (payload, userId) => {
-  const [result] = await pool.query(
+const createCampaign = async (payload, userId, executor = pool) => {
+  const [result] = await executor.query(
     `INSERT INTO campaigns (
       created_by_user_id, name, title, short_description, detailed_description, image_url,
       status, campaign_date, start_time, end_time, venue_name, address, district, city,
@@ -159,7 +159,7 @@ const createCampaign = async (payload, userId) => {
       payload.goal || null,
     ]
   );
-  return getCampaignById(result.insertId, { role: 'blood_bank' });
+  return getCampaignById(result.insertId, { role: 'blood_bank' }, executor);
 };
 
 const updateCampaign = async (campaignId, payload, executor = pool) => {

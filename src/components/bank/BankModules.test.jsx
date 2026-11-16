@@ -83,15 +83,26 @@ test('failed fulfillment stays in its dialog without frontend stock deduction', 
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(bank.adjustStock).not.toHaveBeenCalled();
 });
-test('appointment decisions allow approved records to be completed or cancelled', async () => {
+test('bank appointment actions allow cancellation while hospitals record collections', async () => {
   bank.getAppointments.mockResolvedValue({ available: true, complete: true, items: [appointment, { ...appointment, id: 2, reference: 'AP-LOCKED', status: 'approved' }] });
-  bank.changeAppointment.mockResolvedValue({ appointment: { ...appointment, status: 'approved' }, message: 'Approved by server' });
+  bank.changeAppointment.mockResolvedValue({ appointment: { ...appointment, status: 'cancelled' }, message: 'Cancelled by server' });
   renderBank(<BankAppointments nav={nav} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Approve AP-TEST' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel AP-TEST' }));
   fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
-  expect(await screen.findByText('Approved by server')).toBeInTheDocument();
+  expect(await screen.findByText('Cancelled by server')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Approve AP-TEST' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Mark completed AP-TEST' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Cancel AP-LOCKED' })).toBeEnabled();
   expect(screen.getAllByRole('button', { name: 'Reschedule' })[0]).toBeEnabled();
+});
+
+test('bank appointments show recorded units and volume and preserve unknown historical quantities',async()=>{
+ bank.getAppointments.mockResolvedValue({available:true,items:[{...appointment,status:'completed',collectedUnits:1,collectedVolumeMl:450},{...appointment,id:2,reference:'AP-OLD',status:'completed'}]});
+ renderBank(<BankAppointments nav={nav}/>);
+ expect(await screen.findByText('450 mL')).toBeInTheDocument();
+ expect(screen.getByText('1 unit(s)')).toBeInTheDocument();
+ expect(screen.getByText('Not recorded')).toBeInTheDocument();
+ expect(screen.getByText('Recorded collected volume (mL)')).toBeInTheDocument();
 });
 test('donor candidates are labelled for screening, expose authorized details and retain selection', async () => {
   renderBank(<DonorManagement nav={nav} candidates />);

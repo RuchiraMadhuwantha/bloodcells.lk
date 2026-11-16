@@ -28,6 +28,11 @@ const connectionConfig = {
 
 // Columns added after the original release. `{ table, column, definition }`.
 const ADDED_COLUMNS = [
+  { table: 'appointments', column: 'booking_nic', definition: 'VARCHAR(20) NULL' },
+  { table: 'appointments', column: 'collected_units', definition: 'INT UNSIGNED NULL' },
+  { table: 'appointments', column: 'collected_volume_ml', definition: 'INT UNSIGNED NULL' },
+  { table: 'appointments', column: 'collection_recorded_at', definition: 'DATETIME NULL' },
+  { table: 'appointments', column: 'collection_recorded_by_user_id', definition: 'INT UNSIGNED NULL' },
   {
     table: 'hospitals',
     column: 'rejection_reason',

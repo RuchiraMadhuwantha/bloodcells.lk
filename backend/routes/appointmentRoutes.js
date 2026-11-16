@@ -47,6 +47,13 @@ router.put('/:id/approve', authMiddleware, allowRoles('hospital'), idParam, hand
   req.body = { status: 'approved' };
   return setStatus(req, res, next);
 });
+router.put('/:id/collection', authMiddleware, allowRoles('hospital'), idParam,
+  [body('collectedUnits').isInt({ min: 1, max: 1000 }).toInt().withMessage('Enter a positive whole number of collected units.'),
+    body('collectedVolumeMl').isInt({ min: 1, max: 100000 }).toInt().withMessage('Enter the actual collected volume in millilitres.')],
+  handleValidationErrors, (req, res, next) => {
+    req.body.status = 'completed';
+    return setStatus(req, res, next);
+  });
 
 /* Blood bank */
 router.get('/', authMiddleware, allowRoles('blood_bank'),[query('date').optional().isDate({format:'YYYY-MM-DD',strictMode:true}),query('hospitalId').optional().isInt({min:1}),query('status').optional().isIn(['pending','approved','completed','cancelled']),query('search').optional().isString().isLength({max:100})],handleValidationErrors,listForBank);
