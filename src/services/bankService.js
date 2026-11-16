@@ -30,6 +30,7 @@ export const getExpiry=()=>bankRead('/expiry');
 export const getRegionalStock=()=>bankRead('/regional-stock');
 export const getTransfers=()=>bankRead('/transfers');
 export const getNotifications=()=>bankRead('/notifications');
+export const getInbox=async()=>resource(await apiGet('/notifications'), 'notifications');
 const save=async run=>{try{return await run();}catch(e){if(e.body?.errors?.length)e.message=e.body.errors.map(r=>r.message).join(' ');throw e;}};
 export const createCentre=(body,key)=>save(()=>apiPost('/bank/centres',body,{idempotencyKey:key}));
 export const createBatch=(body,key)=>save(()=>apiPost('/bank/inventory',body,{idempotencyKey:key}));

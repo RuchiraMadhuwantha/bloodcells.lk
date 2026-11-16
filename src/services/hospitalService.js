@@ -23,6 +23,7 @@ export const getUsage=()=>integration(()=>apiGet(BASE+'/blood-usage'));
 export const getStockChanges=()=>integration(()=>apiGet(BASE+'/inventory/changes'));
 export const getDashboard=()=>apiGet(BASE+'/dashboard');
 export const getAppointments=async()=>({available:true,items:(await api.listHospitalAppointments()).appointments});
+export const approveAppointment=id=>apiPut('/appointments/'+id+'/approve',{});
 export const createRequest=payload=>submit(()=>api.createBloodRequest(payload));
 export const cancelRequest=api.cancelMyRequest;
 export const saveStock=(payload,key,id)=>submit(()=>id?apiPut(BASE+'/inventory/'+id,payload,{idempotencyKey:key}):apiPost(BASE+'/inventory',payload,{idempotencyKey:key}));

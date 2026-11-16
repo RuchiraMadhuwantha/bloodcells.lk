@@ -9,6 +9,7 @@ import { BankLayout, useBankResource, useBankSelection, ResourceState, Notice, F
 const OUTREACH_TYPES=NOTIFICATION_TYPES.filter(([key])=>['general','campaign','emergency','appointment_reminder'].includes(key));
 export const BankNotifications = ({ nav }) => {
   const history = useBankResource(service.getNotifications);
+  const inbox = useBankResource(service.getInbox);
   const donors = useBankResource(service.getDonors);
   const selection = useBankSelection();
   const [form, setForm] = useState({ type: 'general', channel: 'in_app', message: '', group: '', district: '', status: 'active', mode: selection?.recipients?.length ? 'selected' : 'filters' });
@@ -17,6 +18,11 @@ export const BankNotifications = ({ nav }) => {
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const recipients = (donors.data?.items || []).filter((d) => (!form.group || d.bloodGroup === form.group) && (!form.district || d.district === form.district) && (!form.status || d.accountStatus === form.status) && (form.mode !== 'selected' || selection?.recipients.includes(d.donorId)));
   return <BankLayout nav={nav} title="Notification Management" subtitle="Compose and preview blood bank announcements">
+    <SectionCard title="Incoming Notifications" action={<Button onClick={inbox.refresh}>Refresh inbox</Button>}>
+      <ResourceState resource={inbox} emptyTitle="No incoming notifications">
+        {(inbox.data?.items || []).map(item => <div key={item.id} className="border-b p-3"><p className="font-medium">{item.title}</p><p className="text-sm">{item.message}</p><p className="text-xs text-gray-500">{item.createdAt}</p>{item.relatedType === 'appointment' && <Button variant="ghost" onClick={() => nav.onNavigate('bank-appointments')}>View appointments</Button>}</div>)}
+      </ResourceState>
+    </SectionCard>
     <Notice>In-app announcements are stored in selected active donors' inboxes. SMS/email requests are recorded as blocked until a provider and consent workflow are configured; they are not marked delivered. Maximum 500 recipients per operation.</Notice>
     <div className="grid lg:grid-cols-2 gap-6">
       <SectionCard title="Compose Notification"><form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setPreview({ ...form, count: recipients.length,donorIds:recipients.map(d=>d.donorId) }); }}>

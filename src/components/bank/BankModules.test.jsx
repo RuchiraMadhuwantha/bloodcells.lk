@@ -29,9 +29,18 @@ beforeEach(() => {
   bank.getDonationCentres.mockResolvedValue({ available: true, complete: true, items: [{ hospitalId: 7, name: 'Approved donation centre', code: 'DC7', address: '7 Centre Road', district: 'Kandy' }] });
   bank.getDonors.mockResolvedValue({ available: true, complete: true, items: [donor] });
   bank.getDonorDetails.mockResolvedValue({ donor, appointments: [] });
+  bank.getInbox.mockResolvedValue({available:true,items:[]});
   for (const method of ['getExpiry', 'getRegionalStock', 'getTransfers', 'getNotifications', 'getCampaigns','getCoordination']) bank[method].mockResolvedValue(unavailable);
 });
 const renderBank = (page) => render(<BankSelectionProvider>{page}</BankSelectionProvider>);
+
+test('bank inbox displays hospital approval and opens appointments',async()=>{
+ bank.getInbox.mockResolvedValue({available:true,items:[{id:1,title:'Hospital approved a donor appointment',message:'Test Hospital approved AP-00012.',relatedType:'appointment'}]});
+ renderBank(<BankNotifications nav={nav}/>);
+ expect(await screen.findByText('Test Hospital approved AP-00012.')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'View appointments'}));
+ expect(nav.onNavigate).toHaveBeenCalledWith('bank-appointments');
+});
 
 test('batch adjustments save one confirmed versioned mutation while pending',async()=>{
  let resolve;bank.updateBatch.mockImplementation(()=>new Promise(r=>{resolve=r;}));

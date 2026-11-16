@@ -12,6 +12,19 @@ export const HospitalDashboard = ({ nav }) => {
   const requests={loading:dashboard.loading,error:dashboard.error,refresh:dashboard.refresh,data:dashboard.data?{items:dashboard.data.summary.recentRequests}:null};
   const stock = useHospitalResource(service.getNetworkStock);
   const appointments = useHospitalResource(service.getAppointments);
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const approvalLock = useRef(false);
+  const [approvalMessage, setApprovalMessage] = useState('');
+  const approve = async (id) => {
+    if (approvalLock.current) return;
+    approvalLock.current = true; setApprovalBusy(true); setApprovalMessage('');
+    try {
+      await service.approveAppointment(id);
+      setApprovalMessage('Appointment approved. The donor and blood bank have been notified.');
+      appointments.refresh();
+    } catch (error) { setApprovalMessage(error.message || 'Could not approve this appointment.'); }
+    finally { approvalLock.current = false; setApprovalBusy(false); }
+  };
   const actions = useRequestDialogs(requests.refresh);
   const items = requests.data?.items || [];
   const counts = dashboard.data?.summary.requests || summarizeRequests([]);
@@ -33,7 +46,8 @@ export const HospitalDashboard = ({ nav }) => {
         {stock.loading ? <Loading /> : stock.error ? <ErrorPanel message={stock.error} onRetry={stock.refresh} /> : !inventory.length ? <EmptyState title="No network inventory returned" /> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{inventory.map((i) => <div key={String(i.id)+i.bloodGroup} className="border border-gray-100 rounded-lg p-3"><div className="flex justify-between items-center gap-2 mb-2"><BloodTypeBadge group={i.bloodGroup} size="sm" /><span className="font-bold text-sm">{i.availableUnits}</span></div><ProgressBar value={i.availableUnits} max={maxUnits} /><p className="text-xs text-gray-500 mt-2">{i.centreName} / {i.district}</p></div>)}</div>}
       </SectionCard>
       <SectionCard title="Donor Appointments" action={!appointments.loading && !appointments.error && <Badge color="gray">{upcoming.length} upcoming</Badge>}>
-        {appointments.loading ? <Loading /> : appointments.error ? <ErrorPanel message={appointments.error} onRetry={appointments.refresh} /> : !upcoming.length ? <EmptyState title="No upcoming donor appointments" /> : <div className="space-y-3">{upcoming.slice(0, 8).map((a) => <div key={a.id} className="border border-gray-100 rounded-lg p-3"><p className="flex items-center gap-2 font-medium text-sm"><User className="w-4 h-4" />{a.donorName}</p><p className="text-xs text-gray-500 my-2">{formatDate(a.appointmentDate)} | {a.timeSlot} | {a.bloodGroup}</p><Badge color={a.status === 'approved' ? 'green' : 'yellow'}>{a.statusLabel}</Badge></div>)}</div>}
+        {approvalMessage && <Notice>{approvalMessage}</Notice>}
+        {appointments.loading ? <Loading /> : appointments.error ? <ErrorPanel message={appointments.error} onRetry={appointments.refresh} /> : !upcoming.length ? <EmptyState title="No upcoming donor appointments" /> : <div className="space-y-3">{upcoming.map((a) => <div key={a.id} className="border border-gray-100 rounded-lg p-3"><p className="flex items-center gap-2 font-medium text-sm"><User className="w-4 h-4" />{a.donorName}</p><p className="text-xs text-gray-500 my-2">{formatDate(a.appointmentDate)} | {a.timeSlot} | {a.bloodGroup}</p><Badge color={a.status === 'approved' ? 'green' : 'yellow'}>{a.statusLabel}</Badge>{a.status === 'pending' && <Button className="mt-2" disabled={approvalBusy} onClick={() => approve(a.id)} aria-label={'Approve ' + a.reference}>Approve</Button>}</div>)}</div>}
       </SectionCard>
     </div>
     {actions.content}

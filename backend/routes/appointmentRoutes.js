@@ -43,6 +43,10 @@ router.get(
 
 /* Hospital */
 router.get('/hospital', authMiddleware, allowRoles('hospital'), listForHospital);
+router.put('/:id/approve', authMiddleware, allowRoles('hospital'), idParam, handleValidationErrors, (req, res, next) => {
+  req.body = { status: 'approved' };
+  return setStatus(req, res, next);
+});
 
 /* Blood bank */
 router.get('/', authMiddleware, allowRoles('blood_bank'),[query('date').optional().isDate({format:'YYYY-MM-DD',strictMode:true}),query('hospitalId').optional().isInt({min:1}),query('status').optional().isIn(['pending','approved','completed','cancelled']),query('search').optional().isString().isLength({max:100})],handleValidationErrors,listForBank);

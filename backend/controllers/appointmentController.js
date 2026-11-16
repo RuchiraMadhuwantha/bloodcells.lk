@@ -261,6 +261,15 @@ const setStatus = async (req, res, next) => {
     }
 
     const { status } = req.body;
+    if (req.user.role === 'hospital') {
+      const [owners] = await connection.query(
+        'SELECT hospital_id FROM hospitals WHERE user_id = ?', [req.user.user_id]
+      );
+      if (!owners[0] || owners[0].hospital_id !== appointment.hospitalId) {
+        throw httpError(403, 'You can only approve appointments at your own hospital.');
+      }
+      if (status !== 'approved') throw httpError(403, 'Hospitals can only approve appointments.');
+    }
     // Explicit state machine. Previously ANY of the final states blocked ALL
     // bank transitions, which made it impossible to ever mark an appointment
     // completed.
@@ -297,6 +306,20 @@ const setStatus = async (req, res, next) => {
     const payload = notificationByStatus[status];
     if (payload) {
       await notifyDonor({ ...payload, donorId: appointment.donorId, relatedId: appointment.id }, connection);
+    }
+
+    if (req.user.role === 'hospital' && status === 'approved') {
+      const [banks] = await connection.query(
+        "SELECT user_id FROM users WHERE role = 'blood_bank' AND account_status = 'active'"
+      );
+      for (const bank of banks) {
+        await createNotification({
+          userId: bank.user_id, type: 'appointment_approved',
+          title: 'Hospital approved a donor appointment',
+          message: `${appointment.hospitalName} approved appointment ${appointment.reference} for ${appointment.donorName} (${appointment.bloodGroup}) on ${appointment.appointmentDate} at ${appointment.timeSlot}.`,
+          relatedType: 'appointment', relatedId: appointment.id, actionRoute: 'bank-appointments',
+        }, connection);
+      }
     }
 
     await connection.commit();

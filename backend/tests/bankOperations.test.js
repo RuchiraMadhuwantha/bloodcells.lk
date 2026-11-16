@@ -12,6 +12,8 @@ test.beforeEach(()=>{queries=[];failAudit=false;db={keys:[],audit:[],transfers:[
 const query=async(sql,p=[])=>{
  queries.push({sql,p});
  if(sql.includes('SELECT user_id, username, role'))return [[{user_id:p[0],username:'fixture',role:p[0]===8?'donor':p[0]===9?'hospital':'blood_bank',account_status:p[0]===7?'inactive':'active'}]];
+ if(sql.includes("WHERE role = 'blood_bank'"))return [[{user_id:1},{user_id:2}]];
+ if(sql.startsWith('SELECT hospital_id FROM hospitals WHERE user_id'))return [[{hospital_id:10}]];
  if(sql.startsWith('SELECT user_id FROM users'))return [[{user_id:p[0]}]];
  if(sql.includes('FROM bank_operations WHERE'))return [db.keys.filter(k=>k.actor===p[0]&&k.operation===p[1]&&k.key===p[2]).map(k=>({payload_hash:k.hash,result_json:k.result}))];
  if(sql.startsWith('INSERT INTO bank_operations')){db.keys.push({actor:p[0],operation:p[1],key:p[2],hash:p[3],result:p[4]});return [{insertId:db.keys.length}];}
@@ -42,7 +44,7 @@ const query=async(sql,p=[])=>{
  if(sql.includes('SELECT outreach_id FROM bank_outreach'))return [db.outreach.map((r,i)=>({outreach_id:i+1}))];
  if(sql.includes('SELECT d.donor_id,d.user_id'))return [p[0].filter(id=>[4,5].includes(id)).map(id=>({donor_id:id,user_id:id+100}))];
  if(sql.startsWith('INSERT INTO bank_outreach')){db.outreach.push(p);return [{insertId:db.outreach.length}];}
- if(sql.startsWith('INSERT INTO notifications')){db.notifications.push(p);return [{insertId:db.notifications.length}];}
+ if(sql.startsWith('INSERT INTO notifications')){if(failAudit)throw new Error('fixture notification failure');db.notifications.push(p);return [{insertId:db.notifications.length}];}
  if(sql.startsWith('INSERT INTO bank_deliveries')){db.deliveries.push(p);return [{insertId:db.deliveries.length}];}
  if(sql.includes('SELECT user_id, account_status FROM users'))return [[{user_id:10,account_status:db.hospitalStatus}]];
  if(sql.startsWith('UPDATE users')){db.hospitalStatus=p[0];return [{affectedRows:1}];}
@@ -115,6 +117,30 @@ test('bank creates a campaign in the shared campaign model',async()=>{const r=aw
 test('campaign publishing persists and becomes visible to donors',async()=>{assert.equal((await call('/campaigns',{actor:8})).data.campaigns.length,0);const published=await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}});assert.equal(published.status,200);assert.equal(db.campaign.status,'Upcoming');const donor=await call('/campaigns',{actor:8});assert.equal(donor.data.campaigns[0].name,db.campaign.name);});
 test('invalid campaign dates and time ranges are rejected',async()=>{assert.equal((await call('/campaigns',{method:'POST',body:{...campaignPayload,date:'2026-02-30'}})).status,400);assert.equal((await call('/campaigns',{method:'POST',body:{...campaignPayload,endTime:'08:00'}})).status,400);});
 test('closed campaigns cannot be republished',async()=>{db.campaign.status='Cancelled';assert.equal((await call('/campaigns/1',{method:'PUT',body:{status:'Upcoming'}})).status,409);});
+test('hospital approval notifies donor and active banks once',async()=>{
+ const r=await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}});
+ assert.equal(r.status,200);assert.equal(db.appointment.status,'approved');
+ assert.deepEqual(db.notifications.map(n=>n[0]),[104,1,2]);
+ assert.ok(db.notifications.every(n=>n[1]==='appointment_approved'));
+ assert.equal((await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}})).status,409);
+ assert.equal(db.notifications.length,3);
+});
+test('hospital cannot approve another hospital appointment',async()=>{
+ db.appointment.hospital_id=11;
+ assert.equal((await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}})).status,403);
+ assert.equal(db.appointment.status,'pending');assert.equal(db.notifications.length,0);
+});
+test('failed approval notification rolls the appointment back',async()=>{
+ failAudit=true;
+ assert.equal((await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}})).status,500);
+ assert.equal(db.appointment.status,'pending');assert.equal(db.notifications.length,0);
+});
+test('donor cannot approve appointments',async()=>assert.equal((await call('/appointments/9/approve',{method:'PUT',actor:8,body:{}})).status,403));
+test('hospital cannot approve a completed appointment',async()=>{
+ db.appointment.status='completed';
+ assert.equal((await call('/appointments/9/approve',{method:'PUT',actor:9,body:{}})).status,409);
+ assert.equal(db.notifications.length,0);
+});
 test('appointment approval and donor inbox notification commit together',async()=>{const r=await call('/appointments/9/status',{method:'PUT',body:{status:'approved'}});assert.equal(r.status,200);assert.equal(db.appointment.status,'approved');assert.equal(db.notifications.length,1);assert.equal(db.notifications[0][0],104);assert.equal(db.notifications[0][1],'appointment_approved');assert.equal((await call('/appointments/9/status',{method:'PUT',body:{status:'approved'}})).status,409);assert.equal(db.notifications.length,1);});
 test('appointment cancellation persists with donor notification',async()=>{assert.equal((await call('/appointments/9/status',{method:'PUT',body:{status:'cancelled'}})).status,200);assert.equal(db.appointment.status,'cancelled');assert.equal(db.notifications[0][1],'appointment_cancelled');});
 test('bank reschedule changes the original donor appointment and notifies once',async()=>{const r=await call('/bank/appointments/9/reschedule',{method:'PUT',body:{newDate:'2099-02-01',newTimeSlot:'10:00'}});assert.equal(r.status,201);assert.equal(db.appointment.appointment_date,'2099-02-01');assert.equal(db.notifications[0][1],'appointment_rescheduled');});

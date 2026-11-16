@@ -3,9 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import App from './App';
 import HospitalRegistrationForm from './components/registration/HospitalRegistrationForm';
 import * as api from './services/api';
-import {apiGet} from './services/apiClient';
+import {apiGet,apiPut} from './services/apiClient';
 jest.mock('./services/api');
-jest.mock('./services/apiClient',()=>({...jest.requireActual('./services/apiClient'),apiGet:jest.fn()}));
+jest.mock('./services/apiClient',()=>({...jest.requireActual('./services/apiClient'),apiGet:jest.fn(),apiPut:jest.fn()}));
 const user = { username: 'testhospital', role: 'hospital', account_status: 'active' };
 beforeEach(() => {
   localStorage.clear();
@@ -30,6 +30,18 @@ const login = async () => {
   fireEvent.change(screen.getByPlaceholderText(/\u2022/), { target: { value: 'test-password' } });
   fireEvent.click(screen.getAllByRole('button', { name: /^login$/i }).at(-1));
 };
+
+test('hospital approves a pending appointment and shows notification confirmation', async () => {
+  api.listHospitalAppointments.mockResolvedValueOnce({appointments:[{id:12,reference:'AP-00012',donorName:'Test Donor',appointmentDate:'2099-01-01',timeSlot:'09:00',status:'pending',statusLabel:'Pending',bloodGroup:'O+'}]})
+    .mockResolvedValue({appointments:[{id:12,reference:'AP-00012',donorName:'Test Donor',appointmentDate:'2099-01-01',timeSlot:'09:00',status:'approved',statusLabel:'Approved',bloodGroup:'O+'}]});
+  apiPut.mockResolvedValue({success:true});
+  await login();
+  fireEvent.click(await screen.findByRole('button',{name:'Approve AP-00012'}));
+  expect(await screen.findByText('Appointment approved. The donor and blood bank have been notified.')).toBeInTheDocument();
+  expect(apiPut).toHaveBeenCalledWith('/appointments/12/approve',{});
+  expect(await screen.findByText('Approved')).toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Approve AP-00012'})).not.toBeInTheDocument();
+});
 test('hospital login, all sidebar routes and logout retain existing navigation and auth', async () => {
   await login();
   await screen.findByRole('heading', { name: 'Hospital Dashboard', level: 1 });
