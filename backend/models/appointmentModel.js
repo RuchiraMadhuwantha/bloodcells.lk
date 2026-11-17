@@ -28,13 +28,15 @@ const mapAppointmentRow = (r) => ({
   statusLabel: STATUS_LABELS[r.status] || r.status,
   collectedUnits: r.collected_units == null ? null : Number(r.collected_units),
   collectedVolumeMl: r.collected_volume_ml == null ? null : Number(r.collected_volume_ml),
+  campaignId:r.campaign_id || null,campaignName:r.campaign_name || null,
+  collectionBatchId:r.collection_batch_id || null,
   collectionRecordedAt: r.collection_recorded_at || null,
   createdAt: toDateString(r.created_at),
 });
 
 const APPOINTMENT_SELECT = `
   SELECT
-    a.*,
+    a.*,(SELECT c.name FROM campaigns c WHERE c.campaign_id=a.campaign_id) AS campaign_name,(SELECT sb.batch_id FROM stock_batches sb WHERE sb.appointment_id=a.appointment_id) AS collection_batch_id,
     d.full_name AS donor_name,
     d.blood_group,
     h.hospital_name,

@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const {toDateString}=require('../utils/date');
 const model = require('../models/hospitalOperationsModel');
 const { getHospitalByUserId } = require('../models/hospitalModel');
 const { getRequestsForHospital } = require('../models/bloodRequestModel');
@@ -52,7 +53,7 @@ const addUsage = protect(async(req,res)=>{
   const items=await model.getUsage(req.hospital.hospitalId);
   res.status(result.replayed?200:201).json({success:true,replayed:result.replayed,item:items.find(r=>r.id===result.id),message:'Blood usage and stock deduction saved.'});
 });
-const availability = protect(async(req,res)=>res.json({success:true,available:true,items:await model.getAvailability(req.query),complete:true,scope:'verified_batches',notice:'Legacy aggregate bank stock is excluded: it has no location, expiry or reservation provenance. Viewing does not reserve or allocate blood.'}));
+const availability = protect(async(req,res)=>res.json({success:true,available:true,items:await model.getAvailability(req.hospital.hospitalId,req.query),complete:true,scope:'hospital_batches'}));
 const updateProfile = protect(async(req,res)=>{
   const columns={hospitalName:'hospital_name',hospitalType:'hospital_type',district:'district',address:'address',contactNumber:'official_phone',contactPersonName:'contact_person_name',contactPersonDesignation:'contact_person_designation',contactPersonPhone:'contact_person_phone',contactPersonEmail:'contact_person_email'};
   const fields=Object.keys(req.body);
@@ -77,7 +78,9 @@ const dashboard = protect(async(req,res)=>{
 });
 const report = protect(async(req,res)=>{
   const type=req.query.type;
-  const items=type==='requests'||type==='fulfillment'
+  let items=type==='collections'?filtered((await require('../models/appointmentModel').getAppointmentsForHospital(req.hospital.hospitalId)).filter(a=>a.status==='completed'),req.query,'appointmentDate')
+    : ['incoming-transfers','outgoing-transfers'].includes(type)?filtered((await require('../models/hospitalTransferModel').list(req.hospital.hospitalId)).filter(t=>t.direction===(type==='incoming-transfers'?'incoming':'outgoing')).map(t=>({...t,transferDate:toDateString(t.createdAt)})),req.query,'transferDate')
+    : type==='requests'||type==='fulfillment'
     ? await getRequestsForHospital(req.hospital.hospitalId,{...req.query,maxRows:10001})
     : type==='usage'?await model.getUsage(req.hospital.hospitalId,pool,{...req.query,maxRows:10001}):await model.getStock(req.hospital.hospitalId,pool,{...req.query,maxRows:10001});
   if(items.length>10000) throw model.error(413,'Report exceeds 10000 records. Narrow the date range or blood group.');

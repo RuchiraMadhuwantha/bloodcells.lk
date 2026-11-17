@@ -14,7 +14,6 @@ Existing working features:
 - Aggregate inventory reads, threshold updates and adjustment UI.
 - Blood request approval/rejection/fulfillment and a donor directory/detail API.
 - Dashboard inventory charts, request queue, interval statistics and appointments.
-- An existing rule-based Demand Planning screen; it is not an AI model.
 
 Partial/prototype features:
 - Stock adjustment sent blood_group while the actual backend expects bloodGroup.
@@ -168,14 +167,12 @@ Dashboard/navigation:
 - Donor/hospital routes and completed views are preserved. The Administrator
   screen retains its previous menu labels/routes. Existing authentication and
   role guards remain; bank mutations additionally require blood_bank in the UI.
-- The existing non-AI rule-based Demand Planning implementation was retained.
 
 ## C. Affected files and purpose (this blood bank task)
 
 Modified:
 - src/App.js: bank routes, grouped navigation, recipient provider; preserve admin menu.
-- src/BloodBank.js: dashboard improvements; re-export extended original screens;
-  retain existing Demand Planning.
+- src/BloodBank.js: dashboard improvements; re-export extended original screens.
 - src/components/HospitalManagement.jsx: accessible confirmations and decision UX.
 - src/components/CampaignManagement.jsx: preserve form/preview; remove fake records
   and unsaved mutation success.

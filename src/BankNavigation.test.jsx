@@ -57,15 +57,16 @@ test('browser Back returns from a section to the dashboard and Forward restores 
 });
 test('blood bank navigation opens every module without changing donor or hospital routes', async () => {
   await login();
+  expect(screen.queryByRole('button',{name:'Regional Stock',exact:true})).not.toBeInTheDocument();
   for (const [label, title] of [
     ['Hospital Management', 'Hospital Management'], ['Blood Inventory', 'Inventory Management'],
     ['Blood Expiry', 'Blood Expiry'], ['Blood Shortages', 'Blood Shortages'],
     ['Blood Requests', 'Blood Requests'], ['Donor Management', 'Donor Management'],
     ['Eligible Donor Search', 'Eligible Donor Search'], ['Appointment Management', 'Appointment Management'],
     ['Campaign Management', 'Campaign Management'], ['Notification Management', 'Notification Management'],
-    ['Regional Stock', 'Regional Stock'], ['Blood Transfers', 'Blood Transfers'],
-    ['Regional Coordination', 'Regional Coordination'], ['Reports', 'Blood Bank Reports'],
-    ['Demand Planning', 'Demand Planning'], ['Dashboard', 'Blood Bank Dashboard'],
+    ['Blood Transfers', 'Blood Transfers'],
+    ['Reports', 'Blood Bank Reports'],
+    ['Dashboard', 'Blood Bank Dashboard'],
   ]) {
     fireEvent.click(screen.getAllByRole('button', { name: label, exact: true })[0]);
     expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();

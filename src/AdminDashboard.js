@@ -113,7 +113,6 @@ export const AdminDashboard = ({ nav }) => {
     { name: `National Inventory (${stats?.inventory?.totalUnits ?? 0} units)`, href: '#/bank-inventory' },
     { name: `Donor Directory (${accounts.donors ?? 0} accounts)`, href: '#/bank-donors' },
     { name: `Blood Requests (${requests.total ?? 0} total)`, href: '#/bank-requests' },
-    { name: `Demand Planning Summary`, href: '#/bank-prediction' },
   ];
 
   const attention = [

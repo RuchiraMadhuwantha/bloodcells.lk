@@ -28,6 +28,8 @@ const connectionConfig = {
 
 // Columns added after the original release. `{ table, column, definition }`.
 const ADDED_COLUMNS = [
+  {table:'appointments',column:'campaign_id',definition:'INT UNSIGNED NULL, ADD KEY idx_appointment_campaign_status (campaign_id,status), ADD CONSTRAINT fk_appointment_campaign FOREIGN KEY (campaign_id) REFERENCES campaigns(campaign_id)'},
+  { table: 'campaigns', column: 'hospital_id', definition: 'INT UNSIGNED NULL, ADD CONSTRAINT fk_campaign_hospital FOREIGN KEY (hospital_id) REFERENCES hospitals(hospital_id)' },
   { table: 'appointments', column: 'booking_nic', definition: 'VARCHAR(20) NULL' },
   { table: 'appointments', column: 'collected_units', definition: 'INT UNSIGNED NULL' },
   { table: 'appointments', column: 'collected_volume_ml', definition: 'INT UNSIGNED NULL' },

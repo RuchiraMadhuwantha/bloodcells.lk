@@ -1,17 +1,22 @@
 import React, { useRef, useState } from 'react';
-import { Eye, Check, Droplets, CalendarCheck } from 'lucide-react';
+import { Eye, Check, Droplets, CalendarCheck, CalendarClock, X, Megaphone } from 'lucide-react';
 import { Badge, Button, CompactAction, SectionCard, StatCard, Table } from '../UIComponents';
 import * as service from '../../services/hospitalService';
 import { HospitalLayout, useHospitalResource, ResourceState, EmptyState, Filters, Field, Dialog, ErrorPanel, inputClass } from './HospitalUI';
 import { AppointmentDetails } from '../donor/DonorRecords';
 import { formatDate, todayStr, statusColor, titleCase } from './hospitalUtils';
 
+import {CollectionCampaignField,HospitalDonationCampaign} from './HospitalDonationCampaign';
+import {HospitalAppointmentAction} from './HospitalAppointmentAction';
 export const HospitalAppointments = ({ nav }) => {
   const resource = useHospitalResource(service.getAppointments);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [date, setDate] = useState('');
   const [selected, setSelected] = useState(null);
+  const [campaignId,setCampaignId]=useState(''),[campaignDonation,setCampaignDonation]=useState(null);
+  const [action,setAction]=useState(null);
+  const [component,setComponent]=useState(''),[expiry,setExpiry]=useState('');
   const [collection, setCollection] = useState(null);
   const [units, setUnits] = useState('');
   const [volume, setVolume] = useState('');
@@ -57,23 +62,31 @@ export const HospitalAppointments = ({ nav }) => {
             <td className="p-3 text-sm">{a.bloodGroup}</td>
             <td className="p-3 text-sm whitespace-nowrap">{formatDate(a.appointmentDate)}<span className="block text-gray-500">{a.timeSlot}</span></td>
             <td className="p-3"><Badge color={statusColor(a.status)}>{a.statusLabel || titleCase(a.status)}</Badge></td>
-            <td className="p-3 text-sm">{a.collectedUnits != null ? <>{a.collectedUnits} unit(s)<span className="block text-gray-500">{a.collectedVolumeMl} mL</span></> : a.status === 'completed' ? 'Not recorded' : '—'}</td>
+            <td className="p-3 text-sm">{a.collectedUnits != null ? <>{a.collectedUnits} unit(s)<span className="block text-gray-500">{a.collectedVolumeMl} mL</span>{a.campaignName&&<span className="block text-xs text-gray-500">{a.campaignName}</span>}{a.collectionBatchId&&<span className="block text-xs text-gray-500">Inventory batch #{a.collectionBatchId}</span>}</> : a.status === 'completed' ? 'Not recorded' : '—'}</td>
             <td className="p-3"><div className="flex flex-wrap gap-1.5">
               <CompactAction icon={Eye} onClick={() => setSelected(a)}>Details</CompactAction>
+              {['pending','approved'].includes(a.status)&&<><CompactAction icon={CalendarClock} tone="schedule" disabled={busy} onClick={()=>setAction({appointment:a,action:'reschedule'})}>Reschedule</CompactAction><CompactAction icon={X} tone="danger" disabled={busy} onClick={()=>setAction({appointment:a,action:'cancel'})}>Cancel</CompactAction></>}
+              {a.status==='completed'&&<CompactAction icon={Megaphone} tone="schedule" onClick={()=>setCampaignDonation(a)}>Link campaign</CompactAction>}
               {a.status === 'pending' && <CompactAction tone="success" icon={Check} disabled={busy} onClick={() => save(a)} aria-label={'Approve ' + a.reference}>Approve</CompactAction>}
-              {a.status === 'approved' && <div className="space-y-1"><CompactAction tone="schedule" icon={Droplets} disabled={busy || a.appointmentDate > todayStr()} title={a.appointmentDate > todayStr() ? 'Available on the appointment date' : 'Record actual collected blood'} onClick={() => { setCollection(a); setUnits(''); setVolume(''); setError(''); }}>Record collection</CompactAction>{a.appointmentDate > todayStr() && <p className="text-xs text-gray-500">Available {formatDate(a.appointmentDate)}</p>}</div>}
+              {a.status === 'approved' && <div className="space-y-1"><CompactAction tone="schedule" icon={Droplets} disabled={busy || a.appointmentDate > todayStr()} title={a.appointmentDate > todayStr() ? 'Available on the appointment date' : 'Record actual collected blood'} onClick={() => { setCollection(a); setUnits(''); setVolume(''); setComponent('');setExpiry('');setCampaignId('');setError(''); }}>Record collection</CompactAction>{a.appointmentDate > todayStr() && <p className="text-xs text-gray-500">Available {formatDate(a.appointmentDate)}</p>}</div>}
             </div></td>
           </tr>)}
         </Table>}
       </ResourceState>
     </SectionCard>
+    {campaignDonation&&<HospitalDonationCampaign appointment={campaignDonation} onClose={()=>setCampaignDonation(null)} onSaved={()=>{setCampaignDonation(null);setMessage('Donation campaign link saved. Campaign totals have been updated.');resource.refresh();}}/>}
+    {action&&<HospitalAppointmentAction target={action} onClose={()=>setAction(null)} onSaved={text=>{setAction(null);setMessage(text);resource.refresh();}}/>}
     {selected && <Dialog title="Appointment details" onClose={() => setSelected(null)}><AppointmentDetails appointment={selected} /></Dialog>}
     {collection && <Dialog title={'Record collection · ' + collection.reference} busy={busy} onClose={() => { if (!busy) { setCollection(null); setError(''); } }}>
       <p className="text-sm mb-4">{collection.donorName} · {collection.bloodGroup} · {formatDate(collection.appointmentDate)}</p>
       {error && <ErrorPanel message={error} />}
-      <form className="space-y-4" onSubmit={e => { e.preventDefault(); save(collection, {collectedUnits:Number(units), collectedVolumeMl:Number(volume)}); }}>
+      <form className="space-y-4" onSubmit={e => { e.preventDefault(); save(collection, {collectedUnits:Number(units), collectedVolumeMl:Number(volume),component,expiryDate:expiry,...(campaignId?{campaignId:Number(campaignId)}:{})}); }}>
         <Field label="Collected units"><input required type="number" min="1" max="1000" step="1" className={inputClass} value={units} onChange={e => setUnits(e.target.value)} /></Field>
         <Field label="Collected volume (mL)"><input required type="number" min="1" max="100000" step="1" className={inputClass} value={volume} onChange={e => setVolume(e.target.value)} /></Field>
+        <Field label="Collected blood component"><input required maxLength={100} className={inputClass} value={component} onChange={e=>setComponent(e.target.value)} /></Field>
+        <Field label="Actual batch expiry date"><input required type="date" min={collection.appointmentDate} className={inputClass} value={expiry} onChange={e=>setExpiry(e.target.value)} /></Field>
+        <CollectionCampaignField appointment={collection} value={campaignId} onChange={setCampaignId} disabled={busy}/>
+        <p className="text-xs text-gray-500">A linked inventory batch will be created in quarantine pending checks.</p>
         <Button type="submit" icon={Check} disabled={busy}>{busy ? 'Saving...' : 'Save collection and complete'}</Button>
       </form>
     </Dialog>}

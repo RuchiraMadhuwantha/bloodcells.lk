@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, AlertCircle, Calendar, MapPin, Database, Sparkles, Check } from 'lucide-react';
+import { Activity, AlertCircle, Calendar, MapPin, Database, Check } from 'lucide-react';
 
 const ServicesPage = ({ onNavigate }) => {
   const mainServices = [
@@ -32,12 +32,6 @@ const ServicesPage = ({ onNavigate }) => {
       title: "Donor Database Management",
       description: "Comprehensive donor profiles with eligibility tracking and donation history",
       features: ["Eligibility tracking", "Donation history", "Health screening", "Follow-up alerts"]
-    },
-    {
-      icon: Sparkles,
-      title: "AI Demand Prediction",
-      description: "Machine learning-powered forecasting to anticipate blood demand patterns",
-      features: ["Predictive analytics", "Trend analysis", "Resource planning", "Optimization"]
     },
   ];
 
@@ -164,15 +158,6 @@ const ServicesPage = ({ onNavigate }) => {
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Fast & Reliable</h3>
                   <p className="text-gray-600">Emergency blood requests reach banks in seconds, not hours</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center shrink-0">
-                  <span className="text-xl font-bold">✓</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">AI-Powered</h3>
-                  <p className="text-gray-600">Predictive analytics prevent shortages before they happen</p>
                 </div>
               </div>
               <div className="flex gap-4">

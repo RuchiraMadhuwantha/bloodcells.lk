@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Database, Clock, CheckCircle, AlertCircle, ClipboardList, Plus, Send, User } from 'lucide-react';
-import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, ProgressBar } from './components/UIComponents';
+import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card } from './components/UIComponents';
 import * as service from './services/hospitalService';
 import { HospitalLayout, useHospital, useHospitalResource, Loading, ErrorPanel, EmptyState, Notice, Field, Details, inputClass, disabledClass } from './components/hospital/HospitalUI';
 import { BLOOD_GROUPS, URGENCIES, todayStr, isValidDate, formatDate, titleCase, statusColor, summarizeRequests, filterRequests } from './components/hospital/hospitalUtils';
@@ -10,7 +10,6 @@ export const HospitalDashboard = ({ nav }) => {
   const { hospital } = useHospital();
   const dashboard=useHospitalResource(service.getDashboard);
   const requests={loading:dashboard.loading,error:dashboard.error,refresh:dashboard.refresh,data:dashboard.data?{items:dashboard.data.summary.recentRequests}:null};
-  const stock = useHospitalResource(service.getNetworkStock);
   const appointments = useHospitalResource(service.getAppointments);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const approvalLock = useRef(false);
@@ -28,8 +27,6 @@ export const HospitalDashboard = ({ nav }) => {
   const actions = useRequestDialogs(requests.refresh);
   const items = requests.data?.items || [];
   const counts = dashboard.data?.summary.requests || summarizeRequests([]);
-  const inventory = stock.data?.items || [];
-  const maxUnits = Math.max(1, ...inventory.map((i) => i.availableUnits));
   const upcoming = (appointments.data?.items || []).filter((a) => a.appointmentDate >= todayStr() && ['pending', 'approved'].includes(a.status))
     .sort((a, b) => (a.appointmentDate + a.timeSlot).localeCompare(b.appointmentDate + b.timeSlot));
   return <HospitalLayout nav={nav} title="Hospital Dashboard" subtitle={hospital.hospitalName}>
@@ -40,11 +37,7 @@ export const HospitalDashboard = ({ nav }) => {
         <StatCard key={label} icon={icon} label={label} value={requests.loading ? 'Loading...' : requests.error ? 'Unavailable' : value} accent={accent} />)}
       <StatCard icon={Database} label="Hospital usable units" value={dashboard.loading ? 'Loading...' : dashboard.data?.summary.inventory.available ? dashboard.data.summary.inventory.totalAvailable : 'Unavailable'} accent="green" />
     </div>
-    <div className="grid lg:grid-cols-3 gap-6 mb-6">
-      <SectionCard title="Blood Availability" className="lg:col-span-2" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-availability')}>Check stock</Button>}>
-        <p className="text-xs text-gray-500 mb-4">Verified unreserved, non-expired stock at blood bank locations. Legacy aggregate stock is excluded. Viewing does not reserve units.</p>
-        {stock.loading ? <Loading /> : stock.error ? <ErrorPanel message={stock.error} onRetry={stock.refresh} /> : !inventory.length ? <EmptyState title="No network inventory returned" /> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{inventory.map((i) => <div key={String(i.id)+i.bloodGroup} className="border border-gray-100 rounded-lg p-3"><div className="flex justify-between items-center gap-2 mb-2"><BloodTypeBadge group={i.bloodGroup} size="sm" /><span className="font-bold text-sm">{i.availableUnits}</span></div><ProgressBar value={i.availableUnits} max={maxUnits} /><p className="text-xs text-gray-500 mt-2">{i.centreName} / {i.district}</p></div>)}</div>}
-      </SectionCard>
+    <div className="mb-6">
       <SectionCard title="Donor Appointments" action={!appointments.loading && !appointments.error && <Badge color="gray">{upcoming.length} upcoming</Badge>}>
         {approvalMessage && <Notice>{approvalMessage}</Notice>}
         {appointments.loading ? <Loading /> : appointments.error ? <ErrorPanel message={appointments.error} onRetry={appointments.refresh} /> : !upcoming.length ? <EmptyState title="No upcoming donor appointments" /> : <div className="space-y-3">{upcoming.map((a) => <div key={a.id} className="border border-gray-100 rounded-lg p-3"><p className="flex items-center gap-2 font-medium text-sm"><User className="w-4 h-4" />{a.donorName}</p><p className="text-xs text-gray-500 my-2">{formatDate(a.appointmentDate)} | {a.timeSlot} | {a.bloodGroup}</p><Badge color={a.status === 'approved' ? 'green' : 'yellow'}>{a.statusLabel}</Badge>{a.status === 'pending' && <Button className="mt-2 !px-3 !py-1 !text-xs" disabled={approvalBusy} onClick={() => approve(a.id)} aria-label={'Approve ' + a.reference}>Approve</Button>}</div>)}</div>}

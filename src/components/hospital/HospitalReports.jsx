@@ -10,6 +10,7 @@ export const HospitalReports=({nav})=>{
   const [busy,setBusy]=useState(false),[error,setError]=useState(null);
   const lock=useRef(false);
   const set=(key,value)=>{setFilters(f=>({...f,[key]:value,...(key==='type'?{status:''}:{})}));setReport(null);setError(null);};
+  const dateLabel=filters.type==='collections'?'Donation date':filters.type.includes('transfers')?'Transfer creation date':filters.type==='usage'?'Usage date':filters.type==='inventory'?'Collection date':'Submission date';
   const invalid=filters.start&&filters.end&&filters.start>filters.end;
   const preview=async e=>{
     e.preventDefault();if(lock.current)return;
@@ -27,10 +28,10 @@ export const HospitalReports=({nav})=>{
       <form aria-label="Hospital report filters" onSubmit={preview}>
         <fieldset disabled={busy} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Field label="Report type"><select className={inputClass} value={filters.type} onChange={e=>set('type',e.target.value)}>{REPORT_TYPES.map(([key,title])=><option key={key} value={key}>{title}</option>)}</select></Field>
-          <Field label={filters.type==='usage'?'Usage date from':filters.type==='inventory'?'Collection date from':'Submission date from'}><input type="date" className={inputClass} value={filters.start} onChange={e=>set('start',e.target.value)}/></Field>
-          <Field label={filters.type==='usage'?'Usage date to':filters.type==='inventory'?'Collection date to':'Submission date to'}><input type="date" className={inputClass} value={filters.end} onChange={e=>set('end',e.target.value)}/></Field>
+          <Field label={dateLabel+' from'}><input type="date" className={inputClass} value={filters.start} onChange={e=>set('start',e.target.value)}/></Field>
+          <Field label={dateLabel+' to'}><input type="date" className={inputClass} value={filters.end} onChange={e=>set('end',e.target.value)}/></Field>
           <Field label="Report blood group"><select className={inputClass} value={filters.group} onChange={e=>set('group',e.target.value)}><option value="">All groups</option>{BLOOD_GROUPS.map(g=><option key={g}>{g}</option>)}</select></Field>
-          <Field label="Report request status"><select disabled={['usage','inventory'].includes(filters.type)} className={inputClass} value={filters.status} onChange={e=>set('status',e.target.value)}><option value="">All statuses</option>{REQUEST_STATUSES.map(s=><option key={s} value={s}>{titleCase(s)}</option>)}</select></Field>
+          <Field label="Report request status"><select disabled={!['requests','fulfillment'].includes(filters.type)} className={inputClass} value={filters.status} onChange={e=>set('status',e.target.value)}><option value="">All statuses</option>{REQUEST_STATUSES.map(s=><option key={s} value={s}>{titleCase(s)}</option>)}</select></Field>
         </fieldset>
         {invalid&&<p role="alert" className="text-red-700 mt-4">Start date must be on or before end date.</p>}
         <div className="flex flex-wrap gap-3 mt-5">

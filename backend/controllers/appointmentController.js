@@ -16,6 +16,7 @@ const { createNotification } = require('../models/notificationModel');
 const { toFriendlyError } = require('../validators/common');
 const { toDateString } = require('../utils/date');
 
+const {saveCollectionBatch}=require('../models/collectionInventoryModel');
 const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode });
 
 /** Translates raw duplicate-key errors into actionable messages (they leak index names otherwise). */
@@ -41,7 +42,7 @@ const notifyDonor = async ({ donorId, type, title, message, relatedId, actionRou
   );
 };
 
-/* ───────────────────────── Donor side ───────────────────────── */
+/* Donor side */
 
 const bookAppointment = async (req, res, next) => {
   let connection;
@@ -130,8 +131,9 @@ const getMyAppointment = async (req, res, next) => {
 const rescheduleMyAppointment = async (req, res, next) => {
   let connection;
   try {
-    const donorId = await getDonorIdByUserId(req.user.user_id);
-    if (!donorId) {
+    const hospitalActor=req.user.role==='hospital';
+    let donorId = hospitalActor ? null : await getDonorIdByUserId(req.user.user_id);
+    if (!hospitalActor && !donorId) {
       throw httpError(404, 'No donor profile is linked to this account.');
     }
 
@@ -146,6 +148,15 @@ const rescheduleMyAppointment = async (req, res, next) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
+    if(hospitalActor){
+      const hospital=await getHospitalByUserId(req.user.user_id);
+      if(!hospital)throw httpError(403,'Hospital access required.');
+      // Match booking lock order, then re-read under lock.
+      await connection.query('SELECT hospital_id FROM hospitals WHERE hospital_id=? FOR UPDATE',[hospital.hospitalId]);
+      const current=await getAppointmentById(appointmentId,connection,true);
+      if(!current || current.hospitalId!==hospital.hospitalId)throw httpError(404,'Hospital appointment not found.');
+      donorId=current.donorId;
+    }
     const previous = await rescheduleAppointment(
       { appointmentId, donorId, newDate, newTimeSlot: timeSlot },
       connection
@@ -160,6 +171,10 @@ const rescheduleMyAppointment = async (req, res, next) => {
       relatedId: appointmentId,
     }, connection);
 
+    if(hospitalActor){
+      const [banks]=await connection.query("SELECT user_id FROM users WHERE role='blood_bank' AND account_status='active'");
+      for(const bank of banks)await createNotification({userId:bank.user_id,type:'appointment_rescheduled',title:'Hospital rescheduled an appointment',message:`${updated.hospitalName} moved ${updated.reference} to ${updated.appointmentDate} at ${updated.timeSlot}.`,relatedType:'appointment',relatedId:appointmentId,actionRoute:'bank-appointments'},connection);
+    }
     await connection.commit();
 
     const appointment = await getAppointmentById(appointmentId);
@@ -223,7 +238,7 @@ const slotsForDate = async (req, res, next) => {
   }
 };
 
-/* ───────────────────────── Hospital / blood bank side ───────────────────────── */
+/* Hospital / blood bank side */
 
 const listForHospital = async (req, res, next) => {
   try {
@@ -272,7 +287,7 @@ const setStatus = async (req, res, next) => {
       if (!owners[0] || owners[0].hospital_id !== appointment.hospitalId) {
         throw httpError(403, 'You can only approve appointments at your own hospital.');
       }
-      if (!['approved', 'completed'].includes(status)) throw httpError(403, 'Hospitals can approve appointments and record collected blood.');
+      if (!['approved', 'completed', 'cancelled'].includes(status)) throw httpError(403, 'Hospitals can approve appointments and record collected blood.');
       if (status === 'completed') {
         if (appointment.status !== 'approved') throw httpError(409, 'Approve this appointment before recording collected blood.');
         if (appointment.appointmentDate > toDateString(new Date())) throw httpError(409, 'Collected blood cannot be recorded before the appointment date.');
@@ -281,6 +296,9 @@ const setStatus = async (req, res, next) => {
             !Number.isInteger(collectedVolumeMl) || collectedVolumeMl < 1 || collectedVolumeMl > 100000) {
           throw httpError(400, 'Enter positive whole numbers for collected units and volume in millilitres.');
         }
+        if(!req.body.component || !/^\d{4}-\d{2}-\d{2}$/.test(req.body.expiryDate || '') || req.body.expiryDate<appointment.appointmentDate)throw httpError(400,'Enter the blood component and actual expiry date.');
+        if(req.body.campaignId!=null)await require('../models/campaignDonationModel').link(connection,appointment,req.user.user_id,req.body.campaignId,'Campaign selected while recording collection');
+        await saveCollectionBatch(connection,appointment,req.user.user_id,req.body);
         await connection.query(
           'UPDATE appointments SET collected_units = ?, collected_volume_ml = ?, collection_recorded_at = NOW(), collection_recorded_by_user_id = ? WHERE appointment_id = ?',
           [collectedUnits, collectedVolumeMl, req.user.user_id, appointment.id]
@@ -321,7 +339,7 @@ const setStatus = async (req, res, next) => {
       cancelled: {
         type: 'appointment_cancelled',
         title: 'Appointment cancelled',
-        message: `Your appointment ${appointment.reference} at ${appointment.hospitalName} on ${appointment.appointmentDate} at ${appointment.timeSlot} was cancelled by the blood bank.`,
+        message: `Your appointment ${appointment.reference} at ${appointment.hospitalName} on ${appointment.appointmentDate} at ${appointment.timeSlot} was cancelled by the ${req.user.role === 'hospital' ? 'hospital' : 'blood bank'}.`,
       },
     };
     const payload = notificationByStatus[status];
@@ -329,17 +347,17 @@ const setStatus = async (req, res, next) => {
       await notifyDonor({ ...payload, donorId: appointment.donorId, relatedId: appointment.id }, connection);
     }
 
-    if (req.user.role === 'hospital' && ['approved', 'completed'].includes(status)) {
+    if (req.user.role === 'hospital' && ['approved', 'completed', 'cancelled'].includes(status)) {
       const [banks] = await connection.query(
         "SELECT user_id FROM users WHERE role = 'blood_bank' AND account_status = 'active'"
       );
       for (const bank of banks) {
         await createNotification({
-          userId: bank.user_id, type: status === 'completed' ? 'appointment_completed' : 'appointment_approved',
-          title: status === 'completed' ? 'Hospital recorded collected blood' : 'Hospital approved a donor appointment',
+          userId: bank.user_id, type: status === 'completed' ? 'appointment_completed' : status==='cancelled'?'appointment_cancelled':'appointment_approved',
+          title: status === 'completed' ? 'Hospital recorded collected blood' : status==='cancelled'?'Hospital cancelled an appointment':'Hospital approved a donor appointment',
           message: status === 'completed'
             ? `${appointment.hospitalName} collected ${req.body.collectedUnits} unit(s), ${req.body.collectedVolumeMl} mL from ${appointment.donorName} (${appointment.bloodGroup}), appointment ${appointment.reference}.`
-            : `${appointment.hospitalName} approved appointment ${appointment.reference} for ${appointment.donorName} (${appointment.bloodGroup}) on ${appointment.appointmentDate} at ${appointment.timeSlot}.`,
+            : `${appointment.hospitalName} ${status} appointment ${appointment.reference} for ${appointment.donorName} (${appointment.bloodGroup}) on ${appointment.appointmentDate} at ${appointment.timeSlot}.`,
           relatedType: 'appointment', relatedId: appointment.id, actionRoute: 'bank-appointments',
         }, connection);
       }
@@ -360,7 +378,19 @@ const setStatus = async (req, res, next) => {
   }
 };
 
-module.exports = {
+const linkCampaign=async(req,res,next)=>{
+  let c;try{
+    const hospital=await getHospitalByUserId(req.user.user_id);
+    if(!hospital)throw httpError(403,'Hospital access required.');
+    c=await pool.getConnection();await c.beginTransaction();
+    const appointment=await getAppointmentById(Number(req.params.id),c,true);
+    if(!appointment||appointment.hospitalId!==hospital.hospitalId)throw httpError(404,'Hospital appointment not found.');
+    if(appointment.status!=='completed')throw httpError(409,'Only completed donations can be linked here. Select a campaign when recording a new collection.');
+    const result=await require('../models/campaignDonationModel').link(c,appointment,req.user.user_id,req.body.campaignId,req.body.note);
+    await c.commit();res.json({success:true,...result,appointment:await getAppointmentById(appointment.id),message:'Donation campaign link saved.'});
+  }catch(e){if(c)await c.rollback();next(toFriendlyError(e,'Could not link the campaign.'));}finally{if(c)c.release();}
+};
+module.exports = {linkCampaign,
   bookAppointment,
   listMyAppointments,
   getMyAppointment,

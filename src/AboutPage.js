@@ -19,7 +19,6 @@ const AboutPage = ({ onNavigate }) => {
   const milestones = [
     { year: "2015", event: "bloodcells.lk System Launched" },
     { year: "2018", event: "50+ Hospitals Connected" },
-    { year: "2022", event: "AI Demand Prediction Introduced" },
     { year: "2024", event: "100,000+ Donations Coordinated" },
     { year: "2026", event: "Real-Time Emergency Response System" },
   ];

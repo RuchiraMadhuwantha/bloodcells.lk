@@ -11,7 +11,8 @@ const range = [
   query('page').optional().isInt({min:1,max:100000}).toInt(), query('limit').optional().isInt({min:1,max:1000}).toInt(),
 ];
 const requestFilters = [...range, query('status').optional().isIn(['pending','approved','rejected','fulfilled','cancelled']),query('urgency').optional().isIn(['normal','urgent','emergency']),query('sort').optional().isIn(['newest','required','priority'])];
-const amounts = [
+const volume=[body('volumeMl').optional({nullable:true}).isFloat({min:0,max:1000000000}).custom(v=>/^\d+(?:\.\d{1,2})?$/.test(String(v))).withMessage('Enter millilitres with up to two decimal places.').toFloat()];
+const amounts = [...volume,
   body('quantity').isInt({min:0,max:100000}).toInt(),
   body('reservedUnits').optional().isInt({min:0,max:100000}).toInt(),
   body('reservedUnits').optional().custom((v,{req})=>Number(v)<=Number(req.body.quantity)).withMessage('Reserved units cannot exceed stock.'),
@@ -24,17 +25,24 @@ const createStock = [...key,...amounts,
   date(body('expiryDate')).custom((v,{req})=>v>=req.body.collectionDate && (req.body.status && req.body.status!=='usable' || v>=toDateString(new Date()))).withMessage('Check expiry and usable status.'),
 ];
 const updateStock = [...id,...key,...amounts,body('reservedUnits').exists(),body('status').exists(),body('version').isInt({min:1}).toInt()];
-const createUsage = [...key,
+const createUsage = [...key,...volume,
   body('batchId').isInt({min:1}).toInt(),body('bloodGroup').isIn(BLOOD_GROUPS),body('quantity').isInt({min:1,max:100000}).toInt(),
   date(body('usageDate')).custom(v=>v<=toDateString(new Date())).withMessage('Usage date cannot be in the future.'),
   body('category').trim().isLength({min:1,max:100}),body('notes').optional({values:'falsy'}).trim().isLength({max:1000}),
   body('requestId').optional({values:'falsy'}).isInt({min:1}).toInt(),
 ];
 const availability = [query('bloodGroup').optional().isIn(BLOOD_GROUPS),query('district').optional().trim().isLength({max:100}),query('centreId').optional().isInt({min:1}).toInt()];
-const report = [...range,query('type').isIn(['requests','fulfillment','inventory','usage']),query('status').optional().isIn(['pending','approved','rejected','fulfilled','cancelled']),query('format').optional().isIn(['json','csv','pdf'])];
+const report = [...range,query('type').isIn(['requests','fulfillment','inventory','usage','collections','incoming-transfers','outgoing-transfers']),query('status').optional().isIn(['pending','approved','rejected','fulfilled','cancelled']),query('format').optional().isIn(['json','csv','pdf'])];
 const profile = [
   ...['hospitalName','hospitalType','district','address','contactNumber','contactPersonName','contactPersonDesignation','contactPersonPhone','contactPersonEmail'].map(field=>body(field).optional().isString().trim().isLength({max:({address:1000,hospitalName:150,contactNumber:20,contactPersonPhone:20})[field] || 100})),
   body('hospitalName').optional().notEmpty(),body('contactPersonEmail').optional({values:'falsy'}).isEmail(),
   body().custom(value=>Object.keys(value).length>0 && Object.keys(value).every(k=>['hospitalName','hospitalType','district','address','contactNumber','contactPersonName','contactPersonDesignation','contactPersonPhone','contactPersonEmail'].includes(k))).withMessage('Only hospital contact/profile fields can be updated.'),
 ];
-module.exports = { id,key,range,requestFilters,createStock,updateStock,createUsage,availability,report,profile };
+const createTransfer = [...key,...volume,
+  body('batchId').isInt({min:1}).toInt().withMessage('Select a hospital blood batch.'),
+  body('destinationId').isInt({min:1}).toInt().withMessage('Select a blood bank destination.'),
+  body('quantity').isInt({min:1,max:100000}).toInt().withMessage('Enter a positive whole number of units.'),
+  body('reason').isString().trim().isLength({min:1,max:500}).withMessage('Enter the transfer reason.'),
+];
+const receiveTransfer=[...key,body('accepted').custom(v=>typeof v==='boolean').withMessage('Select a receiving decision.'),body('note').isString().trim().isLength({min:1,max:500}).withMessage('Enter the receiving checks or note.')];
+module.exports = { id,key,range,requestFilters,createStock,updateStock,createUsage,createTransfer,receiveTransfer,availability,report,profile };

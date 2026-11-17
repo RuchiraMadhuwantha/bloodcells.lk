@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS bank_audit (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS bank_transfers (
  transfer_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, source_location_id INT UNSIGNED NOT NULL, destination_location_id INT UNSIGNED NOT NULL,
+ volume_ml DECIMAL(12,2) UNSIGNED NULL,
  source_batch_id INT UNSIGNED NOT NULL, destination_batch_id INT UNSIGNED NULL, quantity INT UNSIGNED NOT NULL,
  reason VARCHAR(500) NOT NULL, status ENUM('requested','approved','dispatched','received','rejected','cancelled') DEFAULT 'requested',
  created_by_user_id INT UNSIGNED NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -39,6 +40,8 @@ CREATE TABLE IF NOT EXISTS bank_request_allocations (
  FOREIGN KEY(actor_user_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS bank_outreach (
+ campaign_id INT UNSIGNED NULL,
+ FOREIGN KEY(campaign_id) REFERENCES campaigns(campaign_id),
  outreach_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, actor_user_id INT UNSIGNED NOT NULL, type VARCHAR(50) NOT NULL,
  title VARCHAR(150) NOT NULL, message VARCHAR(1000) NOT NULL, channel ENUM('in_app','sms','email') NOT NULL,
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(actor_user_id) REFERENCES users(user_id)

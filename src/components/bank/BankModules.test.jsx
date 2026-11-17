@@ -5,7 +5,7 @@ import { BloodRequestQueue, BankAppointments } from './BankOperations';
 import { DonorManagement } from './BankDonors';
 import { BankNotifications } from './BankNotifications';
 import { BankSelectionProvider } from './BankUI';
-import { BloodExpiry, RegionalStock, BloodTransfers, RegionalCoordination } from './BankRegional';
+import { BloodExpiry, BloodTransfers, RegionalCoordination } from './BankRegional';
 import { BankReports } from './BankReports.js';
 import { CampaignManagement } from '../CampaignManagement';
 import * as bank from '../../services/bankService';
@@ -29,7 +29,8 @@ beforeEach(() => {
   bank.getDonationCentres.mockResolvedValue({ available: true, complete: true, items: [{ hospitalId: 7, name: 'Approved donation centre', code: 'DC7', address: '7 Centre Road', district: 'Kandy' }] });
   bank.getDonors.mockResolvedValue({ available: true, complete: true, items: [donor] });
   bank.getDonorDetails.mockResolvedValue({ donor, appointments: [] });
-  bank.getInbox.mockResolvedValue({available:true,items:[]});
+  bank.getInbox.mockResolvedValue({available:true,items:[],unreadCount:0,hasMore:false});
+  bank.getNotificationRecipients.mockResolvedValue({available:true,complete:true,items:[{donorId:1,fullName:'Test Donor',bloodGroup:'O+',district:'Colombo'}]});
   for (const method of ['getExpiry', 'getRegionalStock', 'getTransfers', 'getNotifications', 'getCampaigns','getCoordination']) bank[method].mockResolvedValue(unavailable);
 });
 const renderBank = (page) => render(<BankSelectionProvider>{page}</BankSelectionProvider>);
@@ -115,18 +116,21 @@ test('donor candidates are labelled for screening, expose authorized details and
 });
 test('notifications preview message text without simulating sending or delivery', async () => {
   renderBank(<BankNotifications nav={nav} />);
+  fireEvent.click(screen.getByRole('tab',{name:'Compose notification'}));
+  fireEvent.change(screen.getByLabelText('Notification title'),{target:{value:'Test title'}});
   fireEvent.change(screen.getByLabelText('Notification message'), { target: { value: 'Test announcement' } });
   const preview = screen.getByRole('button', { name: 'Preview message' });
-  await waitFor(() => expect(preview).toBeEnabled());
-  fireEvent.click(preview);
+  await waitFor(() => expect(preview).toBeEnabled());fireEvent.click(preview);
   expect(screen.getByRole('dialog')).toHaveTextContent('Test announcement');
-  expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm and save' })).toBeEnabled();
+  expect(screen.getByRole('button',{name:'Confirm and save'})).toBeEnabled();
   expect(bank.sendNotification).not.toHaveBeenCalled();
 });
-test.each([BloodExpiry, RegionalStock, BloodTransfers, RegionalCoordination])('unsupported regional/expiry modules show honest unavailable states', async (Page) => {
+
+test.each([BloodExpiry, BloodTransfers, RegionalCoordination])('unsupported regional/expiry modules show honest unavailable states', async (Page) => {
   renderBank(<Page nav={nav} />);
   expect((await screen.findAllByText('Service not available yet.')).length).toBeGreaterThan(0);
 });
+
 test('campaign preview stays unsaved and successful creation refreshes the list and clears filters', async () => {
   renderBank(<CampaignManagement nav={nav} />);
   await screen.findByText('Service not available yet.');
@@ -181,15 +185,16 @@ test('loading errors retry to empty records without fabricated stock', async () 
 });
 
 test('selected donor outreach saves actual in-app notifications after confirmation',async()=>{
- bank.sendNotification.mockResolvedValue({id:1,deliveryStatus:'Stored in donor inbox'});
- renderBank(<BankNotifications nav={nav}/>);
+ bank.sendNotification.mockResolvedValue({id:1,recipientCount:1,deliveryStatus:'Stored in donor inbox'});
+ renderBank(<BankNotifications nav={nav}/>);fireEvent.click(screen.getByRole('tab',{name:'Compose notification'}));
+ fireEvent.change(screen.getByLabelText('Notification title'),{target:{value:'Authorized announcement'}});
  fireEvent.change(screen.getByLabelText('Notification message'),{target:{value:'Donation outreach'}});
  await waitFor(()=>expect(screen.getByRole('button',{name:'Preview message'})).toBeEnabled());
- fireEvent.click(screen.getByRole('button',{name:'Preview message'}));
- fireEvent.change(screen.getByLabelText('Notification title'),{target:{value:'Authorized announcement'}});
- fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
+ fireEvent.click(screen.getByRole('button',{name:'Preview message'}));fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
  await waitFor(()=>expect(bank.sendNotification).toHaveBeenCalledWith({title:'Authorized announcement',type:'general',channel:'in_app',message:'Donation outreach',donorIds:[1]},expect.any(String)));
+ expect(await screen.findByText('Announcement saved to 1 donor inbox(es).')).toBeInTheDocument();
 });
+
 test('destination receiving checks send an explicit quarantine decision',async()=>{
  bank.getTransfers.mockResolvedValue({available:true,items:[{id:2,reference:'TR-2',status:'dispatched',quantity:2}]});bank.transferAction.mockResolvedValue({id:2,status:'received'});
  renderBank(<BloodTransfers nav={nav}/>);
@@ -205,4 +210,52 @@ test('approved request allocation submits selected real batch quantities',async(
  fireEvent.change(screen.getByLabelText('Fixture centre / BATCH-1 / 5 available'),{target:{value:'3'}});
  fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
  await waitFor(()=>expect(bank.allocateRequest).toHaveBeenCalledWith(1,{items:[{batchId:1,quantity:3}]},expect.any(String)));
+});
+
+
+test('campaign management displays saved donation amounts separately from participants',async()=>{
+ bank.getCampaigns.mockResolvedValue({available:true,items:[{id:1,name:'Recorded drive',date:'2026-11-17',participants:10,completedDonations:2,collectedUnits:2,collectedVolumeMl:880,status:'Completed'}]});
+ renderBank(<CampaignManagement nav={nav}/>);
+ expect(await screen.findByText('2 completed')).toBeInTheDocument();expect(screen.getByText('2 unit(s)')).toBeInTheDocument();expect(screen.getByText('880 mL')).toBeInTheDocument();
+});
+test('bank reports reject a reversed date range before requesting an export',async()=>{
+ renderBank(<BankReports nav={nav}/>);
+ await screen.findByRole('option',{name:'Fixture centre'});
+ fireEvent.change(screen.getByLabelText('Collection date from'),{target:{value:'2026-11-20'}});fireEvent.change(screen.getByLabelText('Collection date to'),{target:{value:'2026-11-17'}});
+ expect(screen.getByRole('button',{name:'Preview report'})).toBeDisabled();expect(screen.getByRole('button',{name:'Download PDF'})).toBeDisabled();expect(bank.getReport).not.toHaveBeenCalled();
+});
+
+
+test('bank inbox marks one notification read and refreshes saved state',async()=>{
+ bank.getInbox.mockResolvedValueOnce({available:true,items:[{id:1,title:'Transfer arrived',message:'Blood received',isRead:false}],unreadCount:1}).mockResolvedValue({available:true,items:[{id:1,title:'Transfer arrived',message:'Blood received',isRead:true}],unreadCount:0});
+ bank.markInboxRead.mockResolvedValue({message:'Notification marked as read.'});renderBank(<BankNotifications nav={nav}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Mark as read'}));
+ expect(await screen.findByText('Notification marked as read.')).toBeInTheDocument();expect(bank.markInboxRead).toHaveBeenCalledWith(1);
+ await waitFor(()=>expect(screen.queryByRole('button',{name:'Mark as read'})).not.toBeInTheDocument());
+});
+test('campaign targeting previews registered donor audience and enforces the recipient limit',async()=>{
+ bank.getCampaigns.mockResolvedValue({available:true,items:[{id:7,name:'Campaign audience',status:'Upcoming'}]});
+ bank.getNotificationRecipients.mockResolvedValue({available:true,items:[],complete:false,overLimit:true});renderBank(<BankNotifications nav={nav}/>);
+ fireEvent.click(screen.getByRole('tab',{name:'Compose notification'}));await screen.findByRole('option',{name:'Campaign audience'});
+ fireEvent.change(screen.getByLabelText('Campaign participation'),{target:{value:'7'}});
+ await waitFor(()=>expect(bank.getNotificationRecipients).toHaveBeenLastCalledWith(expect.objectContaining({campaignId:'7'})));
+ expect(await screen.findByText('More than 500 donors match. Narrow the audience before sending.')).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Preview message'})).toBeDisabled();
+ expect(screen.getByRole('option',{name:'Email - not connected'})).toBeDisabled();
+});
+test('failed announcement retries reuse the same submission key',async()=>{
+ bank.sendNotification.mockRejectedValueOnce(new Error('Connection interrupted')).mockResolvedValueOnce({id:1,recipientCount:1});renderBank(<BankNotifications nav={nav}/>);
+ fireEvent.click(screen.getByRole('tab',{name:'Compose notification'}));fireEvent.change(screen.getByLabelText('Notification title'),{target:{value:'Retry title'}});fireEvent.change(screen.getByLabelText('Notification message'),{target:{value:'Retry message'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Preview message'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Preview message'}));fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
+ await screen.findByText('Connection interrupted');fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
+ await waitFor(()=>expect(bank.sendNotification).toHaveBeenCalledTimes(2));expect(bank.sendNotification.mock.calls[0][1]).toBe(bank.sendNotification.mock.calls[1][1]);
+});
+
+
+test('sent history opens recipient delivery and read details',async()=>{
+ bank.getNotifications.mockResolvedValue({available:true,items:[{id:7,title:'Campaign reminder',type:'campaign',channel:'in_app',recipientCount:1,storedCount:1,readCount:1}]});
+ bank.getNotificationDetails.mockResolvedValue({items:[{id:7}],item:{id:7,title:'Campaign reminder',type:'campaign',channel:'in_app',message:'Visit your campaign',deliveries:[{id:2,donorName:'Test Donor',bloodGroup:'O+',district:'Colombo',status:'stored',readAt:'2026-11-17 09:00:00'}]}});
+ renderBank(<BankNotifications nav={nav}/>);fireEvent.click(screen.getByRole('tab',{name:'Sent history'}));
+ fireEvent.click(await screen.findByRole('button',{name:'View delivery details'}));
+ expect(await within(screen.getByRole('dialog')).findByText('Test Donor')).toBeInTheDocument();expect(screen.getByRole('dialog')).toHaveTextContent('Read');expect(bank.getNotificationDetails).toHaveBeenCalledWith(7);
 });

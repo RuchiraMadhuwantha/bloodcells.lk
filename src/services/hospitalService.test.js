@@ -25,8 +25,3 @@ test('stock and usage writes carry durable retry keys through existing client',a
   await hospital.saveStock({quantity:3},'other-key',5);
   expect(apiPut).toHaveBeenCalledWith('/hospitals/mine/inventory/5',{quantity:3},{idempotencyKey:'other-key'});
 });
-test('availability uses verified location batches instead of aggregate stock',async()=>{
-  apiGet.mockResolvedValue({available:true,items:[]});await hospital.getNetworkStock();
-  expect(apiGet).toHaveBeenCalledWith('/hospitals/mine/availability');
-  expect(api.listInventory).not.toHaveBeenCalled();
-});

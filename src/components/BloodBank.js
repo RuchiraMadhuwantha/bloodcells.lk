@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
   Database, AlertTriangle, Users, Clock, Edit, Phone, Mail, Bell, Plus, Search, Filter, CheckCircle,
-  TrendingUp, Sparkles, AlertCircle, Zap, X
+  AlertCircle, X
 } from 'lucide-react';
 import { DashboardLayout } from './DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, Card, Table, ProgressBar } from './UIComponents';
-import { BarChart, LineChart, Donut } from './Charts';
+import { LineChart, Donut } from './Charts';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
@@ -273,84 +273,6 @@ export const DonorManagement = ({ nav }) => {
             </tr>
           ))}
         </Table>
-      </SectionCard>
-    </DashboardLayout>
-  );
-};
-
-export const AIPrediction = ({ nav }) => {
-  const weekly = [
-    { label: 'Mon', value: 38 }, { label: 'Tue', value: 42 }, { label: 'Wed', value: 35 },
-    { label: 'Thu', value: 50 }, { label: 'Fri', value: 61 }, { label: 'Sat', value: 47 }, { label: 'Sun', value: 33 },
-  ];
-  const monthly = [
-    { label: 'Jan', value: 980 }, { label: 'Feb', value: 1020 }, { label: 'Mar', value: 1120 },
-    { label: 'Apr', value: 1080 }, { label: 'May', value: 1190 }, { label: 'Jun', value: 1240 },
-    { label: 'Jul*', value: 1320 }, { label: 'Aug*', value: 1380 },
-  ];
-  const risk = [
-    { group: 'O-', level: 'Critical', forecast: '+38% demand', color: 'red' },
-    { group: 'B-', level: 'High', forecast: '+24% demand', color: 'amber' },
-    { group: 'AB-', level: 'High', forecast: '+19% demand', color: 'amber' },
-    { group: 'O+', level: 'Moderate', forecast: '+11% demand', color: 'yellow' },
-  ];
-
-  return (
-    <DashboardLayout {...nav} title="AI Demand Prediction" subtitle="Forecasting & shortage alerts" userName="Ruwan Jayasuriya" role="Bank Manager">
-      {/* AI insight banner */}
-      <div className="bg-gradient-to-r from-red-600 to-red-800 text-white rounded-lg p-6 mb-6 flex items-start gap-4">
-        <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center shrink-0"><Sparkles className="w-6 h-6" /></div>
-        <div>
-          <h2 className="text-lg font-bold">AI Insight</h2>
-          <p className="text-white/90 text-sm mt-1">
-            Demand for <strong>O−</strong> is projected to rise <strong>38%</strong> over the next 7 days driven by scheduled
-            trauma surgeries and a regional festival. Current stock covers only <strong>2.3 days</strong>. Launch a targeted
-            O− campaign and notify 420 eligible O− donors now.
-          </p>
-        </div>
-      </div>
-
-      {/* Inventory metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={TrendingUp} value="+27%" label="Forecast Demand (7d)" accent="red" trend={{ up: true, value: 'vs last week' }} />
-        <StatCard icon={AlertTriangle} value="3" label="At-Risk Groups" accent="amber" />
-        <StatCard icon={Clock} value="2.3d" label="O− Days of Cover" accent="red" />
-        <StatCard icon={Zap} value="94%" label="Model Accuracy" accent="green" />
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <SectionCard title="Weekly Demand Forecast" action={<Badge color="red">AI</Badge>}>
-          <BarChart data={weekly} />
-        </SectionCard>
-        <SectionCard title="Monthly Trend & Projection" action={<Badge color="gray">* projected</Badge>}>
-          <LineChart data={monthly} forecastFrom={6} />
-          <p className="text-xs text-gray-400 mt-2">Hollow points indicate AI-projected months.</p>
-        </SectionCard>
-      </div>
-
-      {/* Risk blood groups */}
-      <SectionCard title="At-Risk Blood Groups" action={<Button variant="outline" icon={Bell}>Trigger Campaign</Button>}>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {risk.map(r => (
-            <div key={r.group} className={`border-2 rounded-lg p-4 ${r.color === 'red' ? 'border-red-200 bg-red-50' : r.color === 'amber' ? 'border-amber-200 bg-amber-50' : 'border-yellow-200 bg-yellow-50'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <BloodTypeBadge group={r.group} size="sm" />
-                <Badge color={r.color}>{r.level}</Badge>
-              </div>
-              <p className="text-sm font-medium text-gray-800">{r.forecast}</p>
-              <p className="text-xs text-gray-500 mt-1">Next 7 days</p>
-            </div>
-          ))}
-        </div>
-        {/* Shortage alerts */}
-        <div className="mt-6 space-y-2">
-          <div className="flex items-center gap-3 bg-red-50 text-red-700 rounded-lg p-3 text-sm">
-            <AlertCircle className="w-5 h-5 shrink-0" /> <span><strong>Shortage alert:</strong> O− will drop below safe threshold in ~2 days at current usage.</span>
-          </div>
-          <div className="flex items-center gap-3 bg-amber-50 text-amber-700 rounded-lg p-3 text-sm">
-            <AlertTriangle className="w-5 h-5 shrink-0" /> <span><strong>Watch:</strong> B− and AB− trending toward shortage by end of week.</span>
-          </div>
-        </div>
       </SectionCard>
     </DashboardLayout>
   );

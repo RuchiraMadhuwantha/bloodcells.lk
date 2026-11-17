@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle, Users, Clock, Loader2,
-  TrendingUp, Sparkles, AlertCircle, Zap, User,
+  AlertCircle, User,
   Droplets, TrendingDown, ClipboardList, Megaphone, Truck, Hourglass, Hospital, CalendarCheck, ShieldCheck, Siren
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, ProgressBar } from './components/UIComponents';
-import { BarChart, Donut } from './components/Charts';
+import { Donut } from './components/Charts';
 import { useAuth } from './context/AuthContext';
 import * as api from './services/api';
 import * as bankService from './services/bankService';
@@ -17,7 +17,6 @@ const BankProfileEditor=({onClose})=>{
  const resource=useBankResource(bankService.getProfile);
  return <Dialog title="Blood Bank Profile" onClose={onClose}><ResourceState resource={resource} emptyTitle="Profile unavailable">{resource.data?.profile&&<SavedForm initial={{email:resource.data.profile.email}} fields={[{key:'email',label:'Account email',type:'email',maxLength:100}]} onSave={body=>bankService.saveProfile(body)} onSaved={onClose}/>}</ResourceState></Dialog>;
 };
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 const formatDate = (iso) => {
   if (!iso) return '—';
@@ -125,6 +124,7 @@ export const BankDashboard = ({ nav }) => {
     <DashboardLayout
       {...nav}
       title="Blood Bank Dashboard"
+      onNotifications={()=>nav.onNavigate('bank-notifications')}
       subtitle="Assigned-centre inventory & request coordination"
       userName={user?.username || 'Blood Bank'}
       role="Bank Manager"
@@ -288,200 +288,3 @@ export const BankDashboard = ({ nav }) => {
 export { InventoryManagement } from './components/bank/BankInventory';
 export { DonorManagement } from './components/bank/BankDonors';
 export { BloodRequestQueue } from './components/bank/BankOperations';
-
-/* ===================================================================================
-   DEMAND PLANNING — honest, rule-based analytics derived from MySQL.
-   This is NOT a machine-learning model and is labelled as such in the UI.
-   =================================================================================== */
-
-export const AIPrediction = ({ nav }) => {
-  const { user } = useAuth();
-  const [inventory, setInventory] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [inv, st, req] = await Promise.all([
-          api.listInventory(), api.getInventoryStats(), api.listAllRequests(),
-        ]);
-        setInventory(inv.inventory || []);
-        setStats(st.stats || null);
-        setRequests(req.requests || []);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  if (loading) {
-    return (
-      <DashboardLayout {...nav} title="Demand Planning" userName={user?.username || 'Blood Bank'}>
-        <Loading label="Analysing inventory and demand…" />
-      </DashboardLayout>
-    );
-  }
-
-  if (error) {
-    return (
-      <DashboardLayout {...nav} title="Demand Planning" userName={user?.username || 'Blood Bank'}>
-        <ErrorPanel message={error} onRetry={() => window.location.reload()} />
-      </DashboardLayout>
-    );
-  }
-
-  // Rule-based shortfall analysis: open demand minus stock on hand.
-  const openByGroup = {};
-  requests
-    .filter((r) => ['pending', 'approved'].includes(r.status))
-    .forEach((r) => {
-      openByGroup[r.bloodGroup] = (openByGroup[r.bloodGroup] || 0) + r.quantity;
-    });
-
-  const analysis = inventory.map((i) => {
-    const open = openByGroup[i.bloodGroup] || 0;
-    const shortfall = Math.max(0, open - i.availableUnits);
-    const ratio = i.availableUnits > 0 ? open / i.availableUnits : (open > 0 ? Infinity : 0);
-    let level = 'Stable';
-    if (i.availableUnits <= i.criticalStockThreshold) level = 'Critical';
-    else if (i.availableUnits <= i.lowStockThreshold) level = 'Low';
-    if (shortfall > 0 && level === 'Stable') level = 'Shortfall';
-    return {
-      bloodGroup: i.bloodGroup,
-      availableUnits: i.availableUnits,
-      openDemand: open,
-      shortfall,
-      ratio,
-      level,
-    };
-  });
-
-  const atRisk = analysis.filter((a) => a.level !== 'Stable').sort((a, b) => b.shortfall - a.shortfall || a.ratio - b.ratio);
-  const totalOpen = Object.values(openByGroup).reduce((a, b) => a + b, 0);
-  const lowStockCount = stats?.lowStockGroups ?? 0;
-  const criticalCount = stats?.criticalStockGroups ?? 0;
-
-  // Fulfilled requests per group give a real (if small) demand history.
-  const fulfilledByGroup = {};
-  requests.filter((r) => r.status === 'fulfilled').forEach((r) => {
-    fulfilledByGroup[r.bloodGroup] = (fulfilledByGroup[r.bloodGroup] || 0) + r.quantity;
-  });
-  const fulfilledChart = BLOOD_GROUPS.map((g) => ({ label: g, value: fulfilledByGroup[g] || 0 }));
-
-  return (
-    <DashboardLayout {...nav} title="Demand Planning" subtitle="Stock cover & shortfall analysis" userName={user?.username || 'Blood Bank'} role="Bank Manager">
-      {/* Honest labelling: this is a rule-based planner, not a trained model. */}
-      <div className="bg-gradient-to-r from-red-600 to-red-800 text-white rounded-lg p-6 mb-6 flex items-start gap-4">
-        <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-          <Sparkles className="w-6 h-6" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold">How this page works</h2>
-          <p className="text-white/90 text-sm mt-1">
-            This is a <strong>rule-based planning tool</strong>, not a machine-learning model. It compares the
-            units currently in stock ({stats?.totalUnits ?? 0}) with the {totalOpen} unit(s) requested by
-            hospitals and flags any group that cannot cover its open demand or has fallen below its
-            configured alert threshold.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={TrendingUp} value={totalOpen} label="Open Demand (units)" accent="red" />
-        <StatCard icon={AlertTriangle} value={atRisk.length} label="Groups Needing Attention" accent="amber" />
-        <StatCard icon={Zap} value={lowStockCount} label="Below Low Threshold" accent="red" />
-        <StatCard icon={AlertCircle} value={criticalCount} label="At Critical Level" accent="red" />
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <SectionCard title="Fulfilled Units by Blood Group" action={<Badge color="gray">All time</Badge>}>
-          {Object.values(fulfilledByGroup).length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No fulfilled requests recorded yet.</p>
-          ) : (
-            <BarChart data={fulfilledChart} />
-          )}
-        </SectionCard>
-
-        <SectionCard title="Stock Cover vs Open Demand">
-          {totalOpen === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">There are no open blood requests right now.</p>
-          ) : (
-            <div className="space-y-2">
-              {analysis.filter((a) => a.openDemand > 0).map((a) => (
-                <div key={a.bloodGroup} className="flex items-center gap-3 text-sm">
-                  <span className="w-12 font-medium">{a.bloodGroup}</span>
-                  <div className="flex-1">
-                    <ProgressBar value={a.availableUnits} max={Math.max(a.availableUnits, a.openDemand, 1)} />
-                  </div>
-                  <span className="text-xs text-gray-500 w-28 text-right">
-                    {a.availableUnits} in stock / {a.openDemand} requested
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </div>
-
-      <SectionCard title="Groups Needing Attention">
-        {atRisk.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            No stock alerts and no open demand shortfalls. Inventory is healthy.
-          </p>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {atRisk.map((a) => (
-              <div key={a.bloodGroup}
-                className={`border-2 rounded-lg p-4 ${
-                  a.level === 'Critical' || a.shortfall > 0
-                    ? 'border-red-200 bg-red-50'
-                    : a.level === 'Low' ? 'border-amber-200 bg-amber-50' : 'border-yellow-200 bg-yellow-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <BloodTypeBadge group={a.bloodGroup} size="sm" />
-                  <Badge color={a.level === 'Critical' || a.shortfall > 0 ? 'red' : 'amber'}>{a.level}</Badge>
-                </div>
-                <p className="text-sm font-medium text-gray-800">
-                  {a.shortfall > 0 ? `Short by ${a.shortfall} unit(s)` : `${a.availableUnits} units in stock`}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {a.openDemand} unit(s) requested{criticalCount > 0 && a.availableUnits === 0 ? ' · stock is zero' : ''}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-6 space-y-2">
-          {atRisk.some((a) => a.shortfall > 0) && (
-            <div className="flex items-center gap-3 bg-red-50 text-red-700 rounded-lg p-3 text-sm">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <span>
-                <strong>Shortfall:</strong>{' '}
-                {atRisk.filter((a) => a.shortfall > 0).map((a) => `${a.bloodGroup} (${a.shortfall})`).join(', ')}
-                {' '}unit(s) requested exceed current stock. Fulfilment will be blocked until units are added.
-              </span>
-            </div>
-          )}
-          {lowStockCount > 0 && (
-            <div className="flex items-center gap-3 bg-amber-50 text-amber-700 rounded-lg p-3 text-sm">
-              <AlertTriangle className="w-5 h-5 shrink-0" />
-              <span>
-                <strong>Low stock:</strong> {lowStockCount} group(s) are at or below their low threshold
-                {criticalCount > 0 ? `, and ${criticalCount} at the critical threshold` : ''}. Schedule a collection drive.
-              </span>
-            </div>
-          )}
-        </div>
-      </SectionCard>
-    </DashboardLayout>
-  );
-};

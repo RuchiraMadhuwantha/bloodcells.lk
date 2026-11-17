@@ -11,16 +11,18 @@ const httpError = (statusCode, message) => Object.assign(new Error(message), { s
 
 const listMyNotifications = async (req, res, next) => {
   try {
+    const limit=req.query.limit?Number(req.query.limit):100;
+    const offset=req.query.offset?Number(req.query.offset):0;
     const [items, unreadCount] = await Promise.all([
       listForUser(req.user.user_id, {
         type: req.query.type,
         unreadOnly: req.query.unread === 'true',
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        limit:limit+1,
         offset: req.query.offset ? Number(req.query.offset) : undefined,
       }),
       countUnread(req.user.user_id),
     ]);
-    res.json({ success: true, notifications: items, unreadCount });
+    res.json({ success: true, notifications: items.slice(0,limit), unreadCount,hasMore:items.length>limit,nextOffset:offset+Math.min(items.length,limit) });
   } catch (error) {
     next(toFriendlyError(error, 'Could not load your notifications.'));
   }

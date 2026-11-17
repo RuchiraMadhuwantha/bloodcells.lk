@@ -2,8 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Button, Badge, Table, SectionCard } from '../UIComponents';
 import * as service from '../../services/bankService';
 import {SavedForm,EventHistory} from './BankForms';
-import { DISTRICTS } from '../../data/districts';
-import { BankLayout, useBankResource, ResourceState, EmptyState, Notice, Field, Filters, Dialog, Details, inputClass, disabledClass, BLOOD_GROUPS, formatDate } from './BankUI';
+import { BankLayout, useBankResource, ResourceState, Notice, Field, Filters, Dialog, Details, inputClass, disabledClass, BLOOD_GROUPS, formatDate } from './BankUI';
 
 export const BloodExpiry = ({ nav }) => {
   const resource = useBankResource(service.getExpiry);
@@ -21,24 +20,6 @@ export const BloodExpiry = ({ nav }) => {
     {selected && <Dialog title="Expiry details" onClose={() => setSelected(null)}><Details entries={[[ 'Batch', selected.reference ], ['Blood group', selected.bloodGroup], ['Collection date', formatDate(selected.collectionDate)], ['Expiry date', formatDate(selected.expiryDate)], ['Location', selected.storageLocation], ['Quantity', selected.quantity], ['Backend expiry classification', selected.expiryStatus]]} /><Button disabled className={`mt-4 ${disabledClass}`}>Disposal unavailable</Button></Dialog>}
   </BankLayout>;
 };
-
-export const RegionalStockPanel = () => {
-  const resource = useBankResource(service.getRegionalStock);
-  const [district, setDistrict] = useState('');
-  const [group, setGroup] = useState('');
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(null);
-  const items = (resource.data?.items || []).filter((r) => (!district || r.district === district) && (!group || r.bloodGroup === group) && String(r.centreName || '').toLowerCase().includes(search.trim().toLowerCase()));
-  return <SectionCard title="Regional Stock Comparison">
-    <Notice>Current usable unreserved stock at assigned registered blood centres. Comparisons use configured thresholds. No automated redistribution or clinical release is performed.</Notice>
-    <Filters><Field label="Regional district"><select className={inputClass} value={district} onChange={(e) => setDistrict(e.target.value)}><option value="">All districts</option>{[...new Set([...DISTRICTS, ...(resource.data?.items || []).map((r) => r.district).filter(Boolean)])].sort().map((d) => <option key={d}>{d}</option>)}</select></Field><Field label="Regional blood group"><select className={inputClass} value={group} onChange={(e) => setGroup(e.target.value)}><option value="">All groups</option>{BLOOD_GROUPS.map((g) => <option key={g}>{g}</option>)}</select></Field><Field label="Search regional centres"><input className={inputClass} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Centre name" /></Field></Filters>
-    <ResourceState resource={resource} emptyTitle="No regional stock records">
-      {!items.length ? <EmptyState title="No regional records match your filters" /> : <Table columns={['Centre', 'District', 'Group', 'Recorded units', 'Status', 'Updated', 'Details']}>{items.map((r) => <tr key={r.id}><td className="p-3">{r.centreName}</td><td className="p-3">{r.district}</td><td className="p-3">{r.bloodGroup}</td><td className="p-3">{r.availableUnits}</td><td className="p-3">{r.level}</td><td className="p-3">{r.updatedAt}</td><td className="p-3"><Button variant="ghost" onClick={() => setSelected(r)}>Details</Button></td></tr>)}</Table>}
-    </ResourceState>
-    {selected && <Dialog title="Regional stock details" onClose={() => setSelected(null)}><Details entries={[[ 'Centre', selected.centreName ], ['District', selected.district], ['Blood group', selected.bloodGroup], ['Recorded units', selected.availableUnits], ['Stock status', selected.level], ['Last updated', selected.updatedAt]]} /></Dialog>}
-  </SectionCard>;
-};
-export const RegionalStock = ({ nav }) => <BankLayout nav={nav} title="Regional Stock" subtitle="Authorized centre-level stock monitoring"><RegionalStockPanel /></BankLayout>;
 
 export const RegionalCoordination=({nav})=>{
  const resource=useBankResource(service.getCoordination);const data=resource.data?.items?.[0];
@@ -68,9 +49,9 @@ export const BloodTransfers = ({nav}) => {
   <Notice>Approval reserves source stock. Dispatch deducts it into transit. Only assigned destination staff may confirm receipt. Receiving checks determine usable or quarantined status; expired receipts remain quarantined.</Notice>
   {message&&<p role="status">{message}</p>}
   <SectionCard title="Recorded Transfers" action={<Button disabled={!resource.data?.available} onClick={()=>setEditor({kind:'create'})}>Request transfer</Button>}>
-   <ResourceState resource={resource} emptyTitle="No recorded transfers"><Table columns={['Reference','Source','Destination','Batch / Group','Quantity','Status','Actions']}>{(resource.data?.items||[]).map(r=><tr key={r.id}><td className="p-3">{r.reference}</td><td className="p-3">{r.sourceCentre}</td><td className="p-3">{r.destinationCentre}</td><td className="p-3">{r.batchReference} / {r.bloodGroup}</td><td className="p-3">{r.quantity}</td><td className="p-3">{r.status}</td><td className="p-3"><Button variant="ghost" onClick={()=>setHistoryId(r.id)}>History</Button>{({requested:['approve','reject','cancel'],approved:['dispatch','cancel'],dispatched:['receive']}[r.status]||[]).map(action=><Button key={action} variant="outline" onClick={()=>setEditor({kind:action,item:r})}>{action}</Button>)}</td></tr>)}</Table></ResourceState>
+   <ResourceState resource={resource} emptyTitle="No recorded transfers"><Table columns={['Reference','Source','Destination','Batch / Group','Quantity','Volume (mL)','Status','Actions']}>{(resource.data?.items||[]).map(r=><tr key={r.id}><td className="p-3">{r.reference}</td><td className="p-3">{r.sourceCentre}</td><td className="p-3">{r.destinationCentre}</td><td className="p-3">{r.batchReference} / {r.bloodGroup}</td><td className="p-3">{r.quantity}</td><td className="p-3">{r.volumeMl??'Not recorded'}</td><td className="p-3">{r.status}</td><td className="p-3"><Button variant="ghost" onClick={()=>setHistoryId(r.id)}>History</Button>{(r.status==='dispatched'&&r.destinationKind==='hospital'?[]:({requested:['approve','reject','cancel'],approved:['dispatch','cancel'],dispatched:['receive']}[r.status]||[])).map(action=><Button key={action} variant="outline" onClick={()=>setEditor({kind:action,item:r})}>{action}</Button>)}</td></tr>)}</Table></ResourceState>
   </SectionCard>
   {historyId&&<Dialog title="Transfer history" onClose={()=>setHistoryId(null)}><TransferHistory id={historyId}/></Dialog>}
-  {editor&&<Dialog title={editor.kind==='create'?'Request batch transfer':'Confirm transfer '+editor.kind} onClose={()=>setEditor(null)}><SavedForm fields={editor.kind==='create'?[{key:'batchId',label:'Source batch',type:'number',options:(batches.data?.items||[]).filter(b=>b.availableUnits>0).map(b=>({value:b.id,label:b.locationName+' / '+b.reference+' / '+b.bloodGroup+' / '+b.availableUnits+' available'}))},{key:'destinationId',label:'Destination centre',type:'number',options:(directory.data?.items||[]).map(c=>({value:c.id,label:c.name}))},{key:'quantity',label:'Transfer quantity',type:'number',min:1,max:100000},{key:'reason',label:'Transfer reason'}]:[{key:'note',label:'Decision or receiving checks'},...(editor.kind==='receive'?[{key:'receiptStatus',label:'Receiving decision',options:[{value:'quarantined',label:'Quarantine pending checks'},{value:'accepted',label:'Receiving checks accepted'}]}]:[])]} onSave={(data,key)=>editor.kind==='create'?service.createTransfer(data,key):service.transferAction(editor.item.id,{action:editor.kind,note:data.note,...(editor.kind==='receive'?{accepted:data.receiptStatus==='accepted'}:{})},key)} onSaved={refresh}/></Dialog>}
+  {editor&&<Dialog title={editor.kind==='create'?'Request batch transfer':'Confirm transfer '+editor.kind} onClose={()=>setEditor(null)}><SavedForm fields={editor.kind==='create'?[{key:'batchId',label:'Source batch',type:'number',options:(batches.data?.items||[]).filter(b=>b.availableUnits>0).map(b=>({value:b.id,label:b.locationName+' / '+b.reference+' / '+b.bloodGroup+' / '+b.availableUnits+' available'}))},{key:'destinationId',label:'Destination centre',type:'number',options:(directory.data?.items||[]).map(c=>({value:c.id,label:c.name+(c.kind==='hospital'?' (Hospital)':' (Blood Bank)')}))},{key:'quantity',label:'Transfer quantity',type:'number',min:1,max:100000},{key:'volumeMl',label:'Transfer volume (mL, optional)',type:'number',min:0.01,step:0.01,required:false},{key:'reason',label:'Transfer reason'}]:[{key:'note',label:'Decision or receiving checks'},...(editor.kind==='receive'?[{key:'receiptStatus',label:'Receiving decision',options:[{value:'quarantined',label:'Quarantine pending checks'},{value:'accepted',label:'Receiving checks accepted'}]}]:[])]} onSave={(data,key)=>editor.kind==='create'?service.createTransfer(data,key):service.transferAction(editor.item.id,{action:editor.kind,note:data.note,...(editor.kind==='receive'?{accepted:data.receiptStatus==='accepted'}:{})},key)} onSaved={refresh}/></Dialog>}
  </BankLayout>;
 };

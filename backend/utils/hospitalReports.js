@@ -1,15 +1,27 @@
 const PDFDocument=require('pdfkit');
 const buildHospitalReport=(hospital,items,filters)=>{
   const type=filters.type;
+  const volumeTotal=items.reduce((s,r)=>s+Number(r.volumeMl||0),0);
+  const unknownVolume=items.filter(r=>r.volumeMl==null).length;
+  if(type==='collections'||type==='incoming-transfers'||type==='outgoing-transfers'){
+    const collections=type==='collections';
+    return {title:collections?'Hospital Donation Collection Report':type==='incoming-transfers'?'Hospital Incoming Blood Transfer Report':'Hospital Outgoing Blood Transfer Report',
+      hospital:hospital.hospitalName,hospitalCode:hospital.hospitalCode,generatedAt:new Date().toISOString(),period:(filters.start||'First recorded date')+' to '+(filters.end||'Latest recorded date'),group:filters.bloodGroup||'All groups',status:'All statuses',
+      summary:collections?{'Completed donations':items.length,'Collected units':items.reduce((s,r)=>s+Number(r.collectedUnits||0),0),'Recorded collected volume (mL)':items.reduce((s,r)=>s+Number(r.collectedVolumeMl||0),0),'Donations missing quantities':items.filter(r=>r.collectedUnits==null||r.collectedVolumeMl==null).length}:{'Transfers':items.length,'Transferred units':items.reduce((s,r)=>s+r.quantity,0),'Recorded volume (mL)':volumeTotal,'Transfers missing volume':unknownVolume},
+      columns:collections?['Appointment','Donor','Blood group','Donation date','Collected units','Volume (mL)']:['Transfer','Source','Destination','Blood group','Units','Volume (mL)','Created date','Status'],
+      rows:items.map(r=>collections?[r.reference,r.donorName,r.bloodGroup,r.appointmentDate,r.collectedUnits,r.collectedVolumeMl]:[r.reference,r.sourceCentre,r.destinationCentre,r.bloodGroup,r.quantity,r.volumeMl,r.transferDate,r.status]),
+      sourceNote:collections?'Completed donations filtered by appointment date. Missing quantities are not assumed.':'Transfers filtered by creation date. Requested, in-transit and received records are distinguished by status. Missing volumes are not assumed.'};
+  }
   const inventory=type==='inventory',usage=type==='usage';
   const summary=inventory?{'Stock batches':items.length,'Usable unreserved units':items.reduce((s,r)=>s+r.availableUnits,0)}
     :usage?{'Usage records':items.length,'Recorded usage units':items.reduce((s,r)=>s+r.quantity,0)}
     :Object.fromEntries([['Total requests',items.length],...['pending','approved','rejected','fulfilled','cancelled'].map(status=>[status,items.filter(r=>r.status===status).length]),['Fulfillment rate',items.length?(100*items.filter(r=>r.status==='fulfilled').length/items.length).toFixed(1)+'%':'Not applicable']]);
-  const columns=inventory?['Reference','Blood group','Recorded units','Usable units','Reserved','Expiry','Status']
-    :usage?['Reference','Blood group','Quantity used','Usage date','Category']
+  if(inventory||usage){summary['Recorded volume (mL)']=volumeTotal;summary['Records missing volume']=unknownVolume;}
+  const columns=inventory?['Reference','Blood group','Recorded units','Volume (mL)','Usable units','Reserved','Expiry','Status']
+    :usage?['Reference','Blood group','Quantity used','Volume (mL)','Usage date','Category']
     :['Request ID','Blood group','Requested units','Urgency','Required date','Submission date','Status'];
-  const rows=items.map(r=>inventory?[r.reference,r.bloodGroup,r.quantity,r.availableUnits,r.reservedUnits,r.expiryDate,r.level]
-    :usage?[r.reference,r.bloodGroup,r.quantity,r.usageDate,r.category]
+  const rows=items.map(r=>inventory?[r.reference,r.bloodGroup,r.quantity,r.volumeMl,r.availableUnits,r.reservedUnits,r.expiryDate,r.level]
+    :usage?[r.reference,r.bloodGroup,r.quantity,r.volumeMl,r.usageDate,r.category]
     :[r.reference,r.bloodGroup,r.quantity,r.urgency,r.requiredDate,r.createdAt,r.status]);
   return {title:inventory?'Hospital Inventory Report':usage?'Hospital Blood Usage Report':type==='fulfillment'?'Request Fulfillment Report':'Hospital Blood Request Report',
     hospital:hospital.hospitalName,hospitalCode:hospital.hospitalCode,period:(filters.start||'First recorded date')+' to '+(filters.end||'Latest recorded date'),

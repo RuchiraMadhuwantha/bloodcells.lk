@@ -22,7 +22,7 @@ const { toDateString } = require('../utils/date');
 const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode });
 
 const notifyHospitals = async (campaign, connection) => {
-  const [hospitals] = await connection.query("SELECT u.user_id FROM users u JOIN hospitals h ON h.user_id = u.user_id WHERE u.role = 'hospital' AND u.account_status = 'active'");
+  const [hospitals] = await connection.query("SELECT u.user_id FROM users u JOIN hospitals h ON h.user_id = u.user_id WHERE u.role = 'hospital' AND u.account_status = 'active' AND h.hospital_id = ?", [campaign.hospitalId]);
   for (const hospital of hospitals) {
     await createNotification({
       userId: hospital.user_id, type: 'campaign', title: 'New blood donation campaign',
@@ -32,12 +32,22 @@ const notifyHospitals = async (campaign, connection) => {
   }
 };
 
+const validateHospital = async (hospitalId, status, connection) => {
+  if (!hospitalId) {
+    if (REGISTRATION_OPEN_STATUSES.includes(status)) throw httpError(400, 'Select the hospital this campaign belongs to before publishing.');
+    return;
+  }
+  const [rows] = await connection.query("SELECT h.hospital_id FROM hospitals h JOIN users u ON u.user_id=h.user_id WHERE h.hospital_id=? AND u.account_status='active' FOR UPDATE", [hospitalId]);
+  if (!rows.length) throw httpError(400, 'Select an approved active hospital for this campaign.');
+};
+
 /* ───────────────────────── Browser (donor + blood bank) ───────────────────────── */
 
 const listPublished = async (req, res, next) => {
   try {
     const campaigns = await listCampaigns({
       role: req.user.role,
+      userId: req.user.user_id,
       status:req.query.status,
       district: req.query.district || undefined,
       date: req.query.date || undefined,
@@ -51,7 +61,7 @@ const listPublished = async (req, res, next) => {
 
 const getCampaign = async (req, res, next) => {
   try {
-    const campaign = await getCampaignById(Number(req.params.id), { role: req.user.role });
+    const campaign = await getCampaignById(Number(req.params.id), { role: req.user.role, userId: req.user.user_id });
     if (!campaign) {
       throw httpError(404, 'Campaign not found.');
     }
@@ -197,6 +207,7 @@ const createManagedCampaign = async (req, res, next) => {
     if(['Upcoming','Active'].includes(req.body.status) && req.body.date<toDateString(new Date())) throw httpError(400,'Cannot publish a campaign in the past.');
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    await validateHospital(req.body.hospitalId, req.body.status || 'Draft', connection);
     const campaign = await createCampaign(req.body, req.user.user_id, connection);
     if (REGISTRATION_OPEN_STATUSES.includes(campaign.status)) await notifyHospitals(campaign, connection);
     await connection.commit();
@@ -227,7 +238,14 @@ const updateManagedCampaign = async (req, res, next) => {
     if (endTime <= startTime) {
       throw httpError(400, 'Campaign end time must be after the start time.');
     }
-    const newlyPublished = !REGISTRATION_OPEN_STATUSES.includes(existing.status) && REGISTRATION_OPEN_STATUSES.includes(nextStatus);
+    const hospitalId = req.body.hospitalId === undefined ? existing.hospital_id : req.body.hospitalId;
+    if(Number(hospitalId)!==Number(existing.hospital_id)||(req.body.date&&req.body.date!==toDateString(existing.campaign_date))){
+      const [linked]=await connection.query('SELECT appointment_id FROM appointments WHERE campaign_id=? LIMIT 1',[campaignId]);
+      if(linked.length)throw httpError(409,'A campaign with linked donations cannot change its hospital or date.');
+    }
+    await validateHospital(hospitalId, nextStatus, connection);
+    const newlyPublished = REGISTRATION_OPEN_STATUSES.includes(nextStatus) &&
+      (!REGISTRATION_OPEN_STATUSES.includes(existing.status) || Number(hospitalId) !== Number(existing.hospital_id));
     const campaign = await updateCampaign(campaignId, req.body,connection);
     if (newlyPublished) {
       await notifyHospitals(campaign, connection);

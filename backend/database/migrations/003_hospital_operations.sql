@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS stock_batches (
   reference VARCHAR(100) NOT NULL,
   blood_group ENUM('A+','A-','B+','B-','AB+','AB-','O+','O-') NOT NULL,
   component VARCHAR(100) NOT NULL,
+  volume_ml DECIMAL(12,2) UNSIGNED NULL,
   quantity INT UNSIGNED NOT NULL,
   reserved_units INT UNSIGNED NOT NULL DEFAULT 0,
   collection_date DATE NOT NULL,
@@ -29,6 +30,9 @@ CREATE TABLE IF NOT EXISTS stock_batches (
   UNIQUE KEY uk_stock_batch_reference (location_id,reference),
   KEY idx_stock_batch_availability (location_id,blood_group,status,expiry_date),
   CONSTRAINT ck_stock_batch_reserved CHECK (reserved_units <= quantity),
+  appointment_id INT UNSIGNED NULL,
+  UNIQUE KEY uq_stock_collection_appointment (appointment_id),
+  CONSTRAINT fk_stock_collection_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id),
   CONSTRAINT ck_stock_batch_dates CHECK (expiry_date >= collection_date),
   CONSTRAINT fk_stock_batch_location FOREIGN KEY (location_id) REFERENCES stock_locations(location_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -37,6 +41,7 @@ CREATE TABLE IF NOT EXISTS hospital_blood_usage (
   hospital_id INT UNSIGNED NOT NULL,
   batch_id INT UNSIGNED NOT NULL,
   request_id INT UNSIGNED NULL,
+  volume_ml DECIMAL(12,2) UNSIGNED NULL,
   quantity INT UNSIGNED NOT NULL,
   usage_date DATE NOT NULL,
   category VARCHAR(100) NOT NULL,

@@ -42,13 +42,19 @@ router.get(
 );
 
 /* Hospital */
+router.put('/:id/campaign',authMiddleware,allowRoles('hospital'),idParam,[body('campaignId').exists({values:'undefined'}).custom(v=>v===null||Number.isInteger(v)&&v>0),body('note').isString().trim().isLength({min:1,max:500})],handleValidationErrors,require('../controllers/appointmentController').linkCampaign);
 router.get('/hospital', authMiddleware, allowRoles('hospital'), listForHospital);
 router.put('/:id/approve', authMiddleware, allowRoles('hospital'), idParam, handleValidationErrors, (req, res, next) => {
   req.body = { status: 'approved' };
   return setStatus(req, res, next);
 });
+router.put('/:id/hospital-reschedule',authMiddleware,allowRoles('hospital'),idParam,rescheduleAppointmentValidation,handleValidationErrors,rescheduleMyAppointment);
+router.put('/:id/hospital-cancel',authMiddleware,allowRoles('hospital'),idParam,handleValidationErrors,(req,res,next)=>{req.body={status:'cancelled'};return setStatus(req,res,next);});
 router.put('/:id/collection', authMiddleware, allowRoles('hospital'), idParam,
-  [body('collectedUnits').isInt({ min: 1, max: 1000 }).toInt().withMessage('Enter a positive whole number of collected units.'),
+  [body('component').isString().trim().isLength({min:1,max:100}).withMessage('Enter the recorded blood component.'),
+    body('campaignId').optional({nullable:true}).isInt({min:1}).toInt(),
+    body('expiryDate').isDate({format:'YYYY-MM-DD',strictMode:true}).withMessage('Enter the actual batch expiry date.'),
+    body('collectedUnits').isInt({ min: 1, max: 1000 }).toInt().withMessage('Enter a positive whole number of collected units.'),
     body('collectedVolumeMl').isInt({ min: 1, max: 100000 }).toInt().withMessage('Enter the actual collected volume in millilitres.')],
   handleValidationErrors, (req, res, next) => {
     req.body.status = 'completed';

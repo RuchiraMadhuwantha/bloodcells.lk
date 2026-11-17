@@ -33,3 +33,17 @@ test('malformed source responses remain errors', async () => {
   api.listDonors.mockResolvedValue({});
   await expect(bank.getDonors()).rejects.toThrow('did not return donors');
 });
+
+
+test('inbox metadata and read actions use the signed-in account endpoints',async()=>{
+ apiGet.mockResolvedValue({notifications:[{id:1}],unreadCount:4,hasMore:true});
+ const result=await bank.getInbox({limit:50,offset:0,unread:true});expect(result).toMatchObject({items:[{id:1}],unreadCount:4,hasMore:true});expect(apiGet).toHaveBeenCalledWith('/notifications?limit=50&offset=0&unread=true');
+ await bank.markInboxRead(1);expect(apiPut).toHaveBeenCalledWith('/notifications/1/read',{});await bank.markAllInboxRead();expect(apiPut).toHaveBeenCalledWith('/notifications/read-all',{});
+});
+test('empty selected audience never requests an unrestricted donor list',async()=>{
+ expect(await bank.getNotificationRecipients({mode:'selected',donorIds:[]})).toMatchObject({items:[],recipientCount:0});expect(apiGet).not.toHaveBeenCalled();
+});
+test('campaign and selected recipient filters reach the server preview',async()=>{
+ await bank.getNotificationRecipients({mode:'selected',donorIds:[4,5],campaignId:7,bloodGroup:'O+'});
+ expect(apiGet).toHaveBeenCalledWith('/bank/notification-recipients?mode=selected&bloodGroup=O%2B&campaignId=7&donorIds=4%2C5');
+});

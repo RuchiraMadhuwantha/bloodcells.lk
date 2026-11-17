@@ -20,8 +20,8 @@ export const BarChart = ({ data, height = 160, color = '#dc2626' }) => {
   );
 };
 
-// LineChart — lightweight SVG line chart with forecast support
-export const LineChart = ({ data, height = 180, stroke = '#dc2626', forecastFrom }) => {
+// LineChart — lightweight SVG line chart
+export const LineChart = ({ data, height = 180, stroke = '#dc2626' }) => {
   const w = 520, pad = 24;
   const max = Math.max(...data.map(d => d.value), 1);
   const min = Math.min(...data.map(d => d.value), 0);
@@ -36,7 +36,7 @@ export const LineChart = ({ data, height = 180, stroke = '#dc2626', forecastFrom
       <polyline fill="none" stroke={stroke} strokeWidth="2.5" points={pts} strokeLinejoin="round" strokeLinecap="round" />
       {data.map((d, i) => (
         <g key={i}>
-          <circle cx={x(i)} cy={y(d.value)} r="3.5" fill={forecastFrom != null && i >= forecastFrom ? '#fff' : stroke} stroke={stroke} strokeWidth="2" />
+          <circle cx={x(i)} cy={y(d.value)} r="3.5" fill={stroke} stroke={stroke} strokeWidth="2" />
           <text x={x(i)} y={height - 6} textAnchor="middle" fontSize="9" fill="#6b7280">{d.label}</text>
         </g>
       ))}

@@ -1,53 +1,55 @@
-import React, { useState } from 'react';
-import { Button, SectionCard, Table } from '../UIComponents';
-import {SavedForm} from './BankForms';
+import React,{useCallback,useEffect,useRef,useState} from 'react';
+import {Bell,Check,CheckCheck,Eye,Inbox,MailCheck,RefreshCw,Send} from 'lucide-react';
+import {Button,Badge,CompactAction,SectionCard,StatCard} from '../UIComponents';
 import * as service from '../../services/bankService';
-import { NOTIFICATION_TYPES, notificationLabel } from '../donor/donorUtils';
-import { DISTRICTS } from '../../data/districts';
-import { BankLayout, useBankResource, useBankSelection, ResourceState, Notice, Field, Filters, Dialog, Details, inputClass, disabledClass, BLOOD_GROUPS } from './BankUI';
-
-const OUTREACH_TYPES=NOTIFICATION_TYPES.filter(([key])=>['general','campaign','emergency','appointment_reminder'].includes(key));
-export const BankNotifications = ({ nav }) => {
-  const history = useBankResource(service.getNotifications);
-  const inbox = useBankResource(service.getInbox);
-  const donors = useBankResource(service.getDonors);
-  const selection = useBankSelection();
-  const [form, setForm] = useState({ type: 'general', channel: 'in_app', message: '', group: '', district: '', status: 'active', mode: selection?.recipients?.length ? 'selected' : 'filters' });
-  const [preview, setPreview] = useState(null);
-  const [historyType, setHistoryType] = useState('');
-  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-  const recipients = (donors.data?.items || []).filter((d) => (!form.group || d.bloodGroup === form.group) && (!form.district || d.district === form.district) && (!form.status || d.accountStatus === form.status) && (form.mode !== 'selected' || selection?.recipients.includes(d.donorId)));
-  return <BankLayout nav={nav} title="Notification Management" subtitle="Compose and preview blood bank announcements">
-    <SectionCard title="Incoming Notifications" action={<Button onClick={inbox.refresh}>Refresh inbox</Button>}>
-      <ResourceState resource={inbox} emptyTitle="No incoming notifications">
-        {(inbox.data?.items || []).map(item => <div key={item.id} className="border-b p-3"><p className="font-medium">{item.title}</p><p className="text-sm">{item.message}</p><p className="text-xs text-gray-500">{item.createdAt}</p>{item.relatedType === 'appointment' && <Button variant="ghost" onClick={() => nav.onNavigate('bank-appointments')}>View appointments</Button>}</div>)}
-      </ResourceState>
-    </SectionCard>
-    <Notice>In-app announcements are stored in selected active donors' inboxes. SMS/email requests are recorded as blocked until a provider and consent workflow are configured; they are not marked delivered. Maximum 500 recipients per operation.</Notice>
-    <div className="grid lg:grid-cols-2 gap-6">
-      <SectionCard title="Compose Notification"><form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setPreview({ ...form, count: recipients.length,donorIds:recipients.map(d=>d.donorId) }); }}>
-        <Field label="Notification category"><select className={inputClass} value={form.type} onChange={(e) => set('type', e.target.value)}>{OUTREACH_TYPES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
-        <Field label="Message channel"><select className={inputClass} value={form.channel} onChange={(e) => set('channel', e.target.value)}><option value="in_app">In-app inbox</option><option value="email">Email (provider not configured)</option><option value="sms">SMS (sending unavailable)</option></select></Field>
-        <Field label="Notification message"><textarea rows={6} maxLength={1000} required className={inputClass} value={form.message} onChange={(e) => set('message', e.target.value)} placeholder="Compose your announcement without patient-identifying information" /></Field>
-        <Filters>
-          <Field label="Recipient selection"><select className={inputClass} value={form.mode} onChange={(e) => set('mode', e.target.value)}><option value="filters">Filtered registered donors</option><option value="selected">Previously selected donors</option></select></Field>
-          <Field label="Recipient blood group"><select className={inputClass} value={form.group} onChange={(e) => set('group', e.target.value)}><option value="">All groups</option>{BLOOD_GROUPS.map((g) => <option key={g}>{g}</option>)}</select></Field>
-          <Field label="Recipient district"><select className={inputClass} value={form.district} onChange={(e) => set('district', e.target.value)}><option value="">All districts</option>{DISTRICTS.map((d) => <option key={d}>{d}</option>)}</select></Field>
-          <Field label="Registered donor status"><select className={inputClass} value={form.status} onChange={(e) => set('status', e.target.value)}><option value="active">Active</option><option value="">All recorded accounts (preview only)</option></select></Field>
-          <Field label="Campaign participation"><select disabled className={inputClass}><option>Campaign recipients unavailable</option></select></Field>
-        </Filters>
-        <p className="text-sm text-gray-500">{donors.loading ? 'Loading authorized recipients...' : donors.error ? 'Recipient lookup failed: ' + donors.error : recipients.length + ' authorized record(s) match this preview.'}</p>
-        <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!form.message.trim() || donors.loading || !!donors.error} className={disabledClass}>Preview message</Button></div>
-      </form></SectionCard>
-      <SectionCard title="Notification History">
-        <Field label="History notification type"><select className={inputClass} value={historyType} onChange={(e) => setHistoryType(e.target.value)}><option value="">All categories</option>{NOTIFICATION_TYPES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
-        <ResourceState resource={history} emptyTitle="No notification history"><Table columns={['Category', 'Sent', 'Recipients', 'Delivery status']}>{(history.data?.items || []).filter((r) => !historyType || r.type === historyType).map((r) => <tr key={r.id}><td className="p-3">{notificationLabel(r.type)}</td><td className="p-3">{r.createdAt}</td><td className="p-3">{r.recipientCount}</td><td className="p-3">{r.deliveryStatus}</td></tr>)}</Table></ResourceState>
-        <Button disabled className={disabledClass}>Retry delivery unavailable</Button>
-      </SectionCard>
+import {NOTIFICATION_TYPES,notificationLabel,formatDateTime} from '../donor/donorUtils';
+import {BankLayout,useBankResource,useBankSelection,ResourceState,Field,Filters,Dialog,Details,ErrorPanel,inputClass} from './BankUI';
+import {BankNotificationComposer} from './BankNotificationComposer';
+import {BankNotificationHistory} from './BankNotificationHistory';
+const destinations={appointment:['bank-appointments','View appointments'],transfer:['bank-transfers','View transfers'],campaign:['bank-campaigns','View campaigns'],blood_request:['bank-requests','View requests']};
+export const BankNotifications=({nav})=>{
+  const selection=useBankSelection();
+  const [tab,setTab]=useState('inbox'),[page,setPage]=useState(0),[category,setCategory]=useState(''),[unread,setUnread]=useState(false),[query,setQuery]=useState('');
+  const loadInbox=useCallback(()=>service.getInbox({limit:50,offset:page*50,...(category?{type:category}:{}),...(unread?{unread:true}:{})}),[page,category,unread]);
+  const inbox=useBankResource(loadInbox),history=useBankResource(service.getNotifications);
+  const [form,setForm]=useState({title:'',type:'general',message:'',group:'',district:'',campaignId:'',mode:selection?.recipients?.length?'selected':'filters'});
+  const [detail,setDetail]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const lock=useRef(false);
+  const refreshInbox=inbox.refresh,refreshHistory=history.refresh;
+  const refresh=useCallback(()=>{refreshInbox();refreshHistory();},[refreshInbox,refreshHistory]);
+  useEffect(()=>{if(tab==='compose'||detail)return;window.addEventListener('focus',refresh);const timer=window.setInterval(()=>{if(!document.hidden)refresh();},30000);return()=>{window.removeEventListener('focus',refresh);window.clearInterval(timer);};},[refresh,tab,detail]);
+  const mark=async id=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{
+    const result=id?await service.markInboxRead(id):await service.markAllInboxRead();setMessage(result.message||'Read status saved.');setPage(0);refreshInbox();
+  }catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}};
+  const all=inbox.data?.items||[],items=all.filter(n=>[n.title,n.message].some(v=>String(v||'').toLowerCase().includes(query.toLowerCase())));
+  const sent=history.data?.items||[];
+  const unreadCount=inbox.data?.unreadCount??all.filter(n=>!n.isRead).length;
+  const value=(resource,n)=>resource.loading?'Loading...':resource.error||resource.data?.available===false?'Unavailable':n;
+  return <BankLayout nav={nav} title="Notification Management" subtitle="Manage your inbox and donor announcements">
+    <div className="flex justify-end gap-2 mb-4"><Button icon={RefreshCw} onClick={refresh} disabled={inbox.loading||history.loading}>Refresh notifications</Button></div>
+    {message&&<p role="status" className="text-sm text-emerald-800 bg-emerald-50 rounded-lg p-3 mb-4">{message}</p>}
+    {error&&<ErrorPanel message={error}/>}
+    <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      <StatCard icon={Bell} label="Unread inbox" value={value(inbox,unreadCount)}/>
+      <StatCard icon={Send} label="Recent announcements" value={value(history,sent.length)} accent="blue"/>
+      <StatCard icon={MailCheck} label="Stored in donor inboxes" value={value(history,sent.reduce((sum,r)=>sum+Number(r.storedCount||0),0))} accent="green"/>
     </div>
-    {preview && <Dialog title="Unsent message preview" onClose={() => setPreview(null)}>
-      <Details entries={[[ 'Category', notificationLabel(preview.type) ], ['Channel', preview.channel], ['Matching records (not delivered)', preview.count], ['Message', preview.message]]} />
-      <p className="text-sm text-gray-500 mt-4">This preview does not verify address validity, consent, gateway delivery or medical eligibility.</p><SavedForm fields={[{key:'title',label:'Notification title',maxLength:150}]} onSave={(data,key)=>service.sendNotification({...data,type:preview.type,channel:preview.channel,message:preview.message,donorIds:preview.donorIds},key)} onSaved={()=>{setPreview(null);history.refresh();}}/>
-    </Dialog>}
+    <div role="tablist" aria-label="Notification sections" className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 mb-5">
+      {[[ 'inbox','Inbox',Inbox],['compose','Compose notification',Send],['history','Sent history',MailCheck]].map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} onClick={()=>{setTab(key);setError('');}} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab===key?'bg-red-50 text-red-700 ring-1 ring-red-200':'text-gray-600 hover:bg-gray-100'}`}><Icon className="w-4 h-4"/>{label}</button>)}
+    </div>
+    {tab==='inbox'&&<SectionCard title="Incoming Notifications" action={<Button icon={CheckCheck} disabled={busy||inbox.loading||!!inbox.error||!unreadCount} onClick={()=>mark()}>Mark all as read</Button>}>
+      <Filters><Field label="Inbox read status"><select className={inputClass} value={unread?'unread':'all'} onChange={e=>{setUnread(e.target.value==='unread');setPage(0);}}><option value="all">All notifications</option><option value="unread">Unread only</option></select></Field><Field label="Inbox category"><select className={inputClass} value={category} onChange={e=>{setCategory(e.target.value);setPage(0);}}><option value="">All categories</option>{NOTIFICATION_TYPES.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field><Field label="Search this inbox page"><input className={inputClass} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Title or message"/></Field></Filters>
+      <ResourceState resource={inbox} emptyTitle="Your inbox is clear">
+        <div className="space-y-3">{items.map(n=>{const target=destinations[n.relatedType];return <article key={n.id} className={`rounded-lg border p-4 ${n.isRead?'border-gray-200 bg-white':'border-red-100 bg-red-50/50'}`}>
+          <div className="flex justify-between gap-3"><p className="font-semibold text-sm">{n.title}</p>{!n.isRead&&<Badge color="red">Unread</Badge>}</div>
+          <p className="text-xs text-gray-500 mt-1">{notificationLabel(n.type)} - {formatDateTime(n.createdAt)}</p><p className="text-sm text-gray-600 mt-2 whitespace-pre-wrap line-clamp-2">{n.message}</p>
+          <div className="flex flex-wrap gap-1.5 mt-3"><CompactAction icon={Eye} onClick={()=>setDetail(n)}>View details</CompactAction>{target&&<CompactAction tone="schedule" icon={Eye} onClick={()=>nav.onNavigate(target[0])}>{target[1]}</CompactAction>}{!n.isRead&&<CompactAction tone="success" icon={Check} disabled={busy} onClick={()=>mark(n.id)}>Mark as read</CompactAction>}</div>
+        </article>;})}</div>{!items.length&&<p className="text-sm text-gray-500 py-4">No notifications match your search on this page.</p>}
+      </ResourceState>
+      <div className="flex justify-between items-center gap-3 mt-4"><p className="text-xs text-gray-500">Page {page+1}</p><div className="flex gap-2"><Button disabled={inbox.loading||page===0} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button disabled={inbox.loading||!inbox.data?.hasMore} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
+    </SectionCard>}
+    {tab==='compose'&&<BankNotificationComposer form={form} setForm={setForm} selectedIds={selection?.recipients||[]} onSent={result=>{setMessage(`Announcement saved to ${result.recipientCount??'the selected'} donor inbox(es).`);setForm(f=>({...f,title:'',message:''}));setTab('history');refreshHistory();}}/>}
+    {tab==='history'&&<BankNotificationHistory resource={history}/>}
+    {detail&&<Dialog title="Notification details" onClose={()=>setDetail(null)}><Details entries={[[ 'Title',detail.title],['Category',notificationLabel(detail.type)],['Created',formatDateTime(detail.createdAt)],['Status',detail.isRead?'Read':'Unread'],['Message',detail.message]]}/></Dialog>}
   </BankLayout>;
 };

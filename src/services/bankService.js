@@ -30,7 +30,19 @@ export const getExpiry=()=>bankRead('/expiry');
 export const getRegionalStock=()=>bankRead('/regional-stock');
 export const getTransfers=()=>bankRead('/transfers');
 export const getNotifications=()=>bankRead('/notifications');
-export const getInbox=async()=>resource(await apiGet('/notifications'), 'notifications');
+export const getInbox=async(filters={})=>{
+ const query=new URLSearchParams(filters).toString();const response=await apiGet('/notifications'+(query?'?'+query:''));
+ return {...response,...resource(response,'notifications')};
+};
+export const markInboxRead=id=>apiPut('/notifications/'+id+'/read',{});
+export const markAllInboxRead=()=>apiPut('/notifications/read-all',{});
+export const getNotificationDetails=async id=>{const response=await apiGet('/bank/notifications/'+id);return {...response,items:response.item?[response.item]:[]};};
+export const getNotificationRecipients=async({mode='filters',bloodGroup,district,campaignId,donorIds=[]})=>{
+ if(mode==='selected'&&!donorIds.length)return {available:true,items:[],complete:true,recipientCount:0};
+ if(mode==='selected'&&donorIds.length>500)return {available:true,items:[],complete:false,overLimit:true};
+ const query=new URLSearchParams({mode,...(bloodGroup?{bloodGroup}:{}),...(district?{district}:{}),...(campaignId?{campaignId}:{}),...(mode==='selected'?{donorIds:donorIds.join(',')}:{})});
+ return apiGet('/bank/notification-recipients?'+query);
+};
 const save=async run=>{try{return await run();}catch(e){if(e.body?.errors?.length)e.message=e.body.errors.map(r=>r.message).join(' ');throw e;}};
 export const createCentre=(body,key)=>save(()=>apiPost('/bank/centres',body,{idempotencyKey:key}));
 export const createBatch=(body,key)=>save(()=>apiPost('/bank/inventory',body,{idempotencyKey:key}));

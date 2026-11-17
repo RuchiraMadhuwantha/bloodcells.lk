@@ -19,6 +19,7 @@ const joinGroups = (value) =>
 
 const mapCampaignRow = (r) => ({
   id: r.campaign_id,
+  hospitalId: r.hospital_id || null,
   reference: `CM-${String(r.campaign_id).padStart(5, '0')}`,
   name: r.name,
   title: r.title,
@@ -49,6 +50,7 @@ const mapCampaignRow = (r) => ({
   targetDonors: Number(r.target_donors || 0),
   goal: r.goal,
   participants: Number(r.participant_count || 0),
+  completedDonations:Number(r.donation_count||0),collectedUnits:Number(r.donation_units||0),collectedVolumeMl:Number(r.donation_volume_ml||0),missingCollectionAmounts:Number(r.donation_missing_amounts||0),
   createdAt: toDateString(r.created_at),
 });
 
@@ -64,6 +66,10 @@ const mapRegistrationRow = (r) => ({
 
 const CAMPAIGN_SELECT = `
   SELECT c.*,
+    (SELECT COUNT(*) FROM appointments donation WHERE donation.campaign_id=c.campaign_id AND donation.status='completed') AS donation_count,
+    (SELECT COALESCE(SUM(donation.collected_units),0) FROM appointments donation WHERE donation.campaign_id=c.campaign_id AND donation.status='completed') AS donation_units,
+    (SELECT COALESCE(SUM(donation.collected_volume_ml),0) FROM appointments donation WHERE donation.campaign_id=c.campaign_id AND donation.status='completed') AS donation_volume_ml,
+    (SELECT COUNT(*) FROM appointments donation WHERE donation.campaign_id=c.campaign_id AND donation.status='completed' AND (donation.collected_units IS NULL OR donation.collected_volume_ml IS NULL)) AS donation_missing_amounts,
     (SELECT COUNT(*) FROM campaign_registrations cr
       WHERE cr.campaign_id = c.campaign_id AND cr.status = 'registered') AS participant_count
   FROM campaigns c`;
@@ -72,12 +78,17 @@ const CAMPAIGN_SELECT = `
  * Published = what a donor is allowed to see. Draft campaigns stay invisible to
  * donors; the blood bank sees everything.
  */
-const listCampaigns = async ({ role, district, date, period, status } = {}) => {
+const listCampaigns = async ({ role, userId, district, date, period, status } = {}) => {
+  if (role === 'hospital' && !userId) return [];
   const conditions = [];
   const params = [];
 
   if (role !== 'blood_bank') {
     conditions.push(`c.status IN ('Upcoming','Active')`);
+  }
+  if (role === 'hospital') {
+    conditions.push('c.hospital_id IN (SELECT hospital_id FROM hospitals WHERE user_id = ?)');
+    params.push(userId);
   }
   if (role==='blood_bank' && status) {conditions.push('c.status=?');params.push(status);}
   if (district) {
@@ -102,8 +113,10 @@ const listCampaigns = async ({ role, district, date, period, status } = {}) => {
   return rows.map(mapCampaignRow);
 };
 
-const getCampaignById = async (campaignId, { role } = {}, executor = pool) => {
-  const [rows] = await executor.query(`${CAMPAIGN_SELECT} WHERE c.campaign_id = ?`, [campaignId]);
+const getCampaignById = async (campaignId, { role, userId } = {}, executor = pool) => {
+  if (role === 'hospital' && !userId) return null;
+  const scope = role === 'hospital' ? ' AND c.hospital_id IN (SELECT hospital_id FROM hospitals WHERE user_id = ?)' : '';
+  const [rows] = await executor.query(`${CAMPAIGN_SELECT} WHERE c.campaign_id = ?${scope}`, role === 'hospital' ? [campaignId,userId] : [campaignId]);
   const row = rows[0];
   if (!row) return null;
   if (role !== 'blood_bank' && !PUBLISHED_STATUSES.includes(row.status)) return null;
@@ -125,8 +138,8 @@ const createCampaign = async (payload, userId, executor = pool) => {
       location_notes, organizer_name, contact_person, contact_number, contact_email,
       who_can_participate, eligibility_info, what_to_bring, preparation_instructions,
       special_instructions, available_facilities, emergency_contact, needed_blood_groups,
-      target_donors, goal
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      target_donors, goal, hospital_id
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       userId,
       payload.name,
@@ -157,6 +170,7 @@ const createCampaign = async (payload, userId, executor = pool) => {
       joinGroups(payload.neededBloodGroups),
       payload.targetDonors ?? 0,
       payload.goal || null,
+      payload.hospitalId || null,
     ]
   );
   return getCampaignById(result.insertId, { role: 'blood_bank' }, executor);
@@ -165,6 +179,7 @@ const createCampaign = async (payload, userId, executor = pool) => {
 const updateCampaign = async (campaignId, payload, executor = pool) => {
   const fields = {};
   const map = {
+    hospitalId: 'hospital_id',
     name: 'name',
     title: 'title',
     shortDescription: 'short_description',

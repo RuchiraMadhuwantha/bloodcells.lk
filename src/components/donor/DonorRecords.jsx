@@ -11,6 +11,7 @@ export const AppointmentDetails = ({ appointment: a }) => <Details entries={[
   ['Reference', a.reference || a.id], ['Hospital', a.hospitalName], ['District', a.district],
   ['Date', formatDate(a.appointmentDate)], ['Time', a.timeSlot],
   ['Blood group', a.bloodGroup], ['Status', a.statusLabel || a.status],
+  ...(a.campaignName ? [['Campaign',a.campaignName]] : []),
   ...(a.nic ? [['NIC', a.nic]] : []),
   ...(a.collectedUnits != null ? [['Collected units', a.collectedUnits], ['Collected volume', a.collectedVolumeMl + ' mL']] : a.quantity != null ? [['Quantity', a.quantity]] : []), ['Notes', a.notes || 'No notes provided'],
 ]} />;

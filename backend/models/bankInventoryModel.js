@@ -39,6 +39,13 @@ const usable = (batch, quantity, reserved = false) => {
   if (Number(batch.quantity) - (reserved ? 0 : Number(batch.reserved_units)) < quantity) throw fail(409, 'Insufficient usable unreserved stock.');
 };
 const centres = async (actor, directory = false) => {
+  if(directory){
+    const [rows]=await pool.query(`SELECT l.location_id AS id,l.name,l.district,l.kind,l.hospital_id AS hospitalId,NULL AS assignedUserId
+      FROM stock_locations l WHERE l.active=1 AND (l.kind='blood_bank' OR (l.kind='hospital' AND EXISTS (
+        SELECT 1 FROM hospitals h JOIN users u ON u.user_id=h.user_id WHERE h.hospital_id=l.hospital_id AND u.role='hospital' AND u.account_status='active'
+      ))) ORDER BY l.name`);
+    return rows;
+  }
   const [rows] = await pool.query("SELECT l.location_id AS id,l.name,l.district," + (directory ? 'NULL' : 'a.user_id') + " AS assignedUserId FROM stock_locations l " + (directory ? '' : 'JOIN bank_location_access a ON a.location_id=l.location_id ') + "WHERE l.kind='blood_bank' AND l.active=1 " + (directory ? '' : 'AND a.user_id=? ') + 'ORDER BY l.name', directory ? [] : [actor]);
   return rows;
 };
@@ -59,7 +66,9 @@ const batches = async (actor, filters = {}, c = pool) => {
 };
 const createBatch = (actor, data, key) => mutate(actor,'batch-create',key,data,async c => {
   await authorize(c,actor,data.locationId);
+  if(data.volumeMl!=null&&((data.quantity===0&&data.volumeMl!==0)||(data.quantity>0&&data.volumeMl<=0)))throw fail(400,'Volume must match recorded quantity.');
   const [r] = await c.query('INSERT INTO stock_batches (location_id,reference,blood_group,component,quantity,reserved_units,collection_date,expiry_date,status) VALUES (?,?,?,?,?,0,?,?,?)',[data.locationId,data.reference,data.bloodGroup,data.component,data.quantity,data.collectionDate,data.expiryDate,data.status || 'usable']);
+  if(data.volumeMl!=null)await c.query('UPDATE stock_batches SET volume_ml=? WHERE batch_id=?',[data.volumeMl,r.insertId]);
   await audit(c,actor,'batch-receipt',data.locationId,r.insertId,null,{delta:data.quantity,after:data.quantity,reason:data.reason});
   return {id:r.insertId};
 });
@@ -70,7 +79,10 @@ const updateBatch = (actor,id,data,key) => mutate(actor,'batch-update',key,{id,.
   if (data.quantity < Number(b.reserved_units)) throw fail(409,'Quantity is below committed reservations.');
   if (Number(b.reserved_units)>0 && data.status!=='usable') throw fail(409,'Release reservations before quarantine or disposal.');
   if (data.status==='usable' && toDateString(b.expiry_date)<(b.database_today || toDateString(new Date()))) throw fail(409,'Expired stock cannot be marked usable.');
+  if(b.volume_ml!=null&&Number(b.quantity)!==data.quantity&&data.volumeMl==null)throw fail(400,'Enter the actual updated volume when adjusting units.');
+  if(data.volumeMl!=null&&((data.quantity===0&&data.volumeMl!==0)||(data.quantity>0&&data.volumeMl<=0)))throw fail(400,'Volume must match recorded quantity.');
   await c.query('UPDATE stock_batches SET quantity=?,status=?,version=version+1 WHERE batch_id=?',[data.quantity,data.status,id]);
+  if(data.volumeMl!=null)await c.query('UPDATE stock_batches SET volume_ml=? WHERE batch_id=?',[data.volumeMl,id]);
   await audit(c,actor,'batch-adjustment',b.location_id,id,null,{delta:data.quantity-Number(b.quantity),after:data.quantity,fromStatus:b.status,status:data.status,reason:data.reason});
   return {id};
 });
@@ -81,8 +93,8 @@ const regional = async (actor, filters = {}) => {
     COALESCE(SUM(CASE WHEN b.status='usable' AND b.expiry_date>=CURDATE() THEN b.quantity-b.reserved_units ELSE 0 END),0) AS availableUnits,
     COALESCE(SUM(b.reserved_units),0) AS reservedUnits,MAX(b.updated_at) AS updatedAt
     FROM stock_locations l JOIN bank_location_access a ON a.location_id=l.location_id CROSS JOIN blood_inventory g
-    LEFT JOIN bank_stock_thresholds th ON th.location_id=l.location_id AND th.blood_group=g.blood_group
-    LEFT JOIN stock_batches b ON b.location_id=l.location_id AND b.blood_group=g.blood_group
+    LEFT JOIN bank_stock_thresholds th ON th.location_id=l.location_id AND th.blood_group COLLATE utf8mb4_unicode_ci=g.blood_group COLLATE utf8mb4_unicode_ci
+    LEFT JOIN stock_batches b ON b.location_id=l.location_id AND b.blood_group COLLATE utf8mb4_unicode_ci=g.blood_group COLLATE utf8mb4_unicode_ci
     WHERE ${where.join(' AND ')} GROUP BY l.location_id,l.name,l.district,g.blood_group,g.low_stock_threshold,g.critical_stock_threshold,th.low_threshold,th.critical_threshold ORDER BY l.name,g.blood_group`,values);
   return rows.map(r=>({...r,id:r.location_id+'-'+r.bloodGroup,locationId:r.location_id,availableUnits:Number(r.availableUnits),reservedUnits:Number(r.reservedUnits),level:Number(r.availableUnits)<=Number(r.criticalStockThreshold)?'Critical':Number(r.availableUnits)<=Number(r.lowStockThreshold)?'Low':'Available',thresholdScope:'Existing configured group thresholds, operational comparison only'}));
 };

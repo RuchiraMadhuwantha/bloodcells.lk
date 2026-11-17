@@ -21,7 +21,7 @@ Shared UI building blocks used across all portals:
 #### 2. **components/Charts.js**
 Lightweight SVG-based chart components:
 - `BarChart` - Bar chart visualization
-- `LineChart` - Line chart with forecast support
+- `LineChart` - Line chart
 - `Donut` - Donut chart for inventory breakdown
 
 #### 3. **components/FloatingChat.js**
@@ -52,7 +52,6 @@ Blood bank portal screens:
 - `BankDashboard` - Blood bank inventory overview
 - `InventoryManagement` - Blood unit tracking with search and filters
 - `DonorManagement` - Registered donors directory
-- `AIPrediction` - AI demand forecasting and shortage alerts
 
 #### 8. **components/AdminDashboard.js**
 Admin portal screen:
@@ -105,11 +104,9 @@ Admin portal screen:
 - `bank-dashboard` - Dashboard
 - `bank-inventory` - Inventory management
 - `bank-donors` - Donor management
-- `bank-prediction` - AI demand prediction
 
 ### Admin Portal Routes
 - `admin-dashboard` - System overview
-- `bank-prediction` - AI demand prediction
 
 ## How to Use
 

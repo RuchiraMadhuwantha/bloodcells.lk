@@ -3,19 +3,22 @@ const {createNotification}=require('./notificationModel');
 const outreach=(actor,data,key)=>s.mutate(actor,'outreach-create',key,data,async c=>{
   const [recent]=await c.query('SELECT outreach_id FROM bank_outreach WHERE actor_user_id=? AND created_at>DATE_SUB(NOW(),INTERVAL 60 SECOND) LIMIT 1',[actor]);
   if(recent.length)throw s.fail(429,'Wait one minute before creating another outreach.');
+  if(data.campaignId)await require('./bankNotificationModel').validateCampaignRecipients(c,data.campaignId,data.donorIds);
   // Explicit recipient selection only. No implicit broadcast or guessed medical eligibility.
-  const [recipients]=await c.query("SELECT d.donor_id,d.user_id FROM donors d JOIN users u ON u.user_id=d.user_id WHERE u.account_status='active' AND d.donor_id IN (?)",[data.donorIds]);
+  const [recipients]=await c.query("SELECT d.donor_id,d.user_id FROM donors d JOIN users u ON u.user_id=d.user_id WHERE u.role='donor' AND u.account_status='active' AND d.donor_id IN (?) ORDER BY d.donor_id FOR UPDATE",[data.donorIds]);
   if(recipients.length!==new Set(data.donorIds).size)throw s.fail(400,'Every selected recipient must be a currently active registered donor.');
   const [r]=await c.query('INSERT INTO bank_outreach (actor_user_id,type,title,message,channel) VALUES (?,?,?,?,?)',[actor,data.type,data.title,data.message,data.channel]);
+  if(data.campaignId)await c.query('UPDATE bank_outreach SET campaign_id=? WHERE outreach_id=?',[data.campaignId,r.insertId]);
   for(const donor of recipients){
     if(data.channel==='in_app')await createNotification({userId:donor.user_id,type:data.type,title:data.title,message:data.message,relatedType:'bank_outreach',relatedId:r.insertId,actionRoute:'donor-notifications'},c);
     await c.query('INSERT INTO bank_deliveries (outreach_id,user_id,status,error_code) VALUES (?,?,?,?)',[r.insertId,donor.user_id,data.channel==='in_app'?'stored':'provider_unconfigured',data.channel==='in_app'?null:'PROVIDER_AND_CONSENT_NOT_CONFIGURED']);
   }
-  await s.audit(c,actor,'outreach-created',null,null,r.insertId,{recipientCount:recipients.length,channel:data.channel});
+  await s.audit(c,actor,'outreach-created',null,null,r.insertId,{recipientCount:recipients.length,channel:data.channel,campaignId:data.campaignId||null});
   return {id:r.insertId,recipientCount:recipients.length,deliveryStatus:data.channel==='in_app'?'Stored in donor inbox':'Provider and consent integration required; not sent'};
 });
 const outreachHistory=async actor=>{
-  const [rows]=await s.pool.query(`SELECT o.outreach_id AS id,o.type,o.title,o.channel,o.created_at AS createdAt,COUNT(d.delivery_id) AS recipientCount,
+  const [rows]=await s.pool.query(`SELECT o.outreach_id AS id,o.type,o.title,o.channel,o.message,o.campaign_id AS campaignId,o.created_at AS createdAt,
+    (SELECT COUNT(*) FROM notifications n WHERE n.related_type='bank_outreach' AND n.related_id=o.outreach_id AND n.is_read=1) AS readCount,COUNT(d.delivery_id) AS recipientCount,
     SUM(d.status='stored') AS storedCount,SUM(d.status='delivered') AS deliveredCount,SUM(d.status='provider_unconfigured') AS blockedCount,SUM(d.status='failed') AS failedCount,
     CASE WHEN o.channel='in_app' THEN 'Stored in donor inbox' ELSE 'Provider unconfigured; not sent' END AS deliveryStatus
     FROM bank_outreach o LEFT JOIN bank_deliveries d ON d.outreach_id=o.outreach_id WHERE o.actor_user_id=? GROUP BY o.outreach_id ORDER BY o.outreach_id DESC LIMIT 1000`,[actor]);return rows;

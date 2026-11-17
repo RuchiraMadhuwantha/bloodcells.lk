@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Menu, X, Droplet, Calendar, User, Database, Users,
-  LayoutDashboard, ShieldCheck, Megaphone, Building2, ClipboardList, TrendingUp, History, Bell, Siren
+  LayoutDashboard, ShieldCheck, Megaphone, Building2, ClipboardList, History, Bell, Siren
 } from 'lucide-react';
 import AboutPage from './AboutPage';
 import ServicesPage from './ServicesPage';
@@ -25,14 +25,15 @@ import { HospitalPortal } from './components/hospital/HospitalUI';
 import { HospitalAppointments } from './components/hospital/HospitalAppointments';
 import { HospitalCampaigns, HospitalNotifications } from './components/hospital/HospitalCampaigns';
 import { MyBloodRequests } from './components/hospital/HospitalRequests';
-import { BloodAvailability, HospitalInventory } from './components/hospital/HospitalStock';
+import { HospitalInventory } from './components/hospital/HospitalStock';
 import { HospitalUsage } from './components/hospital/HospitalUsage';
+import { HospitalTransfers } from './components/hospital/HospitalTransfers';
 import { HospitalReports } from './components/hospital/HospitalReports';
 import { HospitalProfile } from './components/hospital/HospitalProfile';
-import { BankDashboard, InventoryManagement, DonorManagement, BloodRequestQueue, AIPrediction } from './BloodBank';
+import { BankDashboard, InventoryManagement, DonorManagement, BloodRequestQueue } from './BloodBank';
 import { BankSelectionProvider } from './components/bank/BankUI';
 import { BankAppointments } from './components/bank/BankOperations';
-import { BloodExpiry, RegionalStock, BloodTransfers, RegionalCoordination } from './components/bank/BankRegional';
+import { BloodExpiry, BloodTransfers } from './components/bank/BankRegional';
 import { BankNotifications } from './components/bank/BankNotifications';
 import { BankReports } from './components/bank/BankReports.js';
 import { CampaignManagement } from './components/CampaignManagement';
@@ -64,8 +65,8 @@ const HOSPITAL_NAV = [
   { route: 'hospital-campaigns', label: 'Blood Donation Campaigns', icon: Megaphone },
   { route: 'hospital-request', label: 'New Blood Request', icon: Calendar },
   { route: 'hospital-requests', label: 'My Blood Requests', icon: ClipboardList },
-  { route: 'hospital-availability', label: 'Blood Availability', icon: Droplet },
   { route: 'hospital-inventory', label: 'Hospital Inventory', icon: Database },
+  { route: 'hospital-transfers', label: 'Blood Transfers', icon: ClipboardList },
   { route: 'hospital-usage', label: 'Blood Usage', icon: History },
   { route: 'hospital-reports', label: 'Reports', icon: ClipboardList },
   { route: 'hospital-profile', label: 'Hospital Profile', icon: Building2 },
@@ -83,16 +84,13 @@ const BANK_NAV = [
   { route: 'bank-appointments', label: 'Appointment Management', icon: Calendar, group: 'Donors and collections' },
   { route: 'bank-campaigns', label: 'Campaign Management', icon: Megaphone, group: 'Donors and collections' },
   { route: 'bank-notifications', label: 'Notification Management', icon: Bell, group: 'Donors and collections' },
-  { route: 'bank-regional-stock', label: 'Regional Stock', icon: Database, group: 'Regional coordination' },
-  { route: 'bank-transfers', label: 'Blood Transfers', icon: ClipboardList, group: 'Regional coordination' },
-  { route: 'bank-coordination', label: 'Regional Coordination', icon: Building2, group: 'Regional coordination' },
+  { route: 'bank-transfers', label: 'Blood Transfers', icon: ClipboardList, group: 'Stock and transfers' },
   { route: 'bank-reports', label: 'Reports', icon: ClipboardList, group: 'Reports and tools' },
-  { route: 'bank-prediction', label: 'Demand Planning', icon: TrendingUp, group: 'Reports and tools' },
   { route: 'admin-dashboard', label: 'Administrator', icon: ShieldCheck, group: 'Reports and tools' },
 ];
 
 // Preserve the Administrator screen's existing menu, labels and routes.
-const ADMIN_NAV = ['bank-dashboard', 'bank-inventory', 'bank-requests', 'bank-donors', 'bank-campaigns', 'bank-hospitals', 'bank-prediction', 'admin-dashboard']
+const ADMIN_NAV = ['bank-dashboard', 'bank-inventory', 'bank-requests', 'bank-donors', 'bank-campaigns', 'bank-hospitals', 'admin-dashboard']
   .map((route) => {
     const { group, ...item } = BANK_NAV.find((entry) => entry.route === route);
     return { ...item, label: ({ 'bank-inventory': 'Inventory', 'bank-donors': 'Donors', 'bank-campaigns': 'Campaigns' })[route] || item.label };
@@ -192,6 +190,7 @@ const App = () => (
   </AuthProvider>
 );
 
+const normalizePortalRoute=route=>route==='bank-regional-stock'?'bank-inventory':route;
 const AppInner = () => {
   const { pendingCount, loading: hospitalCountLoading, error: hospitalCountError } = useHospitals();
   const { role, isAuthenticated, booting, signOut, verificationError, retrySession } = useAuth();
@@ -200,9 +199,10 @@ const AppInner = () => {
   const [currentRoute, updateCurrentRoute] = useState(() =>
     (typeof window !== 'undefined' && window.location.hash.startsWith('#reset-password')
       ? 'reset-password'
-      : window.sessionStorage.getItem('currentRoute') || 'home')
+      : normalizePortalRoute(window.sessionStorage.getItem('currentRoute') || 'home'))
   );
   const setCurrentRoute = useCallback((route) => {
+    route=normalizePortalRoute(route);
     if (window.history.state?.appRoute !== route) {
       window.history.pushState({ ...window.history.state, appRoute: route }, '');
     }
@@ -210,19 +210,13 @@ const AppInner = () => {
   }, []);
   useEffect(() => {
     window.history.replaceState({ ...window.history.state, appRoute: currentRoute }, '');
-    const onBack = (event) => updateCurrentRoute(event.state?.appRoute || 'home');
+    const onBack = (event) => updateCurrentRoute(normalizePortalRoute(event.state?.appRoute || 'home'));
     window.addEventListener('popstate', onBack);
     return () => window.removeEventListener('popstate', onBack);
     // Register once; subsequent navigation writes its own history entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { window.sessionStorage.setItem('currentRoute', currentRoute); }, [currentRoute]);
-
-  const [hospitalRequestGroup, setHospitalRequestGroup] = useState('O+');
-  const openHospitalRequest = (group) => {
-    setHospitalRequestGroup(group);
-    setCurrentRoute('hospital-request');
-  };
 
   // Sidebar nav with live pending-approval badge on Hospital Management
   const bankNav = BANK_NAV.map((i) =>
@@ -266,10 +260,11 @@ const AppInner = () => {
     'hospital-appointments': <HospitalAppointments nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-campaigns': <HospitalCampaigns nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-notifications': <HospitalNotifications nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
-    'hospital-request': <BloodRequestPage initialGroup={hospitalRequestGroup} nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
+    'hospital-request': <BloodRequestPage nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-requests': <MyBloodRequests nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
-    'hospital-availability': <BloodAvailability onRequest={openHospitalRequest} nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
+    'hospital-availability': <HospitalInventory nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-inventory': <HospitalInventory nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
+    'hospital-transfers': <HospitalTransfers nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-usage': <HospitalUsage nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-reports': <HospitalReports nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'hospital-profile': <HospitalProfile nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
@@ -279,16 +274,13 @@ const AppInner = () => {
     'bank-eligible': <DonorManagement key="candidates" candidates nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-appointments': <BankAppointments nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-notifications': <BankNotifications nav={navFor('Blood Bank Portal', bankNav)} />,
-    'bank-regional-stock': <RegionalStock nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-transfers': <BloodTransfers nav={navFor('Blood Bank Portal', bankNav)} />,
-    'bank-coordination': <RegionalCoordination nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-reports': <BankReports nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-inventory': <InventoryManagement key="inventory" nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-donors': <DonorManagement key="directory" nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-requests': <BloodRequestQueue nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-campaigns': <CampaignManagement nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-hospitals': <HospitalManagement nav={navFor('Blood Bank Portal', bankNav)} />,
-    'bank-prediction': <AIPrediction nav={navFor('Blood Bank Portal', bankNav)} />,
     'admin-dashboard': <AdminDashboard nav={navFor('Blood Bank Portal', ADMIN_NAV.map(i => i.route === 'bank-hospitals' ? { ...i, badge: hospitalCountLoading || hospitalCountError ? null : pendingCount } : i))} />,
   };
 

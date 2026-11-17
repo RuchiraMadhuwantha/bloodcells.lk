@@ -64,7 +64,7 @@ export const HospitalNotifications = ({ nav }) => {
       {resource.loading ? <ResourceState resource={resource} /> : resource.error ? <ErrorPanel message={resource.error} onRetry={resource.refresh} /> : !records.length ? <EmptyState title="No hospital notifications" /> : <div className="space-y-3">{records.map(n => <article key={n.id} className={`rounded-lg border p-4 ${n.isRead ? 'border-gray-200' : 'border-red-100 bg-red-50'}`}>
         <div className="flex justify-between gap-3"><h2 className="font-semibold">{n.title}</h2>{!n.isRead && <Badge color="red">Unread</Badge>}</div>
         <p className="text-xs text-gray-500 mt-1">{formatDateTime(n.createdAt)}</p><p className="text-sm text-gray-600 mt-2">{n.message || n.description}</p>
-        <div className="flex flex-wrap gap-1.5 mt-3">{n.actionRoute === 'hospital-campaigns' && <CompactAction tone="schedule" icon={Megaphone} onClick={() => nav.onNavigate('hospital-campaigns')}>View campaigns</CompactAction>}{!n.isRead && <CompactAction tone="success" icon={Check} disabled={busy} onClick={() => markRead(n.id)}>Mark as read</CompactAction>}</div>
+        <div className="flex flex-wrap gap-1.5 mt-3">{n.actionRoute === 'hospital-campaigns' && <CompactAction tone="schedule" icon={Megaphone} onClick={() => nav.onNavigate('hospital-campaigns')}>View campaigns</CompactAction>}{n.actionRoute === 'hospital-transfers' && <CompactAction tone="schedule" icon={Eye} onClick={() => nav.onNavigate('hospital-transfers')}>View transfers</CompactAction>}{!n.isRead && <CompactAction tone="success" icon={Check} disabled={busy} onClick={() => markRead(n.id)}>Mark as read</CompactAction>}</div>
       </article>)}</div>}
     </SectionCard>
   </HospitalLayout>;

@@ -15,6 +15,7 @@ const defaultImage = '';
 
 const EMPTY_FORM = {
   name: '', title: '', shortDescription: '', detailedDescription: '',
+  hospitalId: '',
   image: defaultImage, status: 'Draft', date: '', startTime: '', endTime: '',
   venueName: '', address: '', district: '', city: '', locationNotes: '',
   organizerName: '', contactPerson: '', contactNumber: '', contactEmail: '',
@@ -56,7 +57,7 @@ const FormSection = ({ title, children }) => (
 const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initial });
   const centres = useBankResource(service.getDonationCentres);
-  const [centreId, setCentreId] = useState('');
+  const [centreId, setCentreId] = useState(initial?.hospitalId ? String(initial.hospitalId) : '');
   const [imagePreview, setImagePreview] = useState(initial && initial.image ? initial.image : null);
   const [error, setError] = useState('');
   const [busy,setBusy]=useState(false);const saving=useRef(false);
@@ -68,6 +69,10 @@ const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
     }
     if (form.endTime <= form.startTime) {
       setError('Campaign end time must be after the start time.');
+      return;
+    }
+    if (['Upcoming','Active'].includes(status || form.status) && !form.hospitalId) {
+      setError('Select the donation centre this campaign belongs to before publishing.');
       return;
     }
     saving.current = true; setBusy(true); setError('');
@@ -83,6 +88,7 @@ const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const selectCentre = (id) => {
     setCentreId(id);
+    set('hospitalId', id ? Number(id) : '');
     const centre = centres.data?.items.find((c) => String(c.hospitalId) === id);
     if (centre) setForm((f) => ({ ...f, venueName: centre.name, address: centre.address || '', district: centre.district || '', city: '' }));
   };
@@ -153,7 +159,7 @@ const CampaignForm = ({ initial, onCancel, onPreview, onSaved }) => {
       </FormSection>
 
       <FormSection title="3. Location">
-        <Field label="Select Donation Centre" full hint="The same approved centres available in donor appointment booking. Selecting a centre fills the venue, address and district.">
+        <Field label="Select Donation Centre" required full hint="This assigns the campaign to that hospital. Only the assigned hospital sees it in its portal and receives notifications.">
           <select className={inputCls} value={centreId} onChange={(e) => selectCentre(e.target.value)} disabled={centres.loading || !!centres.error}>
             <option value="">{centres.loading ? 'Loading donation centres...' : 'Select a donation centre'}</option>
             {(centres.data?.items || []).map((c) => <option key={c.hospitalId} value={String(c.hospitalId)}>{c.name}{c.code ? ` (${c.code})` : ''}{c.district ? ` — ${c.district}` : ''}</option>)}
@@ -339,6 +345,8 @@ export const CampaignManagement = ({ nav }) => {
     setSearch(''); setStatus(''); setDistrict('');
     setPreviewing(null); setView('list'); resource.refresh();
   };
+  const refreshCampaigns=resource.refresh;
+  useEffect(()=>{if(view!=='list'||previewing||participants)return;window.addEventListener('focus',refreshCampaigns);const timer=window.setInterval(()=>{if(!document.hidden)refreshCampaigns();},30000);return()=>{window.removeEventListener('focus',refreshCampaigns);window.clearInterval(timer);};},[refreshCampaigns,view,previewing,participants]);
   const records = (resource.data?.items || []).filter((c) => (!status || c.status === status) && (!district || c.district === district) && c.name.toLowerCase().includes(search.trim().toLowerCase()));
   return <BankLayout nav={nav} title={view === 'list' ? 'Campaign Management' : selected ? 'Edit Campaign' : 'Create Campaign'} subtitle="Campaign planning and donor-facing preview">
     <Notice>Campaigns use the same saved source as donor participation. Only the creator may edit or publish a campaign. Preview changes are unsaved until confirmed with Save.</Notice>
@@ -351,7 +359,7 @@ export const CampaignManagement = ({ nav }) => {
           <SharedField label="Campaign status"><select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All recorded statuses</option>{CAMPAIGN_STATUSES.map((s) => <option key={s}>{s}</option>)}</select></SharedField>
         </Filters>
         <ResourceState resource={resource} emptyTitle="No campaign records returned">
-          {!records.length ? <EmptyState title="No campaigns match your filters" /> : <Table columns={['Campaign', 'Date / Time', 'Location / District', 'Organizer', 'Status', 'Participants', 'Actions']}>{records.map((c) => <tr key={c.id}><td className="p-3 text-sm">{c.name}<p className="text-xs text-gray-500">{c.shortDescription}</p></td><td className="p-3 text-sm">{formatDate(c.date)}<span className="block">{c.startTime} - {c.endTime}</span></td><td className="p-3 text-sm">{c.venueName} / {c.district}</td><td className="p-3 text-sm">{c.organizerName}</td><td className="p-3 text-sm">{c.status}</td><td className="p-3 text-sm">{c.participants ?? 'Not supplied'}</td><td className="p-3"><Button variant="ghost" onClick={() => setPreviewing(c)}>Details</Button><Button variant="ghost" onClick={()=>setParticipants(c.id)}>Participants</Button><Button variant="ghost" onClick={() => { setSelected(c); setView('edit'); }}>Edit campaign</Button></td></tr>)}</Table>}
+          {!records.length ? <EmptyState title="No campaigns match your filters" /> : <Table columns={['Campaign', 'Date / Time', 'Location / District', 'Organizer', 'Status', 'Participants', 'Collected blood', 'Actions']}>{records.map((c) => <tr key={c.id}><td className="p-3 text-sm">{c.name}<p className="text-xs text-gray-500">{c.shortDescription}</p></td><td className="p-3 text-sm">{formatDate(c.date)}<span className="block">{c.startTime} - {c.endTime}</span></td><td className="p-3 text-sm">{c.venueName} / {c.district}</td><td className="p-3 text-sm">{c.organizerName}</td><td className="p-3 text-sm">{c.status}</td><td className="p-3 text-sm">{c.participants ?? 'Not supplied'}</td><td className="p-3 text-sm whitespace-nowrap">{c.completedDonations??0} completed<span className="block">{c.collectedUnits??0} unit(s)</span><span className="block">{c.collectedVolumeMl??0} mL</span>{c.missingCollectionAmounts>0&&<span className="block text-xs text-amber-700">{c.missingCollectionAmounts} missing quantities</span>}</td><td className="p-3"><Button variant="ghost" onClick={() => setPreviewing(c)}>Details</Button><Button variant="ghost" onClick={()=>setParticipants(c.id)}>Participants</Button><Button variant="ghost" onClick={() => { setSelected(c); setView('edit'); }}>Edit campaign</Button></td></tr>)}</Table>}
         </ResourceState>
         <div className="flex flex-wrap gap-3 mt-4"><span className="text-sm text-gray-500">Edit a campaign to publish, close or cancel it using its saved status.</span></div>
       </SectionCard>}

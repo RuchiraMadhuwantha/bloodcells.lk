@@ -57,7 +57,7 @@ export const AdminDashboard = ({ nav }) => {
 
         <SectionCard title="Reports">
           <div className="space-y-3">
-            {['National Inventory Report', 'Donor Activity Report', 'Hospital Usage Report', 'AI Forecast Summary'].map((r, i) => (
+            {['National Inventory Report', 'Donor Activity Report', 'Hospital Usage Report'].map((r, i) => (
               <button key={i} className="w-full flex items-center justify-between border border-gray-100 rounded-lg p-3 hover:bg-gray-50 text-sm">
                 <span className="flex items-center gap-2 text-gray-700"><FileText className="w-4 h-4 text-red-600" /> {r}</span>
                 <Download className="w-4 h-4 text-gray-400" />

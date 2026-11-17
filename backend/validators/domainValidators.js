@@ -52,6 +52,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /* Campaigns reuse the existing frontend campaign data model: camelCase keys. */
 const campaignWriteValidation = [
+  body('hospitalId').optional({ values: 'falsy' }).isInt({min:1}).toInt().withMessage('Select a valid hospital.'),
   body('name').trim().notEmpty().withMessage('Campaign name is required.').isLength({ max: 150 }).withMessage('Campaign name is too long.'),
   body('title').optional({ values: 'falsy' }).trim().isLength({ max: 150 }).withMessage('Title is too long.'),
   body('shortDescription').optional({ values: 'falsy' }).trim().isLength({ max: 500 }).withMessage('Short description is too long.'),
@@ -84,6 +85,7 @@ const campaignWriteValidation = [
 ];
 
 const campaignUpdateValidation = [
+  body('hospitalId').optional({ values: 'falsy' }).isInt({min:1}).toInt().withMessage('Select a valid hospital.'),
   body('name').optional().trim().notEmpty().withMessage('Campaign name cannot be empty.').isLength({ max: 150 }).withMessage('Campaign name is too long.'),
   body('title').optional({ values: 'falsy' }).trim().isLength({ max: 150 }).withMessage('Title is too long.'),
   body('shortDescription').optional({ values: 'falsy' }).trim().isLength({ max: 500 }).withMessage('Short description is too long.'),

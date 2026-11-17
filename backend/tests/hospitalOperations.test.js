@@ -36,7 +36,7 @@ test.beforeEach(()=>{
     return [[]];
   };
 });
-for(const path of ['/hospitals/mine/inventory','/hospitals/mine/blood-usage','/hospitals/mine/reports?type=requests']){
+for(const path of ['/hospitals/mine/inventory','/hospitals/mine/blood-usage','/hospitals/mine/reports?type=requests','/hospitals/mine/transfers','/hospitals/mine/transfer-destinations']){
   test('missing JWT blocks '+path,async()=>assert.equal((await get(path)).status,401));
   test('bank role cannot use hospital private '+path,async()=>assert.equal((await get(path,token(2))).status,403));
 }
@@ -70,6 +70,13 @@ test('missing hospital migration returns 503 without pretending empty stock',asy
 test('invalid usage rejects before any inventory write',async()=>{
   const r=await post('/hospitals/mine/blood-usage',{batchId:1,bloodGroup:'O+',quantity:-1,usageDate:'2026-01-01',category:'Test'},token(),'test-key-1234');
   assert.equal(r.status,400);
+});
+
+for(const body of [{batchId:1,destinationId:2,quantity:0,reason:'Test'},{batchId:1,destinationId:2,quantity:1.5,reason:'Test'},{batchId:1,destinationId:2,quantity:1,reason:''},{batchId:1,destinationId:0,quantity:1,reason:'Test'}])test('invalid hospital transfer rejected '+JSON.stringify(body),async()=>{
+ assert.equal((await post('/hospitals/mine/transfers',body,token(),'transfer-key-001')).status,400);
+});
+test('hospital transfer requires a durable submission key',async()=>{
+ assert.equal((await post('/hospitals/mine/transfers',{batchId:1,destinationId:2,quantity:1,reason:'Test'})).status,400);
 });
 const today=()=>require('../utils/date').toDateString(new Date());
 function transactionFixture({quantity=8,reserved=2,expiry='2099-01-01',status='usable',existing=false,failAudit=false,foreign=false}={}){
@@ -123,8 +130,8 @@ test('expired or quarantined batches have no usable available units',()=>{
 });
 test('availability SQL excludes unusable/reserved stock and parameterizes filters',async()=>{
   let captured;queryHandler=async(sql,values)=>{captured={sql,values};return [[{availableUnits:'4'}]];};
-  const result=await model.getAvailability({bloodGroup:'O+',district:'Colombo',centreId:2});
-  assert.equal(result[0].availableUnits,4);assert.match(captured.sql,/expiry_date>=CURDATE/);assert.match(captured.sql,/quantity-b.reserved_units/);assert.match(captured.sql,/kind='blood_bank'/);assert.deepEqual(captured.values,['O+','Colombo',2]);
+  const result=await model.getAvailability(10,{bloodGroup:'O+',district:'Colombo',centreId:2,hospitalId:999});
+  assert.equal(result[0].availableUnits,4);assert.match(captured.sql,/expiry_date>=CURDATE/);assert.match(captured.sql,/quantity-b.reserved_units/);assert.match(captured.sql,/kind='hospital'/);assert.match(captured.sql,/l.hospital_id=\?/);assert.deepEqual(captured.values,[10,'O+','Colombo',2]);
 });
 test('bank request transitions reject terminal states',async()=>{
   queryHandler=async()=>[[{...requestRow,status:'fulfilled'}]];

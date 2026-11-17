@@ -1,7 +1,7 @@
 export const BANK_REPORT_TYPES = [
   ['inventory', 'Blood Inventory Report'], ['donations', 'Recorded Donation Report'],
   ['requests', 'Hospital Blood Request Report'], ['expiry', 'Blood Expiry Report'],
-  ['regional', 'Regional Blood Stock Report'], ['campaigns', 'Campaign Report'], ['transfers', 'Blood Transfer Report'],
+  ['campaigns', 'Campaign Donation Report'], ['transfers', 'Blood Transfer Report'],
 ];
 export const buildBankReport = (resource, filters, generatedBy) => {
   if (!resource?.available || !resource.complete) throw new Error('A complete authorized source is required.');

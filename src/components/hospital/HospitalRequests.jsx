@@ -1,5 +1,6 @@
+import {Eye,X} from 'lucide-react';
 import React, { useRef, useState } from 'react';
-import { Button, Badge, Table, SectionCard } from '../UIComponents';
+import { Button, CompactAction, Badge, Table, SectionCard } from '../UIComponents';
 import * as service from '../../services/hospitalService';
 import { HospitalLayout, useHospitalResource, ResourceState, EmptyState, Field, Filters, Dialog, Details, ErrorPanel, inputClass, disabledClass } from './HospitalUI';
 import { BLOOD_GROUPS, REQUEST_STATUSES, URGENCIES, filterRequests, titleCase, statusColor, formatDate } from './hospitalUtils';
@@ -18,8 +19,8 @@ export const RequestTable = ({ items, onView, onCancel, busy = false }) => <Tabl
     <td className="p-3 text-sm">{r.quantity} units</td><td className="p-3"><Badge color={statusColor(r.urgency)}>{r.urgencyLabel || titleCase(r.urgency)}</Badge></td>
     <td className="p-3 text-sm whitespace-nowrap">{formatDate(r.requiredDate)}</td><td className="p-3 text-sm whitespace-nowrap">{formatDate(r.createdAt)}</td>
     <td className="p-3"><Badge color={statusColor(r.status)}>{r.statusLabel || titleCase(r.status)}</Badge>{r.decisionNote && <p className="text-xs text-gray-500 mt-2 max-w-56 break-words">{r.decisionNote}</p>}</td>
-    <td className="p-3"><div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => onView(r)} aria-label={`View request ${r.reference || r.id}`}>Details</Button>
-      {onCancel && ['pending', 'approved'].includes(r.status) && <Button variant="outline" disabled={busy} className={disabledClass} onClick={() => onCancel(r)} aria-label={`Cancel request ${r.reference || r.id}`}>Cancel</Button>}</div></td>
+    <td className="p-3"><div className="flex flex-wrap gap-2"><CompactAction icon={Eye} onClick={() => onView(r)} aria-label={`View request ${r.reference || r.id}`}>Details</CompactAction>
+      {onCancel && ['pending', 'approved'].includes(r.status) && <CompactAction icon={X} tone="danger" disabled={busy} onClick={() => onCancel(r)} aria-label={`Cancel request ${r.reference || r.id}`}>Cancel</CompactAction>}</div></td>
   </tr>)}
 </Table>;
 

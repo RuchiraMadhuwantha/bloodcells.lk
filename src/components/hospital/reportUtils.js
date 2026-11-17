@@ -3,6 +3,7 @@ import { filterRequests, summarizeRequests, titleCase } from './hospitalUtils';
 export const REPORT_TYPES = [
   ['requests', 'Hospital Blood Request Report'], ['fulfillment', 'Request Fulfillment Report'],
   ['usage', 'Hospital Blood Usage Report'], ['inventory', 'Hospital Inventory Report'],
+  ['collections','Hospital Donation Collection Report'],['incoming-transfers','Incoming Blood Transfer Report'],['outgoing-transfers','Outgoing Blood Transfer Report'],
 ];
 export const buildRequestReport = (hospital, items, filters, complete = false) => {
   if (!complete) throw new Error('A complete hospital request dataset is required for report generation.');

@@ -4,14 +4,14 @@ import * as service from '../../services/hospitalService';
 import { Dialog,Field,ErrorPanel,inputClass,disabledClass } from './HospitalUI';
 import { BLOOD_GROUPS,todayStr,newSubmissionKey } from './hospitalUtils';
 export const HospitalStockEditor=({item,onClose,onSaved})=>{
-  const [form,setForm]=useState(item?{quantity:item.quantity,reservedUnits:item.reservedUnits,status:item.status,version:item.version,reason:''}:{reference:'',component:'',bloodGroup:'',quantity:'',reservedUnits:0,collectionDate:todayStr(),expiryDate:'',status:'usable',reason:''});
+  const [form,setForm]=useState(item?{volumeMl:item.volumeMl??'',quantity:item.quantity,reservedUnits:item.reservedUnits,status:item.status,version:item.version,reason:''}:{volumeMl:'',reference:'',component:'',bloodGroup:'',quantity:'',reservedUnits:0,collectionDate:todayStr(),expiryDate:'',status:'usable',reason:''});
   const [busy,setBusy]=useState(false),[error,setError]=useState(null);
   const lock=useRef(false),attempt=useRef(null);
   const set=(key,value)=>setForm(f=>({...f,[key]:value}));
   const submit=async e=>{
     e.preventDefault();if(lock.current)return;
     lock.current=true;setBusy(true);setError(null);
-    const payload={...form,quantity:Number(form.quantity),reservedUnits:Number(form.reservedUnits)};
+    const payload={...form,volumeMl:form.volumeMl===''?null:Number(form.volumeMl),quantity:Number(form.quantity),reservedUnits:Number(form.reservedUnits)};
     const signature=JSON.stringify(payload);
     if(attempt.current?.signature!==signature)attempt.current={signature,key:newSubmissionKey()};
     try{await service.saveStock(payload,attempt.current.key,item?.id);onSaved();}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}
@@ -28,6 +28,7 @@ export const HospitalStockEditor=({item,onClose,onSaved})=>{
           <Field label="Verified expiry date"><input required type="date" min={form.collectionDate} className={inputClass} value={form.expiryDate} onChange={e=>set('expiryDate',e.target.value)}/></Field>
         </>}
         <Field label="Recorded quantity"><input required type="number" min="0" max="100000" step="1" className={inputClass} value={form.quantity} onChange={e=>set('quantity',e.target.value)}/></Field>
+        <Field label="Recorded volume (mL)"><input type="number" min="0" max="1000000000" step="0.01" required={item?.volumeMl!=null} className={inputClass} value={form.volumeMl} onChange={e=>set('volumeMl',e.target.value)}/></Field>
         <Field label="Reserved quantity"><input required type="number" min="0" max={form.quantity} step="1" className={inputClass} value={form.reservedUnits} onChange={e=>set('reservedUnits',e.target.value)}/></Field>
         <Field label="Batch status"><select className={inputClass} value={form.status} onChange={e=>set('status',e.target.value)}><option value="usable">Usable</option><option value="quarantined">Quarantined</option><option value="discarded">Discarded</option></select></Field>
         <Field label="Stock change reason"><textarea required maxLength={500} className={inputClass} value={form.reason} onChange={e=>set('reason',e.target.value)}/></Field>

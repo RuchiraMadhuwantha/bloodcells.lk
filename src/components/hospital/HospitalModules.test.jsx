@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { HospitalDashboard, BloodRequestPage } from '../../Hospital';
 import { HospitalPortal } from './HospitalUI';
 import { MyBloodRequests } from './HospitalRequests';
-import { HospitalInventory, BloodAvailability } from './HospitalStock';
+import { HospitalInventory } from './HospitalStock';
 import { HospitalUsage } from './HospitalUsage';
 import { HospitalReports } from './HospitalReports';
 import * as service from '../../services/hospitalService';
@@ -17,7 +17,6 @@ beforeEach(() => {
   jest.resetAllMocks();
   service.getHospital.mockResolvedValue({ hospitalName: 'Test Hospital', hospitalCode: 'TEST', accountStatus: 'active' });
   service.getRequests.mockResolvedValue({ available: true, complete: true, items: [request, { ...request, id: 2, reference: 'BR-TEST2', bloodGroup: 'A-', urgency: 'normal', status: 'fulfilled', statusLabel: 'Fulfilled', createdAt: '2026-01-01' }] });
-  service.getNetworkStock.mockResolvedValue({ available: true, scope: 'network', fetchedAt: new Date().toISOString(), items: [{ id: 1, bloodGroup: 'O+', availableUnits: 4, level: 'Low', lastRestockedAt: '2026-01-01 10:00' }] });
   service.getDashboard.mockResolvedValue({summary:{requests:{total:2,pending:1,approved:0,fulfilled:1,emergency:1},recentRequests:[request],inventory:{available:false},usage:{available:false}}});
   service.getReport.mockResolvedValue({title:'Hospital Blood Request Report',hospital:'Test Hospital',period:'All dates',generatedAt:'2026-01-01',group:'All groups',status:'All statuses',summary:{'Total requests':2},columns:['Reference'],rows:[['BR-TEST1']]});
   service.getAppointments.mockResolvedValue({ available: true, items: [] });
@@ -87,22 +86,6 @@ test('request loading failures can be retried to an honest empty state', async (
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('No blood requests recorded')).toBeInTheDocument();
 });
-test('network availability supports filters, details and a blood group request handoff', async () => {
-  const onRequest = jest.fn();
-  renderPage(<BloodAvailability nav={nav} onRequest={onRequest} />);
-  await screen.findByRole('button', { name: 'Request blood O+' });
-  expect(screen.getByLabelText('District')).toBeEnabled();
-  expect(screen.getByLabelText('Blood bank / centre')).toBeEnabled();
-  fireEvent.change(screen.getByLabelText('Stock blood group'), { target: { value: 'A+' } });
-  expect(screen.getByText('No stock matches your filters')).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Stock blood group'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: 'View network stock O+' }));
-  expect(screen.getByRole('dialog')).toHaveTextContent('Usable units');
-  expect(screen.getByRole('dialog')).toHaveTextContent('Not provided');
-  fireEvent.keyDown(document, { key: 'Escape' });
-  fireEvent.click(screen.getByRole('button', { name: 'Request blood O+' }));
-  expect(onRequest).toHaveBeenCalledWith('O+');
-});
 test('hospital inventory and usage cannot mutate network stock or imply saved records', async () => {
   const view = renderPage(<HospitalInventory nav={nav} />);
   expect(await screen.findByText('Hospital stock not available.')).toBeInTheDocument();
@@ -112,6 +95,16 @@ test('hospital inventory and usage cannot mutate network stock or imply saved re
   expect(await screen.findByText('Usage service not available.')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Save usage unavailable' })).toBeDisabled();
   expect(screen.getByText('Total recorded usage: unavailable')).toBeInTheDocument();
+});
+
+test('hospital inventory includes blood availability totals from its own batches',async()=>{
+ service.getHospitalStock.mockResolvedValue({available:true,items:[{id:1,bloodGroup:'O+',availableUnits:4},{id:2,bloodGroup:'O+',availableUnits:3},{id:3,bloodGroup:'O+',availableUnits:0},{id:4,bloodGroup:'A+',availableUnits:2}]});
+ renderPage(<HospitalInventory nav={nav}/>);
+ expect(await screen.findByRole('heading',{name:'Blood Availability'})).toBeInTheDocument();
+ expect(await screen.findByLabelText('Available O+')).toHaveTextContent('7');
+ expect(screen.getByLabelText('Available A+')).toHaveTextContent('2');
+ expect(screen.getByLabelText('Available AB-')).toHaveTextContent('0');
+ expect(service.getHospitalStock).toHaveBeenCalled();
 });
 test('report preview uses real supplied records and unsupported sources disable generation', async () => {
   renderPage(<HospitalReports nav={nav} />);
@@ -129,17 +122,16 @@ test('report preview uses real supplied records and unsupported sources disable 
   expect(screen.getByRole('button', { name: 'Preview report' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Download CSV' })).toBeDisabled();
 });
-test('incomplete data prevents reporting, while failed stock does not hide the dashboard request table', async () => {
+test('incomplete data prevents reporting and dashboard retains its request table', async () => {
   service.getReport.mockRejectedValue(new Error('The dataset is incomplete.'));
   const view = renderPage(<HospitalReports nav={nav} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Preview report' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('incomplete');
   expect(screen.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
   view.unmount();
-  service.getNetworkStock.mockRejectedValue(new Error('Stock unavailable'));
   renderPage(<HospitalDashboard nav={nav} />);
   expect(await screen.findByText('BR-TEST1')).toBeInTheDocument();
-  expect(screen.getByRole('alert')).toHaveTextContent('Stock unavailable');
+  expect(screen.queryByRole('heading',{name:'Blood Availability'})).not.toBeInTheDocument();
 });
 test.each(['pending', 'inactive', 'suspended'])('a fresh %s hospital profile blocks protected page content', async (status) => {
   service.getHospital.mockResolvedValue({ accountStatus: status });

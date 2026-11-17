@@ -1,6 +1,12 @@
 const pool = require('../config/db');
 const { toDateTimeString } = require('../utils/date');
 
+// Older broadcast notifications must also respect the campaign's current owner.
+const campaignScope = `(action_route IS NULL OR action_route <> 'hospital-campaigns' OR EXISTS (
+  SELECT 1 FROM campaigns c JOIN hospitals h ON h.hospital_id=c.hospital_id
+  WHERE c.campaign_id=notifications.related_id AND h.user_id=notifications.user_id
+))`;
+
 const mapNotificationRow = (r) => ({
   id: r.notification_id,
   type: r.type,
@@ -42,7 +48,7 @@ const createNotification = async (
 };
 
 const listForUser = async (userId, { type, unreadOnly, limit = 100, offset = 0 } = {}) => {
-  const conditions = ['user_id = ?'];
+  const conditions = ['user_id = ?', campaignScope];
   const params = [userId];
   if (type) {
     conditions.push('type = ?');
@@ -51,7 +57,7 @@ const listForUser = async (userId, { type, unreadOnly, limit = 100, offset = 0 }
   if (unreadOnly) {
     conditions.push('is_read = 0');
   }
-  const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 200);
+  const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 201);
   const safeOffset = Math.max(Number(offset) || 0, 0);
   const [rows] = await pool.query(
     `SELECT * FROM notifications WHERE ${conditions.join(' AND ')}
@@ -64,7 +70,7 @@ const listForUser = async (userId, { type, unreadOnly, limit = 100, offset = 0 }
 
 const countUnread = async (userId) => {
   const [rows] = await pool.query(
-    'SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0',
+    `SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0 AND ${campaignScope}`,
     [userId]
   );
   return Number(rows[0]?.cnt || 0);
@@ -72,7 +78,7 @@ const countUnread = async (userId) => {
 
 const getByIdForUser = async (notificationId, userId) => {
   const [rows] = await pool.query(
-    'SELECT * FROM notifications WHERE notification_id = ? AND user_id = ?',
+    `SELECT * FROM notifications WHERE notification_id = ? AND user_id = ? AND ${campaignScope}`,
     [notificationId, userId]
   );
   return rows[0] ? mapNotificationRow(rows[0]) : null;
@@ -84,7 +90,7 @@ const markReadForUser = async (notificationId, userId, executor) => {
   const [result] = await db.query(
     `UPDATE notifications
         SET is_read = 1, read_at = NOW()
-      WHERE notification_id = ? AND user_id = ?`,
+      WHERE notification_id = ? AND user_id = ? AND ${campaignScope}`,
     [notificationId, userId]
   );
   if (result.affectedRows === 0) return null;
@@ -94,7 +100,7 @@ const markReadForUser = async (notificationId, userId, executor) => {
 const markAllReadForUser = async (userId, executor) => {
   const db = executor || pool;
   const [result] = await db.query(
-    'UPDATE notifications SET is_read = 1, read_at = NOW() WHERE user_id = ? AND is_read = 0',
+    `UPDATE notifications SET is_read = 1, read_at = NOW() WHERE user_id = ? AND is_read = 0 AND ${campaignScope}`,
     [userId]
   );
   return result.affectedRows;

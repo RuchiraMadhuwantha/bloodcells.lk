@@ -14,7 +14,7 @@ export const BankSelectionProvider = ({ children }) => {
 export const useBankSelection = () => useContext(Selection);
 export const BankLayout = ({ nav, children, ...props }) => {
   const { user } = useAuth();
-  return <DashboardLayout {...nav} userName={user?.username || 'Blood Bank'} role="Bank Manager" {...props}>{children}</DashboardLayout>;
+  return <DashboardLayout {...nav} onNotifications={()=>nav.onNavigate('bank-notifications')} userName={user?.username || 'Blood Bank'} role="Bank Manager" {...props}>{children}</DashboardLayout>;
 };
 export const useBankPermissions = () => {
   const { user } = useAuth();

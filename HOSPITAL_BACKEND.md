@@ -15,7 +15,7 @@ The connected MySQL 8.4.7 database is `nbts`. Existing `blood_inventory` stores 
 - H03: Server priority ordering by emergency, urgent, normal; then required date and submission order. Urgency does not bypass bank review or allocate stock.
 - H04: Own batch receipts/details/updates, quantities, reservations, collection/expiry/component/status, optimistic version checks and movement history. Transactions and durable retry keys prevent repeated mutations. Pending migration in the live database.
 - H05: Usage references an owned usable batch. Usage insert, unreserved stock deduction, movement and retry key commit together. Expired, quarantined, discarded, foreign, insufficient and group-mismatched stock are rejected. Pending migration.
-- H06: Query usable, unexpired, unreserved batches at actual active bank locations, with group/district/centre filters. Legacy aggregate totals are excluded. Pending migration and verified blood-bank batch ingestion; no centre data was invented.
+- H06: Query usable, unexpired, unreserved batches owned by the authenticated hospital. Hospital ownership is enforced in SQL. Legacy aggregate totals are excluded. Pending migration and verified blood-bank batch ingestion; no centre data was invented.
 - H07: Server-side request, fulfillment, inventory and usage reports; JSON preview, CSV, PDF and existing print flow. Summaries cover the full filtered source, not a UI page. More than 10,000 matching records produces 413 instead of truncated totals. Request reports work on existing tables; inventory/usage reports require migration.
 - Registration: Existing bcrypt hashing, duplicate checks, pending hospital role preserved; schema-compatible field limits added.
 - Approval/login: Existing blood-bank-only approval and active-account login preserved and covered by backend tests. JWT middleware rechecks current database role/status.
@@ -83,7 +83,7 @@ All paths below start with `/api`. Protected endpoints require `Authorization: B
 | GET /hospitals/mine/blood-usage | Hospital | Optional bloodGroup, start/end usage dates | items, complete:true, totalUsage |
 | GET /hospitals/mine/blood-usage/:id | Hospital | Positive usage ID | Own usage or 404 |
 | POST /hospitals/mine/blood-usage | Hospital | batchId, bloodGroup, quantity, usageDate, category; notes/requestId optional; required Idempotency-Key | 201 item and confirmation, or 200 identical retry; unsafe/insufficient stock 409, foreign batch/request 404 |
-| GET /hospitals/mine/availability | Hospital | Optional bloodGroup, district, centreId | Actual centre/group usable totals, update times, complete:true, scope:verified_batches; viewing does not reserve stock |
+| GET /hospitals/mine/availability | Hospital | Optional bloodGroup, district, centreId | Own hospital/group usable totals, update times, complete:true, scope:hospital_batches; caller-supplied hospital IDs cannot change ownership |
 | GET /hospitals/mine/reports | Hospital | Required type requests/fulfillment/inventory/usage; optional start/end, bloodGroup, status, format json/csv/pdf | JSON report or authenticated CSV/PDF attachment; >10000 matches 413 |
 
 Receipt example (dates must reflect the actual batch, not an assumed shelf life):
@@ -169,4 +169,4 @@ Global diff whitespace check flags a preexisting extra blank EOF in `backend/dat
 3. Blood Bank dependency: capture verified centres and actual usable batches, and build an authorized batch ingestion/dispatch/receipt workflow. Legacy aggregate data cannot supply this automatically. Empty verified availability after migration is honest until actual records exist.
 4. Review PDF layout in a renderer/browser, including long text/multipage and any required Sinhala/Tamil font embedding. No patient information is included.
 5. Review existing production dependency advisories with compatible upgrades and regression testing.
-6. Donor/appointments modules are preserved; no new donor functionality or AI demand prediction is implemented by this task.
+6. Donor/appointments modules are preserved; no new donor functionality is implemented by this task.

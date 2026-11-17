@@ -34,14 +34,6 @@ const EventsNewsPage = ({ onNavigate }) => {
 
   const news = [
     {
-      id: 1,
-      title: "New AI Prediction Model Reduces Blood Shortages by 40%",
-      date: "Jun 15, 2026",
-      category: "Technology",
-      summary: "BloodCells.lk's latest AI update successfully predicted demand patterns with 95% accuracy, helping prevent stockouts.",
-      icon: "📊"
-    },
-    {
       id: 2,
       title: "Emergency Blood Request System Saves Lives in Kandy",
       date: "Jun 12, 2026",

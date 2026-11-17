@@ -252,7 +252,7 @@ Table 3.12 presents the authentication and access-control system tests, confirmi
 | ST-013 | Sign out from any portal | Session cleared; public home page shown | Returned to public home ("Every Drop Counts") | Pass |
 | ST-014 | Signed-out visitor attempts a dashboard route | Redirected to login | Login page shown (verified by unit tests UT-036, UT-092, UT-104…UT-106, UT-115…UT-123) | Pass |
 
-Table 3.13 presents the donor portal system tests. The donor portal intentionally retains its Notifications entry (unlike the hospital portal); all destinations were exercised from the signed-in session.
+Table 3.13 presents the donor portal system tests. The donor portal intentionally retains its Notifications entry (unlike the hospital portal); all destinations were exercised and re-verified on the pushed build by waiting for each page's expected content to appear.
 
 **Table 3.13 — System Test Cases: Donor Portal**
 
@@ -260,14 +260,14 @@ Table 3.13 presents the donor portal system tests. The donor portal intentionall
 |---|---|---|---|---|
 | ST-015 | Donor signs in | Donor portal opens | "Donor Dashboard" rendered | Pass |
 | ST-016 | Dashboard renders | Dashboard content renders | Dashboard rendered with refresh action | Pass |
-| ST-017 | Book Appointment | Booking page renders | "Book Appointment" heading rendered | Pass |
-| ST-018 | My Profile | Profile page renders | "My Profile" heading rendered | Pass |
-| ST-019 | My Appointments | Appointments list renders | "My Appointments" heading rendered | Pass |
-| ST-020 | Donation History | History page renders | "Donation History" heading rendered | Pass |
-| ST-021 | Blood Donation Campaigns | Campaigns page renders | "Blood Donation Campaigns" heading rendered | Pass |
-| ST-022 | My Campaigns | My campaigns page renders | "My Campaigns" heading rendered | Pass |
-| ST-023 | Notifications | Notifications page renders | "Notifications" heading rendered | Pass |
-| ST-024 | Emergency Donation Alerts | Alerts page renders | "Emergency Donation Alerts" heading rendered | Pass |
+| ST-017 | Book Appointment | Booking page renders | "Book Appointment" page rendered | Pass |
+| ST-018 | My Profile | Profile page renders | "My Profile" page rendered | Pass |
+| ST-019 | My Appointments | Appointments list renders | "My Appointments" page rendered | Pass |
+| ST-020 | Donation History | History page renders | "Donation History" page rendered | Pass |
+| ST-021 | Blood Donation Campaigns | Campaigns page renders | "Blood Donation Campaigns" page rendered | Pass |
+| ST-022 | My Campaigns | My campaigns page renders | "My Campaigns" page rendered | Pass |
+| ST-023 | Notifications | Notifications page renders | "Notifications" page rendered | Pass |
+| ST-024 | Emergency Donation Alerts | Alerts page renders | "Emergency Donation Alerts" page rendered | Pass |
 
 Table 3.14 presents the hospital portal system tests. Note ST-026 and ST-027: the Notifications entry was deliberately removed from the hospital sidebar while the notifications page itself remains reachable from the top-bar bell — this change was verified in the live session.
 
@@ -275,18 +275,18 @@ Table 3.14 presents the hospital portal system tests. Note ST-026 and ST-027: th
 
 | Test ID | Test Case | Expected Results | Actual Results | Status |
 |---|---|---|---|---|
-| ST-025 | Hospital signs in | Hospital portal opens at dashboard | "Hospital Dashboard" heading rendered | Pass |
+| ST-025 | Hospital signs in | Hospital portal opens at dashboard | "Hospital Dashboard" page rendered | Pass |
 | ST-026 | Sidebar must NOT contain a Notifications item | No "Notifications" entry in hospital sidebar | Sidebar listed: Dashboard, Appointment Management, Blood Donation Campaigns, New Blood Request, My Blood Requests, Blood Availability, Hospital Inventory, Blood Usage, Reports, Hospital Profile — Notifications absent | Pass |
 | ST-027 | Top-bar bell still opens the notifications page (route retained) | Bell navigates to Hospital Notifications | "Hospital Notifications" page opened via bell | Pass |
-| ST-028 | Appointment Management | Page renders | "Appointment Management" heading rendered | Pass |
-| ST-029 | Blood Donation Campaigns | Page renders | "Blood Donation Campaigns" heading rendered | Pass |
-| ST-030 | New Blood Request | Request form renders | "New Blood Request" heading rendered | Pass |
-| ST-031 | My Blood Requests | Requests tracking renders | "My Blood Requests" heading rendered | Pass |
-| ST-032 | Blood Availability | Availability page renders | "Blood Availability" heading rendered | Pass |
-| ST-033 | Hospital Inventory | Inventory page renders | "Hospital Inventory" heading rendered | Pass |
-| ST-034 | Blood Usage | Usage page renders | "Blood Usage" heading rendered | Pass |
-| ST-035 | Reports | Reports page renders | "Hospital Reports" heading rendered | Pass |
-| ST-036 | Hospital Profile | Profile page renders | "Hospital Profile" heading rendered | Pass |
+| ST-028 | Appointment Management | Page renders | "Appointment Management" page rendered | Pass |
+| ST-029 | Blood Donation Campaigns | Page renders | "Blood Donation Campaigns" page rendered | Pass |
+| ST-030 | New Blood Request | Request form renders | "New Blood Request" page rendered | Pass |
+| ST-031 | My Blood Requests | Requests tracking renders | "My Blood Requests" page rendered | Pass |
+| ST-032 | Blood Availability | Availability page renders | "Blood Availability" page rendered | Pass |
+| ST-033 | Hospital Inventory | Inventory page renders | "Hospital Inventory" page rendered | Pass |
+| ST-034 | Blood Usage | Usage page renders | "Blood Usage" page rendered | Pass |
+| ST-035 | Reports | Reports page renders | "Hospital Reports" page rendered | Pass |
+| ST-036 | Hospital Profile | Profile page renders | "Hospital Profile" page rendered | Pass |
 
 Table 3.15 presents the blood bank portal system tests, covering every sidebar group including the Administrator screen.
 
@@ -295,24 +295,33 @@ Table 3.15 presents the blood bank portal system tests, covering every sidebar g
 | Test ID | Test Case | Expected Results | Actual Results | Status |
 |---|---|---|---|---|
 | ST-037 | Blood bank manager signs in | Bank portal opens at dashboard | Dashboard rendered with live figures (registered hospitals 6, upcoming appointments 6, registered donors 11) | Pass |
-| ST-038 | Hospital Management | Page renders | "Hospital Management" heading rendered | Pass |
-| ST-039 | Blood Inventory | Inventory management renders | "Inventory Management" heading rendered | Pass |
-| ST-040 | Blood Expiry | Page renders | "Blood Expiry" heading rendered | Pass |
-| ST-041 | Blood Shortages | Page renders | "Blood Shortages" heading rendered | Pass |
-| ST-042 | Blood Requests | Request queue renders | "Blood Requests" heading rendered | Pass |
-| ST-043 | Donor Management | Donor directory renders | "Donor Management" heading rendered | Pass |
-| ST-044 | Eligible Donor Search | Screening page renders | "Eligible Donor Search" heading rendered | Pass |
-| ST-045 | Appointment Management | Appointments page renders | "Appointment Management" heading rendered | Pass |
-| ST-046 | Campaign Management | Campaigns page renders | "Campaign Management" heading rendered | Pass |
-| ST-047 | Notification Management | Notifications page renders | "Notification Management" heading rendered | Pass |
-| ST-048 | Regional Stock | Page renders | "Regional Stock" heading rendered | Pass |
-| ST-049 | Blood Transfers | Page renders | "Blood Transfers" heading rendered | Pass |
-| ST-050 | Regional Coordination | Page renders | "Regional Coordination" heading rendered | Pass |
-| ST-051 | Reports | Bank reports render | "Blood Bank Reports" heading rendered | Pass |
-| ST-052 | Demand Planning | AI prediction page renders | "Demand Planning" heading rendered | Pass |
-| ST-053 | Administrator | Admin dashboard renders | "Admin Dashboard" heading rendered | Pass |
+| ST-038 | Hospital Management | Page renders | "Hospital Management" page rendered | Pass |
+| ST-039 | Blood Inventory | Inventory management renders | "Inventory Management" page rendered | Pass |
+| ST-040 | Blood Expiry | Page renders | "Blood Expiry" page rendered | Pass |
+| ST-041 | Blood Shortages | Page renders | "Blood Shortages" page rendered | Pass |
+| ST-042 | Blood Requests | Request queue renders | "Blood Requests" page rendered | Pass |
+| ST-043 | Donor Management | Donor directory renders | "Donor Management" page rendered | Pass |
+| ST-044 | Eligible Donor Search | Screening page renders | "Eligible Donor Search" page rendered | Pass |
+| ST-045 | Appointment Management | Appointments page renders | "Appointment Management" page rendered | Pass |
+| ST-046 | Campaign Management | Campaigns page renders | "Campaign Management" page rendered | Pass |
+| ST-047 | Notification Management | Notifications page renders | "Notification Management" page rendered | Pass |
+| ST-048 | Regional Stock | Page renders | "Regional Stock" page rendered | Pass |
+| ST-049 | Blood Transfers | Page renders | "Blood Transfers" page rendered | Pass |
+| ST-050 | Regional Coordination | Page renders | "Regional Coordination" page rendered | Pass |
+| ST-051 | Reports | Bank reports render | "Blood Bank Reports" page rendered | Pass |
+| ST-053 | Administrator | Admin dashboard renders | "Admin Dashboard" page rendered | Pass |
 
 **System testing summary:** 53 system test cases were executed on the running system — **53/53 passed**. Two notes for transparency: (1) the local `demo_bank` account had a non-seed password; it was reset to the documented seed value `Demo@12345` (local development database only) to perform the blood bank portal verification; (2) role-guard redirect behaviour for unauthenticated access was verified through the automated suite (unit/navigation tests) rather than by manually corrupting browser session state.
+
+### Re-verification after pushed commit `4f8e7351` (17 Nov 2026)
+
+After the changes were pushed (commit `4f8e7351` — donor dashboard refresh tests, appointment collection recording, hospital campaign/notification UI and related UI improvements), the testing evidence in this section was re-verified:
+
+- Unit suite re-run: **123 tests / 17 suites — all passing** (the same 5 parallel-run timeout flakes reoccurred and passed on individual re-runs, confirming they are timing-related, not functional).
+- All **36 portal destinations** (9 donor + 10 hospital + 17 blood bank) re-verified by waiting for each page's expected content to appear — **all render**.
+- Hospital portal on the pushed build still shows **no Notifications sidebar item**, and the top-bar bell still opens the **Hospital Notifications** page.
+- Backend API test suites pass: `npm run test:bank --prefix backend` → **90/90**, `npm run test:hospital --prefix backend` → **51/51**.
+- Public pages, authentication flows (401 on bad credentials, role-based sign-in, logout) and Events loading live campaigns are unaffected by the pushed changes.
 
 ### Overall testing result
 

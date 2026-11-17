@@ -27,7 +27,7 @@ Read-only inspection found MySQL 8.4.7, database nbts. Existing tables: users, d
 | B13 Reports | Partially implemented | Subset of frontend reports; no bank PDF endpoint |
 | B14 Coordination | Partially implemented | Demand shown, regional stock/transfers unavailable |
 
-Plan executed: reuse shared stock_locations/stock_batches; prepare additive bank support tables; implement permissions/transactions; connect existing screens; run safe tests/live reads; document deployment limits. No second backend/database, parallel balance system or AI demand prediction was added.
+Plan executed: reuse shared stock_locations/stock_batches; prepare additive bank support tables; implement permissions/transactions; connect existing screens; run safe tests/live reads; document deployment limits. No second backend/database or parallel balance system was added.
 
 ## B. Implemented features
 
@@ -274,6 +274,6 @@ No dependency installed for this bank task. Prior hospital work recorded five pr
 4. Configure actual SMS/email provider, verified recipient consent/preferences, reliable worker/retries and authenticated delivery callbacks. Blocked records are not external delivery.
 5. Define actual hospital-centre assignments, bank-to-hospital receipt/acceptance, medical screening/availability and donor verification workflows where required; none are guessed.
 6. Visually verify long/multipage PDF and required Sinhala/Tamil fonts. Collected donation volume/campaign linkage require actual source records to support those report fields.
-7. Review dependency advisories/deployment settings separately. No AI demand prediction, automated distribution optimization, on-hold/partial-fulfillment enums or automatic clinical release added.
+7. Review dependency advisories/deployment settings separately. No automated distribution optimization, on-hold/partial-fulfillment enums or automatic clinical release added.
 
 Final verification: 112 backend tests and 105 frontend tests passed; scoped lint/whitespace checks passed; production build compiled successfully. Live migration execution, new-table MySQL write/concurrency acceptance, external delivery and PDF visual QA remain outstanding as described above.

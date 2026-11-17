@@ -216,6 +216,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE TABLE IF NOT EXISTS campaigns (
   campaign_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  hospital_id            INT UNSIGNED NULL,
   created_by_user_id     INT UNSIGNED NOT NULL,
   name                   VARCHAR(150) NOT NULL,
   title                  VARCHAR(150) NULL,
@@ -248,6 +249,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
   created_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (campaign_id),
+  CONSTRAINT fk_campaign_hospital FOREIGN KEY (hospital_id) REFERENCES hospitals(hospital_id),
   KEY idx_campaigns_status (status),
   KEY idx_campaigns_date (campaign_date),
   KEY idx_campaigns_district (district),
