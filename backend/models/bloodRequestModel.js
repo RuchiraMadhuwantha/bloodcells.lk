@@ -181,7 +181,7 @@ const updateRequestStatus = async ({ requestId, newStatus, reviewedByUserId, not
     );
   }
 
-  if (newStatus === 'fulfilled') throw Object.assign(new Error('Use the verified batch fulfillment transaction.'), {statusCode:409});
+  if (newStatus === 'fulfilled') throw Object.assign(new Error('Use the verified packet fulfillment transaction.'), {statusCode:409});
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();

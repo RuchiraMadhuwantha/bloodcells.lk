@@ -29,11 +29,11 @@ const toFriendlyError = (error, fallback = 'Something went wrong. Please try aga
       return Object.assign(new Error('The related record could not be found.'), { statusCode: 400 });
     case 'ER_ROW_IS_REFERENCED':
     case 'ER_ROW_IS_REFERENCED_2':
-      return Object.assign(new Error('This record is still referenced by other data and cannot be removed.'), { statusCode: 409 });
+      return Object.assign(new Error('Other records use this information, so it cannot be deleted.'), { statusCode: 409 });
     case 'ECONNREFUSED':
     case 'PROTOCOL_CONNECTION_LOST':
     case 'ER_ACCESS_DENIED_ERROR':
-      return Object.assign(new Error('The database is currently unavailable. Please try again shortly.'), { statusCode: 503 });
+      return Object.assign(new Error('Saved information is temporarily unavailable. Please try again shortly.'), { statusCode: 503 });
     default:
       if (error.fatal === false && error.sqlMessage) {
         console.error('DB error:', error.sqlMessage);

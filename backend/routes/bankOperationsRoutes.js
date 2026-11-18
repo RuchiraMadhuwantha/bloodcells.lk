@@ -9,7 +9,7 @@ const management=require('../models/bankManagementModel');
 const reports=require('../utils/bankReports');
 const router=express.Router();
 router.use(auth,roles('blood_bank'));
-const route=fn=>async(req,res,next)=>{try{await fn(req,res);}catch(e){if(['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code))e=stock.fail(503,'Blood Bank batch operations require approved migrations 003 and 004.');if(['ER_LOCK_DEADLOCK','ER_LOCK_WAIT_TIMEOUT'].includes(e.code))e=stock.fail(409,'Another operation changed these records. Retry with the same submission key.');next(toFriendlyError(e,'Blood Bank operation failed.'));}};
+const route=fn=>async(req,res,next)=>{try{await fn(req,res);}catch(e){if(['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code))e=stock.fail(503,'Blood inventory is not ready yet. Ask your system administrator to finish setup.');if(['ER_LOCK_DEADLOCK','ER_LOCK_WAIT_TIMEOUT'].includes(e.code))e=stock.fail(409,'Someone else updated these records. Try the same action again.');next(toFriendlyError(e,'Blood Bank operation failed.'));}};
 const actor=req=>req.user.user_id;
 const key=req=>req.get('Idempotency-Key');
 const list=(res,items)=>res.json({success:true,available:true,complete:true,items});
@@ -19,7 +19,7 @@ router.post('/centres',v.centre,valid,route(async(req,res)=>saved(res,await stoc
 router.put('/centres/:id/thresholds',v.id,v.key,[require('express-validator').body('bloodGroup').isIn(require('../validators/common').BLOOD_GROUPS),require('express-validator').body('lowStockThreshold').isInt({min:0,max:100000}).toInt(),require('express-validator').body('criticalStockThreshold').isInt({min:0,max:100000}).toInt().custom((value,{req})=>value<=req.body.lowStockThreshold)],valid,route(async(req,res)=>saved(res,await stock.thresholds(actor(req),req.params.id,req.body,key(req)))));
 router.get('/inventory',v.filters,valid,route(async(req,res)=>list(res,await stock.batches(actor(req),req.query))));
 router.get('/inventory/history',route(async(req,res)=>res.json({success:true,items:await stock.history(actor(req)),limit:1000})));
-router.get('/inventory/:id',v.id,valid,route(async(req,res)=>{const items=await stock.batches(actor(req),{id:req.params.id});const item=items.find(r=>r.id===req.params.id);if(!item)throw stock.fail(404,'Assigned batch not found.');res.json({success:true,item});}));
+router.get('/inventory/:id',v.id,valid,route(async(req,res)=>{const items=await stock.batches(actor(req),{id:req.params.id});const item=items.find(r=>r.id===req.params.id);if(!item)throw stock.fail(404,'Assigned packet not found.');res.json({success:true,item});}));
 router.post('/inventory',v.batch,valid,route(async(req,res)=>saved(res,await stock.createBatch(actor(req),req.body,key(req)))));
 router.put('/inventory/:id',v.update,valid,route(async(req,res)=>saved(res,await stock.updateBatch(actor(req),req.params.id,req.body,key(req)))));
 router.get('/expiry',v.filters,valid,route(async(req,res)=>list(res,(await stock.batches(actor(req),{...req.query,dateField:'expiry'})).filter(r=>r.expiryStatus!=='current'))));
@@ -32,6 +32,9 @@ router.put('/transfers/:id',v.action,valid,route(async(req,res)=>saved(res,await
 router.post('/requests/:id/allocations',v.allocation,valid,route(async(req,res)=>saved(res,await transfers.allocate(actor(req),req.params.id,req.body,key(req)))));
 router.get('/requests/:id/history',v.id,valid,route(async(req,res)=>res.json({success:true,items:await stock.eventHistory(actor(req),'request',req.params.id),limit:1000,complete:false})));
 router.get('/transfers/:id/history',v.id,valid,route(async(req,res)=>res.json({success:true,items:await stock.eventHistory(actor(req),'transfer',req.params.id),limit:1000,complete:false})));
+router.get('/notification-channels',route(async(req,res)=>res.json({success:true,email:require('../services/emailService').status(),in_app:{available:true},sms:{available:false}})));
+router.post('/email/verify',route(async(req,res)=>{try{res.json({success:true,...await require('../services/emailService').verify()});}catch(e){throw stock.fail(e.statusCode||502,e.statusCode===503?e.message:'Gmail connection failed. Check the sender address and app password.');}}));
+router.put('/notifications/:id/retry-email',v.id,v.key,valid,route(async(req,res)=>saved(res,await require('../models/emailQueueModel').retry(actor(req),req.params.id,key(req)))));
 router.get('/notification-recipients',v.recipientFilters,valid,route(async(req,res)=>res.json({success:true,available:true,...await require('../models/bankNotificationModel').recipients({...req.query,donorIds:req.query.donorIds?[...new Set(req.query.donorIds.split(',').map(Number))]:[]})})));
 router.get('/notifications/:id',v.id,valid,route(async(req,res)=>res.json({success:true,item:await require('../models/bankNotificationModel').details(actor(req),req.params.id)})));
 router.get('/notifications',route(async(req,res)=>res.json({success:true,available:true,items:await management.outreachHistory(actor(req)),limit:1000,complete:false})));

@@ -53,7 +53,7 @@ router.put('/:id/hospital-cancel',authMiddleware,allowRoles('hospital'),idParam,
 router.put('/:id/collection', authMiddleware, allowRoles('hospital'), idParam,
   [body('component').isString().trim().isLength({min:1,max:100}).withMessage('Enter the recorded blood component.'),
     body('campaignId').optional({nullable:true}).isInt({min:1}).toInt(),
-    body('expiryDate').isDate({format:'YYYY-MM-DD',strictMode:true}).withMessage('Enter the actual batch expiry date.'),
+    body('expiryDate').isDate({format:'YYYY-MM-DD',strictMode:true}).withMessage('Enter the actual packet expiry date.'),
     body('collectedUnits').isInt({ min: 1, max: 1000 }).toInt().withMessage('Enter a positive whole number of collected units.'),
     body('collectedVolumeMl').isInt({ min: 1, max: 100000 }).toInt().withMessage('Enter the actual collected volume in millilitres.')],
   handleValidationErrors, (req, res, next) => {

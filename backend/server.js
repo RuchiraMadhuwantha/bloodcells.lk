@@ -59,6 +59,7 @@ app.use((req, res) => {
 
 app.use(errorMiddleware);
 
+require('./services/emailWorker').start();
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

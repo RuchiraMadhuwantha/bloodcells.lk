@@ -1,3 +1,5 @@
+import {batchLabel} from '../batchLabel';
+import {displayStatus} from '../userLanguage';
 import React, { useState, useCallback } from 'react';
 import { Eye, Check, X, CalendarClock, Droplets } from 'lucide-react';
 import { Button, Badge, Table, SectionCard, CompactAction, StatCard } from '../UIComponents';
@@ -7,7 +9,7 @@ import { BankLayout, useBankResource, useBankPermissions, useConfirmedAction, Re
 import { RequestDetails } from '../hospital/HospitalRequests';
 import { AppointmentDetails } from '../donor/DonorRecords';
 const RequestHistory=({id})=>{const load=useCallback(()=>service.getEventHistory('requests',id),[id]);return <EventHistory load={load}/>;};
-const actionLabel = (status) => ({ approved: 'Approve', rejected: 'Reject', fulfilled: 'Fulfill', cancelled: 'Cancel', completed: 'Mark completed' }[status] || status);
+const actionLabel = (status) => ({ approved: 'Approve', rejected: 'Reject', fulfilled: 'Issue blood', cancelled: 'Cancel', completed: 'Mark completed' }[status] || status);
 const REQUEST_TRANSITIONS = { pending: ['approved', 'rejected', 'cancelled'], approved: ['fulfilled', 'cancelled'] };
 export const requestActions = (status) => REQUEST_TRANSITIONS[status] || [];
 export const appointmentActions = (status) => ['pending', 'approved'].includes(status) ? ['cancelled'] : [];
@@ -40,7 +42,7 @@ export const BankOperations = ({ nav, appointments = false }) => {
     });
   const decide = (r, status) => actions.ask({
     title: actionLabel(status) + ': ' + r.reference + '?',
-    description: appointments ? 'Save this appointment decision? Only the server can confirm a status change.' : status === 'fulfilled' ? 'Issue ' + r.quantity + ' units of ' + r.bloodGroup + ' to ' + r.hospitalName + '? Fulfillment and stock deduction are performed atomically by the backend.' : 'Record ' + status + ' for this request? Approval alone does not issue blood.',
+    description: appointments ? 'Save this appointment decision? The status changes after you confirm.' : status === 'fulfilled' ? 'Issue ' + r.quantity + ' units of ' + r.bloodGroup + ' to ' + r.hospitalName + '? The issued units will be removed from available stock when you confirm.' : 'Record ' + status + ' for this request? Approval alone does not issue blood.',
     requireNote: status === 'rejected',
     run: async (note) => {
       const result = appointments ? await service.changeAppointment(r.id, status) : await service.changeRequest(r.id, status, note || undefined);
@@ -49,7 +51,7 @@ export const BankOperations = ({ nav, appointments = false }) => {
       return result.message || 'Decision saved.';
     },
   });
-  return <BankLayout nav={nav} title={appointments ? 'Appointment Management' : 'Blood Requests'} subtitle={appointments ? 'Review donation appointments and recorded history' : 'Review, approve and fulfill hospital requests'}>
+  return <BankLayout nav={nav} title={appointments ? 'Appointment Management' : 'Blood Requests'} subtitle={appointments ? 'Review donation appointments and recorded history' : 'Review hospital requests, approve them and issue blood'}>
     {actions.content}
     {appointments && <div className="grid sm:grid-cols-3 gap-4 mb-6">
       <StatCard icon={CalendarClock} label="Appointments in view" value={resource.loading ? 'Loading...' : resource.error ? 'Unavailable' : filtered.length} accent="blue" />
@@ -74,17 +76,17 @@ export const BankOperations = ({ nav, appointments = false }) => {
             {appointments && <td className="p-3 text-sm whitespace-nowrap">{r.nic || 'Not provided'}</td>}
             <td className="p-3 text-sm">{appointments ? r.hospitalName : r.bloodGroup}<span className="block text-gray-500">{appointments ? r.district : r.quantity + ' units'}</span></td>
             {appointments ? <td className="p-3 text-sm whitespace-nowrap">{formatDate(r.appointmentDate)}<span className="block">{r.timeSlot}</span></td> : <><td className="p-3"><Badge color={statusColor(r.urgency)}>{r.urgencyLabel || titleCase(r.urgency)}</Badge></td><td className="p-3 text-sm whitespace-nowrap">{formatDate(r.requiredDate)}<span className="block text-gray-500">{formatDate(r.createdAt)}</span></td></>}
-            <td className="p-3"><Badge color={statusColor(r.status)}>{r.statusLabel || titleCase(r.status)}</Badge></td>
+            <td className="p-3"><Badge color={statusColor(r.status)}>{displayStatus(r.statusLabel || titleCase(r.status))}</Badge></td>
             {appointments && <td className="p-3 text-sm">{r.collectedUnits != null ? <>{r.collectedUnits} unit(s)<span className="block text-gray-500">{r.collectedVolumeMl} mL</span></> : r.status === 'completed' ? 'Not recorded' : '?'}</td>}
             <td className="p-3"><div className="flex flex-wrap items-center gap-1.5"><RowAction variant="ghost" icon={Eye} onClick={() => setSelected(r)} aria-label={'View ' + r.reference}>Details</RowAction>
               {(appointments ? appointmentActions(r.status) : requestActions(r.status)).map((status) => <RowAction key={status} tone={['approved', 'completed', 'fulfilled'].includes(status) ? 'success' : 'danger'} icon={['approved', 'completed', 'fulfilled'].includes(status) ? Check : X} variant={status === 'rejected' || status === 'cancelled' ? 'outline' : 'primary'} disabled={!permitted || actions.busy} className={disabledClass} onClick={() => decide(r, status)} aria-label={actionLabel(status) + ' ' + r.reference}>{appointments && status === 'completed' ? 'Complete' : actionLabel(status)}</RowAction>)}
-              {!appointments&&r.status==='approved'&&<CompactAction tone="schedule" icon={Check} onClick={()=>setAllocation(r)}>Allocate batch</CompactAction>}{appointments&&['pending','approved'].includes(r.status)&&<CompactAction tone="schedule" icon={CalendarClock} onClick={()=>setAllocation(r)}>Reschedule</CompactAction>}
+              {!appointments&&r.status==='approved'&&<CompactAction tone="schedule" icon={Check} onClick={()=>setAllocation(r)}>Allocate packet</CompactAction>}{appointments&&['pending','approved'].includes(r.status)&&<CompactAction tone="schedule" icon={CalendarClock} onClick={()=>setAllocation(r)}>Reschedule</CompactAction>}
             </div></td>
           </tr>)}
         </Table>}
       </ResourceState>
     </SectionCard>
-    {allocation&&<Dialog title={appointments?'Reschedule appointment':'Reserve verified batch'} onClose={()=>setAllocation(null)}><SavedForm fields={appointments?[{key:'newDate',label:'New appointment date',type:'date'},{key:'newTimeSlot',label:'New appointment time',type:'time'}]:(batches.data?.items||[]).filter(b=>b.bloodGroup===allocation.bloodGroup&&b.availableUnits>0).map(b=>({key:'batch_'+b.id,label:b.locationName+' / '+b.reference+' / '+b.availableUnits+' available',type:'number',min:0,max:b.availableUnits,required:false}))} onSave={(data,key)=>appointments?service.rescheduleAppointment(allocation.id,data,key):service.allocateRequest(allocation.id,{items:Object.entries(data).filter(([name,quantity])=>name.startsWith('batch_')&&Number(quantity)>0).map(([name,quantity])=>({batchId:Number(name.slice(6)),quantity:Number(quantity)}))},key)} onSaved={()=>{setAllocation(null);resource.refresh();batches.refresh();}}/></Dialog>}
+    {allocation&&<Dialog title={appointments?'Reschedule appointment':'Reserve verified packet'} onClose={()=>setAllocation(null)}><SavedForm fields={appointments?[{key:'newDate',label:'New appointment date',type:'date'},{key:'newTimeSlot',label:'New appointment time',type:'time'}]:(batches.data?.items||[]).filter(b=>b.bloodGroup===allocation.bloodGroup&&b.availableUnits>0).map(b=>({key:'batch_'+b.id,label:b.locationName+' / '+batchLabel(b)+' / '+b.availableUnits+' available',type:'number',min:0,max:b.availableUnits,required:false}))} onSave={(data,key)=>appointments?service.rescheduleAppointment(allocation.id,data,key):service.allocateRequest(allocation.id,{items:Object.entries(data).filter(([name,quantity])=>name.startsWith('batch_')&&Number(quantity)>0).map(([name,quantity])=>({batchId:Number(name.slice(6)),quantity:Number(quantity)}))},key)} onSaved={()=>{setAllocation(null);resource.refresh();batches.refresh();}}/></Dialog>}
     {selected && <Dialog title={appointments ? 'Appointment details' : 'Blood request details'} onClose={() => setSelected(null)}>
       {appointments ? <AppointmentDetails appointment={selected} /> : <RequestDetails request={selected} />}
       {!appointments && <div className="mt-4"><Details entries={[[ 'Hospital', selected.hospitalName ], ['District', selected.district]]} /></div>}

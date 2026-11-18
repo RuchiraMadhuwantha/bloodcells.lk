@@ -3,6 +3,8 @@ const assert=require('node:assert/strict');
 let connection,read=async()=>[[]];
 const pool={getConnection:async()=>connection,query:(...args)=>read(...args)};
 require.cache[require.resolve('../config/db')]={id:require.resolve('../config/db'),filename:require.resolve('../config/db'),loaded:true,exports:pool};
+const previousMain=process.env.MAIN_BLOOD_BANK_LOCATION_ID;process.env.MAIN_BLOOD_BANK_LOCATION_ID='2';
+test.after(()=>{if(previousMain===undefined)delete process.env.MAIN_BLOOD_BANK_LOCATION_ID;else process.env.MAIN_BLOOD_BANK_LOCATION_ID=previousMain;});
 const transfers=require('../models/hospitalTransferModel');
 const owner={hospitalId:10,hospitalName:'Fixture Hospital'};
 const payload={batchId:1,destinationId:2,quantity:3,reason:'Transfer to bank'};
@@ -12,7 +14,7 @@ function fixture(options={}){
   if(sql.startsWith('SELECT h.hospital_id'))return [[{hospital_id:10}]];
   if(sql.startsWith('SELECT payload_hash'))return [state.keys.filter(k=>k.key===p[2]).map(k=>({payload_hash:k.hash,result_id:k.id}))];
   if(sql.startsWith('SELECT b.*,CURDATE()'))return [options.foreign?[]:[{batch_id:1,location_id:5,reference:'TEST-BATCH',blood_group:'O+',component:'Whole blood',quantity:state.quantity,reserved_units:2,status:options.status||'usable',expiry_date:options.expiry||'2099-01-01',database_today:'2026-11-17'}]];
-  if(sql.startsWith('SELECT l.location_id'))return [options.invalidDestination?[]:[{location_id:2}]];
+  if(sql.startsWith('SELECT l.location_id')){assert.deepEqual(p,[2]);return [options.invalidDestination?[]:[{location_id:2,name:'Main Blood Bank',district:'Colombo'}]];}
   if(sql.startsWith('UPDATE stock_batches')){if(options.conflict)return [{affectedRows:0}];state.quantity-=p[0];return [{affectedRows:1}];}
   if(sql.startsWith('INSERT INTO bank_transfers')){state.transfers.push(p);return [{insertId:55}];}
   if(sql.startsWith('INSERT INTO stock_movements')){state.movements.push(p);return [{insertId:1}];}
@@ -73,4 +75,20 @@ for(const options of [{foreign:true},{status:'requested'},{status:'received'},{f
 for(const scenario of [{expired:true,accepted:true},{accepted:false}])test('expired or unchecked receipts are quarantined '+JSON.stringify(scenario),async()=>{
  const s=receiptFixture(scenario);await transfers.receive(owner,1,55,{...receiving,accepted:scenario.accepted},'receipt-key-001');
  assert.equal(s.batches[0][7],'quarantined');
+});
+
+test('all hospitals send to the configured main bank without a client destination',async()=>{
+ const s=fixture();const {destinationId,...body}=payload;await transfers.send({...owner,district:'Kandy'},1,body,'automatic-main-bank');
+ assert.equal(s.transfers[0][1],2);assert.equal(s.audits[0][2],2);assert.equal(s.quantity,5);
+});
+test('a client cannot redirect a hospital transfer to a regional bank',async()=>{
+ const s=fixture();await assert.rejects(transfers.send(owner,1,{...payload,destinationId:3},'regional-bank-attempt'),{statusCode:400});
+ assert.equal(s.quantity,8);assert.equal(s.transfers.length,0);assert.equal(s.notifications.length,0);
+});
+test('missing main bank configuration blocks sending without changing stock',async()=>{
+ const s=fixture();delete process.env.MAIN_BLOOD_BANK_LOCATION_ID;try{await assert.rejects(transfers.send(owner,1,payload,'no-main-bank'),{statusCode:503});assert.equal(s.quantity,8);assert.equal(s.transfers.length,0);}finally{process.env.MAIN_BLOOD_BANK_LOCATION_ID='2';}
+});
+test('the hospital destination list exposes only the configured main bank',async()=>{
+ let query;read=async(sql,values)=>{query={sql,values};return [[{location_id:2,name:'Main Blood Bank',district:'Colombo'}]];};
+ assert.deepEqual(await transfers.destinations(),[{id:2,name:'Main Blood Bank',district:'Colombo',isMain:true}]);assert.deepEqual(query.values,[2]);assert.match(query.sql,/account_status='active'/);assert.doesNotMatch(query.sql,/ORDER BY l.name/);
 });

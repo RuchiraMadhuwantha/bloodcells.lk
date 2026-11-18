@@ -1,7 +1,8 @@
+import {displayStatus} from '../userLanguage';
 export { BLOOD_GROUPS, todayStr, formatDate } from '../donor/donorUtils';
 export const REQUEST_STATUSES = ['pending', 'approved', 'rejected', 'fulfilled', 'cancelled'];
 export const URGENCIES = ['normal', 'urgent', 'emergency'];
-export const titleCase = (s) => s ? s[0].toUpperCase() + s.slice(1) : 'Not provided';
+export const titleCase = (s) => s ? displayStatus(s[0].toUpperCase() + s.slice(1)) : 'Not provided';
 export const statusColor = (s) => ({ pending: 'yellow', approved: 'blue', rejected: 'red', fulfilled: 'green', cancelled: 'gray', emergency: 'red', urgent: 'amber', normal: 'blue' }[s] || 'gray');
 export const summarizeRequests = (requests) => ({
   total: requests.length,

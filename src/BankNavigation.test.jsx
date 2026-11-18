@@ -58,11 +58,13 @@ test('browser Back returns from a section to the dashboard and Forward restores 
 test('blood bank navigation opens every module without changing donor or hospital routes', async () => {
   await login();
   expect(screen.queryByRole('button',{name:'Regional Stock',exact:true})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Blood Shortages',exact:true})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Eligible Donor Search',exact:true})).not.toBeInTheDocument();
   for (const [label, title] of [
     ['Hospital Management', 'Hospital Management'], ['Blood Inventory', 'Inventory Management'],
-    ['Blood Expiry', 'Blood Expiry'], ['Blood Shortages', 'Blood Shortages'],
+    ['Blood Expiry', 'Blood Expiry'],
     ['Blood Requests', 'Blood Requests'], ['Donor Management', 'Donor Management'],
-    ['Eligible Donor Search', 'Eligible Donor Search'], ['Appointment Management', 'Appointment Management'],
+    ['Appointment Management', 'Appointment Management'],
     ['Campaign Management', 'Campaign Management'], ['Notification Management', 'Notification Management'],
     ['Blood Transfers', 'Blood Transfers'],
     ['Reports', 'Blood Bank Reports'],
@@ -106,4 +108,19 @@ test.each(['bank-expiry', 'bank-shortages', 'bank-eligible', 'bank-appointments'
   expect(canAccess('donor', route)).toBe(false);
   expect(canAccess('hospital', route)).toBe(false);
   expect(canAccess(null, route)).toBe(false);
+});
+
+
+test('inventory overview separates all eight blood groups including groups without stock',async()=>{
+ api.getBloodBankStats.mockResolvedValue({stats:{...stats,inventory:{...stats.inventory,available:true,totalUnits:43,byBloodGroup:[{bloodGroup:'A+',availableUnits:2},{bloodGroup:'A-',availableUnits:3},{bloodGroup:'B+',availableUnits:5},{bloodGroup:'B-',availableUnits:7},{bloodGroup:'AB+',availableUnits:11},{bloodGroup:'O-',availableUnits:15}]}}});
+ await login();const legend=await screen.findByRole('list',{name:'Inventory by blood group'});
+ expect(within(legend).getAllByRole('listitem')).toHaveLength(8);
+ for(const [group,units]of [['A+',2],['A-',3],['B+',5],['B-',7],['AB+',11],['AB-',0],['O+',0],['O-',15]])expect(within(legend).getByLabelText(group+': '+units+' units')).toBeInTheDocument();
+ expect(within(legend).queryByText(/O\/A/)).not.toBeInTheDocument();
+});
+
+test('saved Blood Shortages routes open inventory after the section is removed',async()=>{
+ localStorage.setItem('authToken','test-token');localStorage.setItem('authUser',JSON.stringify(user));sessionStorage.setItem('currentRoute','bank-shortages');
+ render(<App/>);await screen.findByRole('heading',{name:'Inventory Management',level:1});
+ expect(screen.queryByRole('button',{name:'Blood Shortages',exact:true})).not.toBeInTheDocument();expect(sessionStorage.getItem('currentRoute')).toBe('bank-inventory');
 });

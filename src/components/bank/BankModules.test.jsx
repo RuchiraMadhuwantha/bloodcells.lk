@@ -43,26 +43,16 @@ test('bank inbox displays hospital approval and opens appointments',async()=>{
  expect(nav.onNavigate).toHaveBeenCalledWith('bank-appointments');
 });
 
-test('batch adjustments save one confirmed versioned mutation while pending',async()=>{
+test('packet adjustments save one confirmed versioned mutation while pending',async()=>{
  let resolve;bank.updateBatch.mockImplementation(()=>new Promise(r=>{resolve=r;}));
  renderBank(<InventoryManagement nav={nav}/>);
- fireEvent.click(await screen.findByRole('button',{name:'Adjust / dispose'}));
- fireEvent.change(screen.getByLabelText('Physical units'),{target:{value:'3'}});
+ fireEvent.click(await screen.findByRole('button',{name:'Update / remove'}));
+ fireEvent.change(screen.getByLabelText('Total units'),{target:{value:'3'}});
  fireEvent.change(screen.getByLabelText('Adjustment or disposal reason'),{target:{value:'Physical count'}});
  const confirm=screen.getByRole('button',{name:'Confirm and save'});fireEvent.click(confirm);fireEvent.click(confirm);
  expect(bank.updateBatch).toHaveBeenCalledTimes(1);
  expect(bank.updateBatch).toHaveBeenCalledWith(1,{quantity:3,status:'usable',reason:'Physical count',version:1},expect.any(String));
- expect(bank.adjustStock).not.toHaveBeenCalled();resolve({id:1});expect(await screen.findByRole('status')).toHaveTextContent('Operation saved');
-});
-test('threshold edits target the selected actual centre',async()=>{
- bank.saveCentreThresholds.mockResolvedValue({id:1});renderBank(<InventoryManagement nav={nav}/>);
- const button=screen.getByRole('button',{name:'Thresholds'});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
- fireEvent.change(screen.getAllByLabelText('Storage centre').at(-1),{target:{value:'1'}});
- fireEvent.change(screen.getByLabelText('Blood group'),{target:{value:'O+'}});
- fireEvent.change(screen.getByLabelText('Low threshold'),{target:{value:'10'}});
- fireEvent.change(screen.getByLabelText('Critical threshold'),{target:{value:'2'}});
- fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
- await waitFor(()=>expect(bank.saveCentreThresholds).toHaveBeenCalledWith('1',{bloodGroup:'O+',lowStockThreshold:10,criticalStockThreshold:2},expect.any(String)));
+ expect(bank.adjustStock).not.toHaveBeenCalled();resolve({id:1});expect(await screen.findByRole('status')).toHaveTextContent('Changes saved');
 });
 test('request decisions require confirmation and rejection needs a reason', async () => {
   bank.changeRequest.mockResolvedValue({ request: { ...request, status: 'rejected' }, message: 'Rejected by server' });
@@ -78,7 +68,7 @@ test('failed fulfillment stays in its dialog without frontend stock deduction', 
   bank.getRequests.mockResolvedValue({ available: true, complete: true, items: [{ ...request, status: 'approved' }] });
   bank.changeRequest.mockRejectedValue(new Error('Insufficient stock'));
   renderBank(<BloodRequestQueue nav={nav} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Fulfill BR-TEST' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Issue blood BR-TEST' }));
   fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Insufficient stock');
   expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -109,9 +99,9 @@ test('donor candidates are labelled for screening, expose authorized details and
   renderBank(<DonorManagement nav={nav} candidates />);
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Select donor D-1' }));
   expect(screen.getByText('1 donor(s) selected in this session')).toBeInTheDocument();
-  expect(screen.getByText('Flag met; screening required')).toBeInTheDocument();
+  expect(screen.getByText('Waiting period completed; health check needed')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'View donor D-1' }));
-  expect(await within(screen.getByRole('dialog')).findByText('Not verified by this directory')).toBeInTheDocument();
+  expect(await within(screen.getByRole('dialog')).findByText('A health check is needed at the donation centre')).toBeInTheDocument();
   expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update account status' })).toBeEnabled();
 });
 test('notifications preview message text without simulating sending or delivery', async () => {
@@ -181,7 +171,7 @@ test('loading errors retry to empty records without fabricated stock', async () 
   renderBank(<InventoryManagement nav={nav} />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Stock unavailable');
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByText('No verified batches recorded')).toBeInTheDocument();
+  expect(await screen.findByText('No current or expiring blood packets recorded')).toBeInTheDocument();
 });
 
 test('selected donor outreach saves actual in-app notifications after confirmation',async()=>{
@@ -198,15 +188,15 @@ test('selected donor outreach saves actual in-app notifications after confirmati
 test('destination receiving checks send an explicit quarantine decision',async()=>{
  bank.getTransfers.mockResolvedValue({available:true,items:[{id:2,reference:'TR-2',status:'dispatched',quantity:2}]});bank.transferAction.mockResolvedValue({id:2,status:'received'});
  renderBank(<BloodTransfers nav={nav}/>);
- fireEvent.click(await screen.findByRole('button',{name:'receive'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Confirm arrival'}));
  fireEvent.change(screen.getByLabelText('Decision or receiving checks'),{target:{value:'Physical receipt pending checks'}});
  fireEvent.change(screen.getByLabelText('Receiving decision'),{target:{value:'quarantined'}});
  fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
  await waitFor(()=>expect(bank.transferAction).toHaveBeenCalledWith(2,{action:'receive',note:'Physical receipt pending checks',accepted:false},expect.any(String)));
 });
-test('approved request allocation submits selected real batch quantities',async()=>{
+test('approved request allocation submits selected real packet quantities',async()=>{
  bank.getRequests.mockResolvedValue({available:true,items:[{...request,status:'approved'}]});bank.allocateRequest.mockResolvedValue({id:1,status:'reserved'});
- renderBank(<BloodRequestQueue nav={nav}/>);fireEvent.click(await screen.findByRole('button',{name:'Allocate batch'}));
+ renderBank(<BloodRequestQueue nav={nav}/>);fireEvent.click(await screen.findByRole('button',{name:'Allocate packet'}));
  fireEvent.change(screen.getByLabelText('Fixture centre / BATCH-1 / 5 available'),{target:{value:'3'}});
  fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
  await waitFor(()=>expect(bank.allocateRequest).toHaveBeenCalledWith(1,{items:[{batchId:1,quantity:3}]},expect.any(String)));
@@ -237,9 +227,9 @@ test('campaign targeting previews registered donor audience and enforces the rec
  bank.getCampaigns.mockResolvedValue({available:true,items:[{id:7,name:'Campaign audience',status:'Upcoming'}]});
  bank.getNotificationRecipients.mockResolvedValue({available:true,items:[],complete:false,overLimit:true});renderBank(<BankNotifications nav={nav}/>);
  fireEvent.click(screen.getByRole('tab',{name:'Compose notification'}));await screen.findByRole('option',{name:'Campaign audience'});
- fireEvent.change(screen.getByLabelText('Campaign participation'),{target:{value:'7'}});
+ fireEvent.change(screen.getByLabelText('Campaign participants'),{target:{value:'7'}});
  await waitFor(()=>expect(bank.getNotificationRecipients).toHaveBeenLastCalledWith(expect.objectContaining({campaignId:'7'})));
- expect(await screen.findByText('More than 500 donors match. Narrow the audience before sending.')).toBeInTheDocument();
+ expect(await screen.findByText('More than 500 donors match. Use the filters to choose a smaller group before sending.')).toBeInTheDocument();
  expect(screen.getByRole('button',{name:'Preview message'})).toBeDisabled();
  expect(screen.getByRole('option',{name:'Email - not connected'})).toBeDisabled();
 });
@@ -258,4 +248,74 @@ test('sent history opens recipient delivery and read details',async()=>{
  renderBank(<BankNotifications nav={nav}/>);fireEvent.click(screen.getByRole('tab',{name:'Sent history'}));
  fireEvent.click(await screen.findByRole('button',{name:'View delivery details'}));
  expect(await within(screen.getByRole('dialog')).findByText('Test Donor')).toBeInTheDocument();expect(screen.getByRole('dialog')).toHaveTextContent('Read');expect(bank.getNotificationDetails).toHaveBeenCalledWith(7);
+});
+
+
+test('configured email announcements use opted-in audience and queue the email channel',async()=>{
+ bank.getNotificationChannels.mockResolvedValue({email:{available:true}});
+ bank.getNotificationRecipients.mockResolvedValue({available:true,complete:true,items:[{donorId:1,fullName:'Opted-in Donor',bloodGroup:'O+',district:'Colombo'}]});
+ bank.sendNotification.mockResolvedValue({id:8,channel:'email',recipientCount:1});
+ renderBank(<BankNotifications nav={nav}/>);fireEvent.click(screen.getByRole('tab',{name:'Compose notification'}));
+ await waitFor(()=>expect(screen.getByRole('option',{name:'Email',exact:true})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Send through'),{target:{value:'email'}});
+ fireEvent.change(screen.getByLabelText('Notification title'),{target:{value:'Email title'}});fireEvent.change(screen.getByLabelText('Notification message'),{target:{value:'Email message'}});
+ await waitFor(()=>expect(bank.getNotificationRecipients).toHaveBeenLastCalledWith(expect.objectContaining({channel:'email'})));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Preview message'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Preview message'}));fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
+ await waitFor(()=>expect(bank.sendNotification).toHaveBeenCalledWith(expect.objectContaining({channel:'email',donorIds:[1]}),expect.any(String)));
+ expect(await screen.findByText('Email announcement queued for 1 donor(s).')).toBeInTheDocument();
+});
+
+
+test('inventory lists current and expiring packets and moves expired ones to the blood expiry section',async()=>{
+ const base={...stock,locationId:1,locationName:'Fixture centre',quantity:2,reservedUnits:0,status:'usable',asOfDate:'2026-11-17',level:'Usable'};
+ bank.getBatches.mockResolvedValue({available:true,items:[{...base,id:1,reference:'SOON',expiryDate:'2026-11-20'},{...base,id:2,reference:'EXPIRED',expiryDate:'2026-11-16',level:'Expired',availableUnits:0},{...base,id:3,reference:'LATER',expiryDate:'2026-11-25'},{...base,id:4,reference:'DISCARDED',expiryDate:'2026-11-18',status:'discarded',availableUnits:0},{...base,id:5,reference:'DISC-EXP',expiryDate:'2026-11-15',status:'discarded',availableUnits:0,quantity:5}]});
+ renderBank(<InventoryManagement nav={nav}/>);
+ const soon=(await screen.findByText('SOON')).closest('tr');expect(soon).toHaveClass('bg-amber-50');expect(within(soon).getByText('3 days left')).toBeInTheDocument();
+ expect(screen.queryByText('EXPIRED')).not.toBeInTheDocument();expect(screen.queryByText('DISC-EXP')).not.toBeInTheDocument();expect(screen.getByText('LATER').closest('tr')).not.toHaveClass('bg-amber-50');expect(screen.getByText('DISCARDED').closest('tr')).not.toHaveClass('bg-amber-50');
+ expect(screen.getByText('1 packet(s), 2 unit(s) expire within 7 days')).toBeInTheDocument();
+ expect(screen.getByText('2 expired packet(s), 7 unit(s)')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Open Blood Expiry'}));expect(nav.onNavigate).toHaveBeenCalledWith('bank-expiry');
+});
+
+test('blood expiry lists expired packets and saves an audited disposal',async()=>{
+ bank.getExpiry.mockResolvedValue({available:true,complete:true,items:[{...stock,id:9,reference:'EXPIRY-1',locationId:1,locationName:'Fixture centre',storageLocation:'Fixture centre',quantity:2,reservedUnits:0,version:3,status:'usable',asOfDate:'2026-11-17',expiryDate:'2026-11-16',level:'Expired',availableUnits:0,expiryStatus:'expired',volumeMl:900,component:'Whole blood'}]});
+ bank.updateBatch.mockResolvedValue({id:9});
+ renderBank(<BloodExpiry nav={nav}/>);
+ expect(await screen.findByText('EXPIRY-1')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Expiry period'),{target:{value:'expiring'}});expect(screen.queryByText('EXPIRY-1')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Expiry period'),{target:{value:'expired'}});expect(screen.getByText('EXPIRY-1')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Update / remove'}));
+ fireEvent.change(screen.getByLabelText('Total units'),{target:{value:'0'}});
+ fireEvent.change(screen.getByLabelText('Packet status'),{target:{value:'discarded'}});
+ fireEvent.change(screen.getByLabelText('Adjustment or disposal reason'),{target:{value:'Expired on the shelf'}});
+ fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
+ await waitFor(()=>expect(bank.updateBatch).toHaveBeenCalledWith(9,{quantity:0,volumeMl:900,status:'discarded',reason:'Expired on the shelf',version:3},expect.any(String)));
+ expect(await screen.findByText('Changes saved. Refresh the list to see the latest expiry classification.')).toBeInTheDocument();
+});
+
+test('inventory sorting combines with blood group filtering without refetching records',async()=>{
+ bank.getBatches.mockResolvedValue({available:true,items:[{...stock,id:1,reference:'SORT-SMALL',bloodGroup:'O+',availableUnits:2,quantity:2},{...stock,id:2,reference:'SORT-LARGE',bloodGroup:'O+',availableUnits:10,quantity:10},{...stock,id:3,reference:'SORT-OTHER',bloodGroup:'A+',availableUnits:1,quantity:1}]});
+ renderBank(<InventoryManagement nav={nav}/>);await screen.findByText('SORT-SMALL');
+ fireEvent.change(screen.getByLabelText('Inventory blood group'),{target:{value:'O+'}});
+ fireEvent.change(screen.getByLabelText('Sort inventory'),{target:{value:'high'}});
+ const names=screen.getAllByRole('row').slice(1).map(row=>row.textContent);
+ expect(names).toHaveLength(2);expect(names[0]).toContain('SORT-LARGE');expect(names[1]).toContain('SORT-SMALL');expect(screen.queryByText('SORT-OTHER')).not.toBeInTheDocument();
+ expect(screen.getByLabelText('Inventory blood group')).toHaveValue('O+');expect(bank.getBatches).toHaveBeenCalledTimes(1);
+});
+
+test('donor sorting preserves search, blood group filters and selected recipient identities',async()=>{
+ bank.getDonors.mockResolvedValue({available:true,items:[{...donor,id:'D-2',donorId:2,fullName:'Zara Match'},{...donor,id:'D-3',donorId:3,fullName:'Adam Match'},{...donor,id:'D-4',donorId:4,fullName:'Other',bloodGroup:'A+'}]});
+ renderBank(<DonorManagement nav={nav}/>);await screen.findByText('Zara Match');
+ fireEvent.click(screen.getByLabelText('Select donor D-2'));
+ fireEvent.change(screen.getByLabelText('Search donors'),{target:{value:'Match'}});
+ fireEvent.change(screen.getByLabelText('Donor blood group'),{target:{value:'O+'}});
+ fireEvent.change(screen.getByLabelText('Sort donors'),{target:{value:'name'}});
+ const rows=screen.getAllByRole('row').slice(1);expect(rows).toHaveLength(2);expect(rows[0]).toHaveTextContent('Adam Match');expect(rows[1]).toHaveTextContent('Zara Match');
+ expect(screen.getByLabelText('Select donor D-2')).toBeChecked();expect(bank.getDonors).toHaveBeenCalledTimes(1);
+});
+
+test('transfer page shows approved requests before issue and links issued transfers to their request',async()=>{
+ bank.getRequests.mockResolvedValue({available:true,items:[{...request,status:'approved'}]});bank.getTransfers.mockResolvedValue({available:true,items:[{id:49,reference:'TR-49',requestId:54,requestReference:'BR-00054',status:'dispatched',destinationKind:'hospital',sourceCentre:'Main Blood Bank',destinationCentre:'OSRO',batchCode:'B-0003',quantity:12}]});
+ renderBank(<BloodTransfers nav={nav}/>);expect(await screen.findByText('Approved - not sent yet')).toBeInTheDocument();expect(await screen.findByText('BR-00054')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Open blood request'}));expect(nav.onNavigate).toHaveBeenCalledWith('bank-requests');expect(screen.queryByRole('button',{name:'Send blood'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Confirm arrival'})).not.toBeInTheDocument();
 });

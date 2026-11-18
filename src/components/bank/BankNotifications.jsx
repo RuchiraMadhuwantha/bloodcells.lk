@@ -9,10 +9,11 @@ import {BankNotificationHistory} from './BankNotificationHistory';
 const destinations={appointment:['bank-appointments','View appointments'],transfer:['bank-transfers','View transfers'],campaign:['bank-campaigns','View campaigns'],blood_request:['bank-requests','View requests']};
 export const BankNotifications=({nav})=>{
   const selection=useBankSelection();
-  const [tab,setTab]=useState('inbox'),[page,setPage]=useState(0),[category,setCategory]=useState(''),[unread,setUnread]=useState(false),[query,setQuery]=useState('');
+  const [tab,setTab]=useState(()=>selection?.notificationTab||'inbox'),[page,setPage]=useState(0),[category,setCategory]=useState(''),[unread,setUnread]=useState(false),[query,setQuery]=useState('');
+  useEffect(()=>{if(selection?.notificationTab)selection.setNotificationTab(null);},[selection?.notificationTab,selection?.setNotificationTab]);
   const loadInbox=useCallback(()=>service.getInbox({limit:50,offset:page*50,...(category?{type:category}:{}),...(unread?{unread:true}:{})}),[page,category,unread]);
   const inbox=useBankResource(loadInbox),history=useBankResource(service.getNotifications);
-  const [form,setForm]=useState({title:'',type:'general',message:'',group:'',district:'',campaignId:'',mode:selection?.recipients?.length?'selected':'filters'});
+  const [form,setForm]=useState({title:'',type:'general',channel:'in_app',message:'',group:'',district:'',campaignId:'',mode:selection?.recipients?.length?'selected':'filters'});
   const [detail,setDetail]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const lock=useRef(false);
   const refreshInbox=inbox.refresh,refreshHistory=history.refresh;
@@ -48,7 +49,7 @@ export const BankNotifications=({nav})=>{
       </ResourceState>
       <div className="flex justify-between items-center gap-3 mt-4"><p className="text-xs text-gray-500">Page {page+1}</p><div className="flex gap-2"><Button disabled={inbox.loading||page===0} onClick={()=>setPage(p=>p-1)}>Previous</Button><Button disabled={inbox.loading||!inbox.data?.hasMore} onClick={()=>setPage(p=>p+1)}>Next</Button></div></div>
     </SectionCard>}
-    {tab==='compose'&&<BankNotificationComposer form={form} setForm={setForm} selectedIds={selection?.recipients||[]} onSent={result=>{setMessage(`Announcement saved to ${result.recipientCount??'the selected'} donor inbox(es).`);setForm(f=>({...f,title:'',message:''}));setTab('history');refreshHistory();}}/>}
+    {tab==='compose'&&<BankNotificationComposer form={form} setForm={setForm} selectedIds={selection?.recipients||[]} onSent={result=>{setMessage(result.channel==='email'?`Email announcement queued for ${result.recipientCount} donor(s).`:`Announcement saved to ${result.recipientCount??'the selected'} donor inbox(es).`);setForm(f=>({...f,title:'',message:''}));setTab('history');refreshHistory();}}/>}
     {tab==='history'&&<BankNotificationHistory resource={history}/>}
     {detail&&<Dialog title="Notification details" onClose={()=>setDetail(null)}><Details entries={[[ 'Title',detail.title],['Category',notificationLabel(detail.type)],['Created',formatDateTime(detail.createdAt)],['Status',detail.isRead?'Read':'Unread'],['Message',detail.message]]}/></Dialog>}
   </BankLayout>;

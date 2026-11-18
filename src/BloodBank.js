@@ -2,21 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle, Users, Clock, Loader2,
   AlertCircle, User,
-  Droplets, TrendingDown, ClipboardList, Megaphone, Truck, Hourglass, Hospital, CalendarCheck, ShieldCheck, Siren
+  Droplets, ClipboardList, Megaphone, Truck, Hourglass, Hospital, CalendarCheck, ShieldCheck, Siren
 } from 'lucide-react';
 import { DashboardLayout } from './components/DashboardShell';
 import { StatCard, Badge, BloodTypeBadge, Button, SectionCard, ProgressBar } from './components/UIComponents';
 import { Donut } from './components/Charts';
 import { useAuth } from './context/AuthContext';
 import * as api from './services/api';
-import * as bankService from './services/bankService';
-import {Dialog,useBankResource,ResourceState} from './components/bank/BankUI';
-import {SavedForm} from './components/bank/BankForms';
-
-const BankProfileEditor=({onClose})=>{
- const resource=useBankResource(bankService.getProfile);
- return <Dialog title="Blood Bank Profile" onClose={onClose}><ResourceState resource={resource} emptyTitle="Profile unavailable">{resource.data?.profile&&<SavedForm initial={{email:resource.data.profile.email}} fields={[{key:'email',label:'Account email',type:'email',maxLength:100}]} onSave={body=>bankService.saveProfile(body)} onSaved={onClose}/>}</ResourceState></Dialog>;
-};
+import {BLOOD_GROUPS} from './components/bank/BankUI';
 
 const formatDate = (iso) => {
   if (!iso) return '—';
@@ -49,7 +42,6 @@ const ErrorPanel = ({ message, onRetry }) => (
 export const BankDashboard = ({ nav }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
-  const [editProfile,setEditProfile]=useState(false);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,11 +87,8 @@ export const BankDashboard = ({ nav }) => {
   const maxUnits = Math.max(50, ...byGroup.map((g) => g.availableUnits || 0));
   const lowStock = stats?.alerts?.lowStock || [];
 
-  // O/A vs B vs AB split for the donut, derived from live stock.
-  const oaUnits = byGroup.filter((g) => ['O+', 'O-', 'A+', 'A-'].includes(g.bloodGroup))
-    .reduce((s, g) => s + g.availableUnits, 0);
-  const bUnits = byGroup.filter((g) => g.bloodGroup.startsWith('B')).reduce((s, g) => s + g.availableUnits, 0);
-  const abUnits = byGroup.filter((g) => g.bloodGroup.startsWith('AB')).reduce((s, g) => s + g.availableUnits, 0);
+  const groupColors={'A+':'#dc2626','A-':'#fb7185','B+':'#d97706','B-':'#fbbf24','AB+':'#2563eb','AB-':'#60a5fa','O+':'#059669','O-':'#34d399'};
+  const inventoryGroups=BLOOD_GROUPS.map(bloodGroup=>({bloodGroup,color:groupColors[bloodGroup],value:byGroup.filter(g=>g.bloodGroup===bloodGroup).reduce((sum,g)=>sum+Number(g.availableUnits||0),0)}));
   const totalUnits = stats?.inventory?.available===false?'Unavailable':stats?.inventory?.totalUnits ?? 0;
 
   const nextAppointments = stats?.appointments?.next || [];
@@ -130,27 +119,22 @@ export const BankDashboard = ({ nav }) => {
       role="Bank Manager"
       notifications={notifications}
     >
-      <Button variant="outline" onClick={()=>setEditProfile(true)}>Edit bank profile</Button>
-      {editProfile&&<BankProfileEditor onClose={()=>setEditProfile(false)}/>}
-      {stats?.inventory?.available===false&&<p role="status" className="p-4 bg-amber-50">Verified stock is unavailable until the approved bank migrations are applied. Legacy aggregate stock is excluded.</p>}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Droplets} value={totalUnits} label="Usable Unreserved Units" accent="red" />
-        <StatCard icon={TrendingDown} value={stats?.inventory?.available===false?'Unavailable':lowStock.length} label="Centre / Groups Below Threshold" accent="amber" />
+      {stats?.inventory?.available===false&&<p role="status" className="p-4 bg-amber-50">Stock details are not available yet. Ask your system administrator to finish setting up blood inventory. Older combined stock totals are not included.</p>}
+      <section aria-label="Inventory and activity overview" className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <StatCard icon={Droplets} value={totalUnits} label="Available Blood Units" accent="red" />
         <StatCard icon={Users} value={stats?.donors?.totalDonors ?? 0} label="Registered Donors" accent="blue" />
-        <StatCard icon={ClipboardList} value={stats?.requests?.pending ?? 0} label="Pending Requests" accent="green" />
-      </div>
-
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Megaphone} value={stats?.operations?.activeCampaigns ?? 'Unavailable'} label="Active / Upcoming Campaigns" accent="green" />
-        <StatCard icon={Truck} value={stats?.operations?.pendingTransfers ?? 'Unavailable'} label="Pending Assigned Transfers" accent="amber" />
-        <StatCard icon={Hourglass} value={stats?.operations?.expiringUnits ?? 'Unavailable'} label="Units Expiring Within 7 Days" accent="red" />
         <StatCard icon={Hospital} value={stats?.accounts?.hospitals ?? 'Unavailable'} label="Registered Hospitals" accent="blue" />
+        <StatCard icon={Megaphone} value={stats?.operations?.activeCampaigns ?? 'Unavailable'} label="Active / Upcoming Campaigns" accent="green" />
+        <StatCard icon={Hourglass} value={stats?.operations?.expiringUnits ?? 'Unavailable'} label="Units Expiring Within 7 Days" accent="red" />
         <StatCard icon={CalendarCheck} value={stats?.appointments?.upcoming ?? 'Unavailable'} label="Upcoming Appointments" accent="green" />
-        <StatCard icon={AlertTriangle} value={stats?.inventory?.criticalStockGroups ?? 'Unavailable'} label="Critical Stock Groups" accent="red" />
+      </section>
+
+      <section aria-label="Pending activity" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard icon={ClipboardList} value={stats?.requests?.pending ?? 0} label="Pending Requests" accent="green" />
+        <StatCard icon={Truck} value={stats?.operations?.pendingTransfers ?? 'Unavailable'} label="Pending Blood Transfers" accent="amber" />
         <StatCard icon={ShieldCheck} value={stats?.hospitals?.pending ?? 'Unavailable'} label="Pending Hospital Approvals" accent="amber" />
         <StatCard icon={Siren} value={requests.filter(r => r.urgency === 'emergency').length} label="Pending Emergency Requests" accent="red" />
-      </div>
+      </section>
 
       <SectionCard
         title="Pending Hospital Approvals"
@@ -170,35 +154,24 @@ export const BankDashboard = ({ nav }) => {
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         <SectionCard title="Inventory Overview">
-          {totalUnits === 'Unavailable' ? <p>Verified batch inventory unavailable.</p> : totalUnits === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">No stock recorded yet. Add units from the Inventory page.</p>
-          ) : (
-            <>
-              <div className="flex items-center justify-center">
-                <Donut segments={[
-                  { value: oaUnits, color: '#dc2626' },
-                  { value: bUnits, color: '#f59e0b' },
-                  { value: abUnits, color: '#3b82f6' },
-                ]} />
-              </div>
-              <div className="flex justify-center gap-4 mt-4 text-xs">
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-600" /> O/A ({oaUnits})</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-500" /> B ({bUnits})</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-500" /> AB ({abUnits})</span>
-              </div>
-            </>
-          )}
+          {totalUnits === 'Unavailable' ? <p>Blood stock details are not available.</p> : <>
+            {totalUnits===0?<p className="text-sm text-gray-500 text-center py-5">No stock recorded yet. Add units from the Inventory page.</p>:<div className="flex items-center justify-center" role="img" aria-label="Blood inventory distribution across eight blood groups"><Donut segments={inventoryGroups}/></div>}
+            <ul aria-label="Inventory by blood group" className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-xs">
+              {inventoryGroups.map(g=><li key={g.bloodGroup} className="flex items-center justify-between gap-2" aria-label={g.bloodGroup+': '+g.value+' units'}><span className="flex items-center gap-1.5"><span className="w-3 h-3 shrink-0 rounded-full" style={{backgroundColor:g.color}} aria-hidden="true"/>{g.bloodGroup}</span><span className="font-medium text-gray-700">{g.value} units</span></li>)}
+            </ul>
+          </>}
+
         </SectionCard>
 
-        <SectionCard title="Recorded Donor Interval Summary" className="lg:col-span-2" action={<Badge color="gray">Recorded interval flags</Badge>}>
+        <SectionCard title="Time Since Last Donation" className="lg:col-span-2" action={<Badge color="gray">Based on donation dates</Badge>}>
           <div className="grid sm:grid-cols-4 gap-4">
             <div className="border border-gray-100 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-gray-800">{stats?.donors?.eligibleNow ?? 0}</p>
-              <p className="text-xs text-gray-500 mt-1">Interval flag met; screening needed</p>
+              <p className="text-xs text-gray-500 mt-1">Waiting period completed; health check needed</p>
             </div>
             <div className="border border-gray-100 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-gray-800">{stats?.donors?.resting ?? 0}</p>
-              <p className="text-xs text-gray-500 mt-1">Interval flag not met</p>
+              <p className="text-xs text-gray-500 mt-1">Still in the waiting period</p>
             </div>
             <div className="border border-gray-100 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-gray-800">{stats?.donors?.neverDonated ?? 0}</p>
@@ -209,7 +182,7 @@ export const BankDashboard = ({ nav }) => {
               <p className="text-xs text-gray-500 mt-1">Upcoming appointments</p>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-3">Interval flags do not confirm medical eligibility or willingness to donate. Stock figures are a retrieved snapshot; expiry data is not supplied.</p>
+          <p className="text-xs text-gray-500 mt-3">Donation dates show whether the waiting period has passed. Staff must still check each donor?s health and confirm that they want to donate. Stock figures show the latest loaded totals.</p>
           {nextAppointments.length > 0 && (
             <div className="mt-4 space-y-2">
               {nextAppointments.slice(0, 4).map((a) => (

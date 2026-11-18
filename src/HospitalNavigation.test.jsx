@@ -56,7 +56,7 @@ test('hospital sidebar appointment page records units and millilitres',async()=>
  fireEvent.change(screen.getByLabelText('Collected units'),{target:{value:'1'}});
  fireEvent.change(screen.getByLabelText('Collected volume (mL)'),{target:{value:'450'}});
  fireEvent.change(screen.getByLabelText('Collected blood component'),{target:{value:'Whole blood'}});
- fireEvent.change(screen.getByLabelText('Actual batch expiry date'),{target:{value:'2099-01-01'}});
+ fireEvent.change(screen.getByLabelText('Actual packet expiry date'),{target:{value:'2099-01-01'}});
  await screen.findByRole('option',{name:'Donation drive'});fireEvent.change(screen.getByLabelText('Donation campaign (optional)'),{target:{value:'3'}});
  api.listHospitalAppointments.mockResolvedValue({appointments:[{...appointment,status:'completed',statusLabel:'Completed',collectedUnits:1,collectedVolumeMl:450}]});
  fireEvent.click(screen.getByRole('button',{name:'Save collection and complete'}));
@@ -80,7 +80,7 @@ test('hospital can browse campaigns and open its campaign notifications from the
  expect(api.listCampaigns).toHaveBeenCalledWith({period:'upcoming'});
 });
 
-test('hospital transfers show blood details and send a selected batch to a receiving bank',async()=>{
+test('hospital transfers show blood details and send a selected packet to a receiving bank',async()=>{
  const original=apiGet.getMockImplementation();
  apiGet.mockImplementation(async path=>{
   if(path.endsWith('/transfer-destinations'))return {available:true,items:[{id:2,name:'Receiving Bank',district:'Colombo'}]};
@@ -92,14 +92,14 @@ test('hospital transfers show blood details and send a selected batch to a recei
  await login();fireEvent.click(await screen.findByRole('button',{name:'Blood Transfers'}));
  fireEvent.click(await screen.findByRole('button',{name:'Transfer to Blood Bank'}));
  await screen.findByRole('option',{name:/BATCH-1/});
- fireEvent.change(screen.getByLabelText('Blood batch to transfer'),{target:{value:'1'}});
+ fireEvent.change(screen.getByLabelText('Blood packet to transfer'),{target:{value:'1'}});
  expect(screen.getByRole('dialog')).toHaveTextContent('Whole blood');
- fireEvent.change(screen.getByLabelText('Receiving blood bank'),{target:{value:'2'}});
+ expect(screen.queryByLabelText('Receiving blood bank')).not.toBeInTheDocument();
  fireEvent.change(screen.getByLabelText('Units to transfer'),{target:{value:'2'}});
  fireEvent.change(screen.getByLabelText('Transfer reason'),{target:{value:'Bank supply'}});
  fireEvent.click(screen.getByRole('button',{name:'Confirm and save'}));
  expect(await screen.findByText('Blood transfer sent. The blood bank has been notified and will confirm receipt.')).toBeInTheDocument();
- expect(apiPost).toHaveBeenCalledWith('/hospitals/mine/transfers',{batchId:1,destinationId:2,quantity:2,reason:'Bank supply'},expect.objectContaining({idempotencyKey:expect.any(String)}));
+ expect(apiPost).toHaveBeenCalledWith('/hospitals/mine/transfers',{batchId:1,quantity:2,reason:'Bank supply'},expect.objectContaining({idempotencyKey:expect.any(String)}));
 });
 
 test('transfer to bank remains discoverable when stock and receiving centres are empty',async()=>{
@@ -110,10 +110,10 @@ test('transfer to bank remains discoverable when stock and receiving centres are
  expect(transfer).toBeEnabled();fireEvent.click(transfer);
  const dialog=screen.getByRole('dialog');
  expect(await within(dialog).findByText('Add hospital stock before transferring')).toBeInTheDocument();
- expect(await within(dialog).findByText('No receiving blood bank registered')).toBeInTheDocument();
+ expect(await within(dialog).findByText('Blood bank setup needed')).toBeInTheDocument();
  expect(within(dialog).queryByRole('button',{name:'Confirm and save'})).not.toBeInTheDocument();
  expect(apiPost).not.toHaveBeenCalled();
- fireEvent.click(within(dialog).getByRole('button',{name:'Add stock batch'}));
+ fireEvent.click(within(dialog).getByRole('button',{name:'Add stock packet'}));
  expect(await screen.findByRole('heading',{name:'Hospital Inventory',level:1})).toBeInTheDocument();
 });
 

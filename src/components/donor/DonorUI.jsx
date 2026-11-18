@@ -1,3 +1,4 @@
+import {fieldLabel,displayStatus} from '../userLanguage';
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AlertCircle, Loader2, X, Inbox } from 'lucide-react';
 import { DashboardLayout } from '../DashboardShell';
@@ -43,7 +44,7 @@ export const ResourceState = ({ resource, emptyTitle, children }) => {
 };
 export const Field = ({ label, children }) => <label className="block text-sm text-gray-700 min-w-0"><span className="block mb-1 font-medium">{label}</span>{children}</label>;
 export const Filters = ({ children }) => <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">{children}</div>;
-export const Details = ({ entries }) => <dl className="grid sm:grid-cols-2 gap-4 text-sm">{entries.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-gray-500">{label}</dt><dd className="mt-1 font-medium text-gray-800 break-words whitespace-pre-wrap">{value ?? 'Not provided'}</dd></div>)}</dl>;
+export const Details = ({ entries }) => <dl className="grid sm:grid-cols-2 gap-4 text-sm">{entries.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-gray-500">{fieldLabel(label)}</dt><dd className="mt-1 font-medium text-gray-800 break-words whitespace-pre-wrap">{displayStatus(value) ?? 'Not provided'}</dd></div>)}</dl>;
 
 // A single focus-trapped, keyboard-accessible dialog for details and confirmations.
 export const Dialog = ({ title, onClose, busy = false, children }) => {

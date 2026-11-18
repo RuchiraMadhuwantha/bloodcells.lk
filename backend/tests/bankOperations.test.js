@@ -1,6 +1,6 @@
 const test=require('node:test');const assert=require('node:assert/strict');const express=require('express');const jwt=require('jsonwebtoken');
 process.env.JWT_SECRET='isolated-bank-tests-only';
-let db,snapshot,failAudit=false,queries=[];
+let db,snapshot,failAudit=false,failTransfer=false,failNotice=false,queries=[];
 const clone=v=>JSON.parse(JSON.stringify(v));
 const pool={query:(...args)=>query(...args),getConnection:async()=>({query:(...args)=>query(...args),beginTransaction:async()=>{snapshot=clone(db);},commit:async()=>{},rollback:async()=>{db=snapshot;},release:()=>{}})};
 require.cache[require.resolve('../config/db')]={id:require.resolve('../config/db'),filename:require.resolve('../config/db'),loaded:true,exports:pool};
@@ -8,7 +8,7 @@ const inventory=require('../models/bankInventoryModel');const transfers=require(
 const app=express();app.use(express.json());app.use('/bank',require('../routes/bankOperationsRoutes'));app.use('/inventory',require('../routes/inventoryRoutes'));app.use('/campaigns',require('../routes/campaignRoutes'));app.use('/appointments',require('../routes/appointmentRoutes'));app.use('/donors',require('../routes/donorDirectoryRoutes'));app.use(require('../middleware/errorMiddleware'));
 let server,base;
 test.before(async()=>{server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));base='http://127.0.0.1:'+server.address().port;});test.after(()=>new Promise(r=>server.close(r)));
-test.beforeEach(()=>{queries=[];failAudit=false;db={keys:[],audit:[],transfers:[],allocations:[],deliveries:[],notifications:[],outreach:[],campaign:{campaign_id:1,hospital_id:10,created_by_user_id:1,name:'Shared fixture',status:'Draft',campaign_date:'2099-01-01',start_time:'09:00',end_time:'12:00',participant_count:2},appointment:{appointment_id:9,donor_id:4,hospital_id:10,donor_name:'Fixture',status:'pending',appointment_date:'2099-01-01',time_slot:'09:00'},request:{request_id:20,hospital_id:10,blood_group:'O+',quantity:4,status:'approved'},batches:[{batch_id:1,location_id:1,reference:'REAL-FIXTURE',blood_group:'O+',component:'Test component',quantity:10,reserved_units:0,collection_date:'2020-01-01',expiry_date:'2099-01-01',status:'usable',version:1}],hospitalStatus:'pending'};});
+test.beforeEach(()=>{queries=[];failAudit=false;failTransfer=false;failNotice=false;db={keys:[],audit:[],transfers:[],allocations:[],deliveries:[],notifications:[],outreach:[],campaign:{campaign_id:1,hospital_id:10,created_by_user_id:1,name:'Shared fixture',status:'Draft',campaign_date:'2099-01-01',start_time:'09:00',end_time:'12:00',participant_count:2},appointment:{appointment_id:9,donor_id:4,hospital_id:10,donor_name:'Fixture',status:'pending',appointment_date:'2099-01-01',time_slot:'09:00'},request:{request_id:20,hospital_id:10,blood_group:'O+',quantity:4,status:'approved'},batches:[{batch_id:1,location_id:1,reference:'REAL-FIXTURE',blood_group:'O+',component:'Test component',quantity:10,reserved_units:0,collection_date:'2020-01-01',expiry_date:'2099-01-01',status:'usable',version:1}],hospitalStatus:'pending'};});
 const query=async(sql,p=[])=>{
  queries.push({sql,p});
  if(sql.includes('SELECT user_id, username, role'))return [[{user_id:p[0],username:'fixture',role:p[0]===8?'donor':[9,11].includes(p[0])?'hospital':'blood_bank',account_status:p[0]===7?'inactive':'active'}]];
@@ -37,7 +37,8 @@ const query=async(sql,p=[])=>{
   b.version++;return [{affectedRows:1}];
  }
  if(sql.startsWith('INSERT INTO stock_batches')){const id=db.batches.length+1;db.batches.push({batch_id:id,location_id:p[0],reference:p[1],blood_group:p[2],component:p[3],quantity:p[4],reserved_units:0,collection_date:p[5],expiry_date:p[6],status:sql.includes('appointment_id')?'quarantined':p[7],volume_ml:sql.includes('appointment_id')?p[7]:null,appointment_id:sql.includes('appointment_id')?p[8]:null,version:1});return [{insertId:id}];}
- if(sql.startsWith('INSERT INTO bank_transfers')){const id=db.transfers.length+1;db.transfers.push({transfer_id:id,source_location_id:p[0],destination_location_id:p[1],source_batch_id:p[2],quantity:p[3],reason:p[4],created_by_user_id:p[5],status:'requested'});return [{insertId:id}];}
+ if(sql.startsWith('INSERT INTO stock_locations'))return [{insertId:3}];
+ if(sql.startsWith('INSERT INTO bank_transfers')){if(failTransfer)throw new Error('fixture transfer failure');const id=db.transfers.length+1;db.transfers.push({transfer_id:id,source_location_id:p[0],destination_location_id:p[1],source_batch_id:p[2],quantity:p[3],reason:p[4],created_by_user_id:p[5],status:sql.includes("'dispatched'")?'dispatched':'requested',...(sql.includes('request_allocation_id')?{request_id:p[6],request_allocation_id:p[7],volume_ml:p[8]}:{})});return [{insertId:id}];}
  if(sql==='SELECT * FROM bank_transfers WHERE transfer_id=? FOR UPDATE')return [db.transfers.filter(t=>t.transfer_id===p[0])];
  if(sql.startsWith('UPDATE bank_transfers SET volume_ml=')){db.transfers.find(t=>t.transfer_id===p[1]).volume_ml=p[0];return [{affectedRows:1}];}
  if(sql.startsWith('UPDATE bank_transfers')){const t=db.transfers.find(t=>t.transfer_id===p[2]);t.status=p[0];if(p[1])t.destination_batch_id=p[1];return [{affectedRows:1}];}
@@ -51,7 +52,7 @@ const query=async(sql,p=[])=>{
  if(sql.includes('SELECT outreach_id FROM bank_outreach'))return [db.outreach.map((r,i)=>({outreach_id:i+1}))];
  if(sql.includes('SELECT d.donor_id,d.user_id'))return [p[0].filter(id=>[4,5].includes(id)).map(id=>({donor_id:id,user_id:id+100}))];
  if(sql.startsWith('INSERT INTO bank_outreach')){db.outreach.push(p);return [{insertId:db.outreach.length}];}
- if(sql.startsWith('INSERT INTO notifications')){if(failAudit)throw new Error('fixture notification failure');db.notifications.push(p);return [{insertId:db.notifications.length}];}
+ if(sql.startsWith('INSERT INTO notifications')){if(failAudit||failNotice)throw new Error('fixture notification failure');db.notifications.push(p);return [{insertId:db.notifications.length}];}
  if(sql.startsWith('INSERT INTO bank_deliveries')){db.deliveries.push(p);return [{insertId:db.deliveries.length}];}
  if(sql.includes('SELECT user_id, account_status FROM users'))return [[{user_id:10,account_status:db.hospitalStatus}]];
  if(sql.startsWith('UPDATE users')){db.hospitalStatus=p[0];return [{affectedRows:1}];}
@@ -320,7 +321,7 @@ test('failed collection rolls the linked inventory batch back',async()=>{
 
 test('inventory report includes mL and distinguishes unknown volume',async()=>{
  const original=inventory.batches;inventory.batches=async()=>[{reference:'Known',quantity:2,availableUnits:2,reservedUnits:0,volumeMl:900},{reference:'Unknown',quantity:1,availableUnits:1,reservedUnits:0,volumeMl:null}];
- try{const r=await reports.reportData(1,{type:'inventory'});assert.equal(r.summary['Recorded volume (mL)'],900);assert.equal(r.summary['Batches missing volume'],1);assert.equal(r.rows[1][5],'Not recorded');assert.match(reports.reportCsv(r),/900/);}finally{inventory.batches=original;}
+ try{const r=await reports.reportData(1,{type:'inventory'});assert.equal(r.summary['Recorded volume (mL)'],900);assert.equal(r.summary['Packets missing volume'],1);assert.equal(r.rows[1][5],'Not recorded');assert.match(reports.reportCsv(r),/900/);}finally{inventory.batches=original;}
 });
 test('transfer report counts received millilitres without treating transit as received',async()=>{
  const original=transfers.list;transfers.list=async()=>[{reference:'TR-1',quantity:2,volumeMl:900,status:'received',created_at:'2026-11-17'},{reference:'TR-2',quantity:1,volumeMl:null,status:'dispatched',created_at:'2026-11-17'}];
@@ -330,4 +331,21 @@ test('campaign report separates registrations, completed donations and actual qu
  Object.assign(db.campaign,{participant_count:10,donation_count:2,donation_units:2,donation_volume_ml:880,donation_missing_amounts:0});
  const r=await reports.reportData(1,{type:'campaigns'});assert.equal(r.summary['Registered participants'],10);assert.equal(r.summary['Completed donations'],2);assert.equal(r.summary['Collected units'],2);assert.equal(r.summary['Collected volume (mL)'],880);
  assert.match(reports.reportCsv(r),/Collected volume/);assert.equal((await reports.reportPdf(r)).subarray(0,4).toString(),'%PDF');
+});
+
+test('issuing an allocated request creates a linked outgoing transfer without a second stock deduction',async()=>{
+ db.batches[0].volume_ml=4500;await transfers.allocate(1,20,{items:[{batchId:1,quantity:4}]},'linked-allocation');
+ await transfers.fulfill({requestId:20,reviewedByUserId:1,note:'Issued for hospital'});
+ assert.equal(db.transfers.length,1);assert.equal(db.transfers[0].status,'dispatched');assert.equal(db.transfers[0].request_id,20);assert.equal(db.transfers[0].request_allocation_id,1);assert.equal(db.transfers[0].destination_location_id,3);assert.equal(db.transfers[0].volume_ml,1800);
+ assert.equal(db.batches[0].quantity,6);assert.equal(db.batches[0].volume_ml,2700);assert.equal(db.notifications[0][0],9);assert.equal(db.notifications[0][6],'hospital-transfers');
+ await assert.rejects(transfers.fulfill({requestId:20,reviewedByUserId:1}),{statusCode:409});assert.equal(db.transfers.length,1);assert.equal(db.batches[0].quantity,6);
+ await assert.rejects(transfers.transition(1,1,{action:'dispatch',note:'Again'},'linked-dispatch-again'),{statusCode:409});assert.equal(db.batches[0].quantity,6);
+});
+for(const failure of ['transfer','notification'])test('request issue rolls stock and allocations back when '+failure+' tracking fails',async()=>{
+ await transfers.allocate(1,20,{items:[{batchId:1,quantity:4}]},'rollback-linked');if(failure==='transfer')failTransfer=true;else failNotice=true;
+ await assert.rejects(transfers.fulfill({requestId:20,reviewedByUserId:1}));assert.equal(db.batches[0].quantity,10);assert.equal(db.batches[0].reserved_units,4);assert.equal(db.allocations[0].status,'reserved');assert.equal(db.request.status,'approved');assert.equal(db.transfers.length,0);
+});
+test('a request split across batches creates one journey for each batch and preserves the full units total',async()=>{
+ db.batches.push({...db.batches[0],batch_id:2,reference:'SECOND-BATCH'});await transfers.allocate(1,20,{items:[{batchId:1,quantity:2},{batchId:2,quantity:2}]},'split-request');await transfers.fulfill({requestId:20,reviewedByUserId:1});
+ assert.equal(db.transfers.length,2);assert.equal(new Set(db.transfers.map(t=>t.request_allocation_id)).size,2);assert.equal(db.transfers.reduce((sum,t)=>sum+t.quantity,0),4);assert.equal(db.batches.reduce((sum,b)=>sum+b.quantity,0),16);
 });

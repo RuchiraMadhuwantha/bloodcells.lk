@@ -166,7 +166,7 @@ const updateProfile = async (req, res, next) => {
   try {
     connection = await pool.getConnection();
     const userId = req.user.user_id;
-    const { email, full_name, phone, district, gender, weight, date_of_birth, blood_group } = req.body;
+    const { email, full_name, phone, district, gender, weight, date_of_birth, blood_group,email_opt_in } = req.body;
 
     await connection.beginTransaction();
 
@@ -190,6 +190,7 @@ const updateProfile = async (req, res, next) => {
     if (weight !== undefined) fields.weight = weight === '' || weight === null ? null : weight;
     if (date_of_birth !== undefined) fields.date_of_birth = date_of_birth || null;
     if (blood_group !== undefined) fields.blood_group = blood_group;
+    if(email_opt_in!==undefined){fields.email_opt_in=email_opt_in?1:0;fields.email_consent_updated_at=new Date();}
 
     if (Object.keys(fields).length > 0) {
       const setClause = Object.keys(fields).map((col) => `${col} = ?`).join(', ');

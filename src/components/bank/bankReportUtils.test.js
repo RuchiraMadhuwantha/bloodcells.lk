@@ -12,8 +12,8 @@ test('only actual request and appointment transitions are offered', () => {
 test('inventory reports use real units, unknown location and a current snapshot', () => {
   const report = buildBankReport({ available: true, complete: true, items: [{ bloodGroup: 'O+', availableUnits: 4, level: 'Low' }] }, { type: 'inventory' }, 'testbank');
   expect(report.summary['Recorded units']).toBe(4);
-  expect(report.rows[0][2]).toContain('Not supplied');
-  expect(report.period).toContain('historical stock unavailable');
+  expect(report.rows[0][2]).toContain('Not recorded');
+  expect(report.period).toContain('past stock totals are not available');
   expect(reportToCsv(report)).toContain('"Scope","Blood Bank network"');
   expect(reportToHtml(report)).toContain('Scope: Blood Bank network');
 });
@@ -36,6 +36,6 @@ test('donation reports include recorded units and millilitres',()=>{
 });
 test('future transfer validation rejects same-centre and invalid-quantity inputs', () => {
   expect(validateTransfer({ source: 'A', destination: 'A', quantity: 2 })).toContain('differ');
-  expect(validateTransfer({ source: 'A', destination: 'B', quantity: -1 })).toContain('positive');
+  expect(validateTransfer({ source: 'A', destination: 'B', quantity: -1 })).toContain('greater than zero');
   expect(validateTransfer({ source: 'A', destination: 'B', quantity: 2 })).toBeNull();
 });

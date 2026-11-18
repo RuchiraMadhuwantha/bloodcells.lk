@@ -16,7 +16,7 @@ const pool=require('../config/db');
     const [hospitals]=await c.query("SELECT h.hospital_id,h.user_id FROM hospitals h JOIN users u ON u.user_id=h.user_id WHERE u.account_status='active' AND u.username LIKE 'demo_hospital%' ORDER BY h.hospital_id");
     assert.ok(hospitals.length>=2,'Two active demo hospitals required');const owner=hospitals[0],foreign=hospitals[1];
     const [banks]=await c.query("SELECT user_id FROM users WHERE username='demo_bank' AND account_status='active'");assert.ok(banks.length);const bank=banks[0].user_id;
-    const [donors]=await c.query("SELECT d.donor_id,d.user_id,d.blood_group,d.district FROM donors d JOIN users u ON u.user_id=d.user_id WHERE u.username LIKE 'demo_portal_h%_d1' LIMIT 2");assert.ok(donors.length>=2);
+    const [donors]=await c.query("SELECT d.donor_id,d.user_id,d.blood_group,d.district FROM donors d JOIN users u ON u.user_id=d.user_id WHERE u.username LIKE 'demo_portal_h%' ORDER BY d.donor_id LIMIT 2");assert.ok(donors.length>=2);
     const [centres]=await c.query('SELECT a.location_id FROM bank_location_access a JOIN stock_locations l ON l.location_id=a.location_id WHERE a.user_id=? AND l.active=1 LIMIT 1',[bank]);assert.ok(centres.length);
     const suffix=Date.now().toString(36);
     const makeCampaign=async(hospitalId,date,status,label)=>{
@@ -27,7 +27,7 @@ const pool=require('../config/db');
     const wrongDate=await makeCampaign(owner.hospital_id,'2020-01-03','Completed','Wrong date campaign');
     for(const donor of donors)await c.query('INSERT INTO campaign_registrations (campaign_id,donor_id) VALUES (?,?)',[campaign,donor.donor_id]);
     const [appointment]=await c.query("INSERT INTO appointments (donor_id,hospital_id,appointment_date,time_slot,status,notes) VALUES (?,?,'2020-01-02','03:17','approved',?)",[donors[0].donor_id,owner.hospital_id,'Integration fixture '+suffix]);
-    const app=express();app.use(express.json());app.use('/appointments',require('../routes/appointmentRoutes'));app.use('/hospitals/mine',require('../routes/hospitalOperationsRoutes'));app.use('/bank',require('../routes/bankOperationsRoutes'));app.use('/campaigns',require('../routes/campaignRoutes'));app.use('/notifications',require('../routes/notificationRoutes'));app.use(require('../middleware/errorMiddleware'));
+    const app=express();app.use(express.json());app.use('/appointments',require('../routes/appointmentRoutes'));app.use('/hospitals/mine',require('../routes/hospitalOperationsRoutes'));app.use('/bank',require('../routes/bankOperationsRoutes'));app.use('/blood-requests',require('../routes/bloodRequestRoutes'));app.use('/campaigns',require('../routes/campaignRoutes'));app.use('/notifications',require('../routes/notificationRoutes'));app.use('/auth',require('../routes/authRoutes'));app.use(require('../middleware/errorMiddleware'));
     server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base='http://127.0.0.1:'+server.address().port;
     const call=async(route,actor,method='GET',body,key)=>{
       const r=await fetch(base+route,{method,headers:{Authorization:'Bearer '+jwt.sign({user_id:actor},process.env.JWT_SECRET,{expiresIn:'5m'}),'Content-Type':'application/json','Idempotency-Key':key||'check-'+suffix+'-'+(++savepoint)},...(body?{body:JSON.stringify(body)}:{})});
@@ -68,6 +68,21 @@ const pool=require('../config/db');
     assert.equal((await call('/hospitals/mine/transfers/'+returned.id+'/receive',owner.user_id,'PUT',{accepted:true,note:'Integration checked'},'check-receive-'+suffix)).replayed,true);
     const [balances]=await c.query('SELECT SUM(quantity) AS units,SUM(volume_ml) AS volume FROM stock_batches WHERE appointment_id=? OR reference IN (?,?)',[id,'TRANSFER-'+sent.id+'-BATCH-'+batch.id,'HOSPITAL-TRANSFER-'+returned.id+'-BATCH-'+transfer[0].destination_batch_id]);
     assert.equal(Number(balances[0].units),3);assert.equal(Number(balances[0].volume),1350);
+    const [issuedRequest]=await c.query("INSERT INTO blood_requests (hospital_id,requested_by_user_id,blood_group,quantity,status,reason) VALUES (?,?,?,1,'pending',?)",[owner.hospital_id,owner.user_id,batch.bloodGroup,'Integration linked transfer '+suffix]);
+    const requestId=issuedRequest.insertId,sourceId=transfer[0].destination_batch_id;
+    assert.equal((await call('/blood-requests/'+requestId+'/status',bank,'PUT',{status:'approved',note:'Integration approval'})).status,200);
+    assert.equal((await call('/bank/requests/'+requestId+'/allocations',bank,'POST',{items:[{batchId:sourceId,quantity:1}]})).status,201);
+    assert.equal((await call('/blood-requests/'+requestId+'/status',bank,'PUT',{status:'fulfilled',note:'Integration issue'})).status,200);
+    const bankJourneys=await call('/bank/transfers',bank);const linked=bankJourneys.items.find(t=>t.requestId===requestId);assert.ok(linked);assert.equal(linked.status,'dispatched');assert.equal(Number(linked.volumeMl),450);
+    assert.equal((await call('/blood-requests/'+requestId+'/status',bank,'PUT',{status:'fulfilled'})).status,409);
+    assert.equal((await call('/bank/transfers/'+linked.id,bank,'PUT',{action:'dispatch',note:'Duplicate dispatch'})).status,409);
+    const [issuedSource]=await c.query('SELECT quantity,volume_ml FROM stock_batches WHERE batch_id=?',[sourceId]);assert.equal(issuedSource[0].quantity,0);assert.equal(Number(issuedSource[0].volume_ml),0);
+    assert.ok((await call('/hospitals/mine/transfers',owner.user_id)).items.some(t=>t.requestId===requestId));
+    assert.ok(!(await call('/hospitals/mine/transfers',foreign.user_id)).items.some(t=>t.requestId===requestId));
+    assert.equal((await call('/hospitals/mine/transfers/'+linked.id+'/receive',owner.user_id,'PUT',{accepted:true,note:'Request blood checked'},'check-issued-receive-'+suffix)).status,200);
+    assert.equal((await call('/hospitals/mine/transfers/'+linked.id+'/receive',owner.user_id,'PUT',{accepted:true,note:'Request blood checked'},'check-issued-receive-'+suffix)).replayed,true);
+    const [receivedRequest]=await c.query('SELECT b.quantity,b.volume_ml FROM bank_transfers t JOIN stock_batches b ON b.batch_id=t.destination_batch_id WHERE t.transfer_id=?',[linked.id]);assert.equal(receivedRequest[0].quantity,1);assert.equal(Number(receivedRequest[0].volume_ml),450);
+
     for(const type of ['collections','incoming-transfers','outgoing-transfers','inventory','usage']){
       const report=await call('/hospitals/mine/reports?type='+type,owner.user_id);assert.equal(report.status,200);assert.ok(report.report.rows.length);
     }
@@ -95,7 +110,36 @@ const pool=require('../config/db');
     const nextPage=await call('/notifications?limit=1&offset=1',sender);assert.equal(nextPage.notifications.length,1);assert.equal(nextPage.hasMore,false);assert.notEqual(page.notifications[0].id,nextPage.notifications[0].id);
     const readAll=await call('/notifications/read-all',sender,'PUT',{});assert.equal(readAll.updated,2);
     const [otherInbox]=await c.query("SELECT COUNT(*) AS unread FROM notifications WHERE user_id=? AND related_type='bank_outreach' AND related_id=? AND is_read=0",[donors[1].user_id,announcementSaved.id]);assert.equal(Number(otherInbox[0].unread),1);
-    console.log('PASS: collection-to-inventory, quarantine release, units/mL conservation, durable retries, both transfer directions, campaign links/totals/exports, targeted notifications/read status/pagination, reports, scheduling, cancellation and hospital isolation. All fixtures rolled back.');
+    // Fake SMTP is injected explicitly; no external email is sent by this check.
+    const emailSettings=['EMAIL_ENABLED','SMTP_USER','SMTP_PASS','SMTP_FROM'];const previousEmail=Object.fromEntries(emailSettings.map(k=>[k,process.env[k]]));
+    try{
+      Object.assign(process.env,{EMAIL_ENABLED:'true',SMTP_USER:'sender@example.test',SMTP_PASS:'integration-app-password',SMTP_FROM:'sender@example.test'});
+      const [emailActor]=await c.query("INSERT INTO users (username,email,password_hash,role,account_status) VALUES (?,?,?,'blood_bank','active')",['email_check_'+suffix,'email_check_'+suffix+'@example.test','integration-only-not-a-login-password']);
+      const emailSender=emailActor.insertId;
+      assert.equal((await call('/auth/me',donors[0].user_id,'PUT',{email_opt_in:true})).status,200);
+      assert.equal((await call('/auth/me',donors[1].user_id,'PUT',{email_opt_in:false})).status,200); // Isolated opt-out fixture; rolled back.
+      const emailAudience=await call('/bank/notification-recipients?mode=filters&channel=email&campaignId='+campaign,emailSender);assert.equal(emailAudience.items.length,1);
+      const emailBody={...announcement,channel:'email',donorIds:[donors[0].donor_id]};
+      assert.equal((await call('/bank/notifications',emailSender,'POST',{...emailBody,donorIds:ids},'email-bad-'+suffix)).status,409);
+      const queued=await call('/bank/notifications',emailSender,'POST',emailBody,'email-check-'+suffix);assert.equal(queued.status,201);
+      assert.equal((await call('/bank/notifications',emailSender,'POST',emailBody,'email-check-'+suffix)).replayed,true);
+      const worker=require('../services/emailWorker');let emails=0;
+      await worker.processOne({db:pool,send:async data=>{emails++;assert.ok(data.to);return {messageId:'integration-accepted'};}});
+      assert.equal(emails,1);assert.equal((await call('/bank/notifications/'+queued.id,emailSender)).item.deliveries[0].status,'delivered');
+      const [emailInbox]=await c.query("SELECT COUNT(*) AS count FROM notifications WHERE related_type='bank_outreach' AND related_id=?",[queued.id]);assert.equal(Number(emailInbox[0].count),0);
+      await c.query('UPDATE bank_outreach SET created_at=DATE_SUB(NOW(),INTERVAL 2 MINUTE) WHERE outreach_id=?',[queued.id]);
+      const retryQueue=await call('/bank/notifications',emailSender,'POST',emailBody,'email-revoke-'+suffix);assert.equal(retryQueue.status,201);
+      await call('/auth/me',donors[0].user_id,'PUT',{email_opt_in:false});
+      await worker.processOne({db:pool,send:async()=>{throw Error('Revoked consent must not send');}});
+      assert.equal((await call('/bank/notifications/'+retryQueue.id,emailSender)).item.deliveries[0].errorCode,'CONSENT_REVOKED');
+      await call('/auth/me',donors[0].user_id,'PUT',{email_opt_in:true});
+      assert.equal((await call('/bank/notifications/'+retryQueue.id+'/retry-email',bank,'PUT',{},'email-wrong-'+suffix)).status,404);
+      assert.equal((await call('/bank/notifications/'+retryQueue.id+'/retry-email',emailSender,'PUT',{},'email-retry-'+suffix)).status,201);
+      await worker.processOne({db:pool,send:async()=>({messageId:'integration-retry-accepted'})});
+      assert.equal((await call('/bank/notifications/'+retryQueue.id+'/retry-email',emailSender,'PUT',{},'email-retry-'+suffix)).replayed,true);
+      assert.equal((await call('/bank/notifications/'+retryQueue.id,emailSender)).item.deliveries[0].status,'delivered');
+    }finally{for(const key of emailSettings){if(previousEmail[key]===undefined)delete process.env[key];else process.env[key]=previousEmail[key];}}
+    console.log('PASS: collection-to-inventory, quarantine release, units/mL conservation, durable retries, both transfer directions, request-linked issue and receipt without duplicate stock deductions, campaign links/totals/exports, targeted notifications/read status/pagination, consented email queue/retries (fake SMTP), reports, scheduling, cancellation and hospital isolation. All fixtures rolled back.');
   }finally{
     if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}
     pool.query=originalQuery;pool.getConnection=originalConnection;

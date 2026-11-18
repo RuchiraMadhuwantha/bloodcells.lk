@@ -65,7 +65,7 @@ test('hospital role cannot approve hospital accounts',async()=>{
 });
 test('missing hospital migration returns 503 without pretending empty stock',async()=>{
   const original=queryHandler;queryHandler=async(sql,values)=>{if(sql.includes('FROM stock_batches'))throw Object.assign(new Error('private SQL'),{code:'ER_NO_SUCH_TABLE'});return original(sql,values);};
-  const result=await get('/hospitals/mine/inventory',token());assert.equal(result.status,503);assert.match(result.data.message,/migration/);assert.doesNotMatch(result.data.message,/private SQL/);
+  const result=await get('/hospitals/mine/inventory',token());assert.equal(result.status,503);assert.match(result.data.message,/finish setup/);assert.doesNotMatch(result.data.message,/private SQL/);
 });
 test('invalid usage rejects before any inventory write',async()=>{
   const r=await post('/hospitals/mine/blood-usage',{batchId:1,bloodGroup:'O+',quantity:-1,usageDate:'2026-01-01',category:'Test'},token(),'test-key-1234');
@@ -117,7 +117,7 @@ test('audit failure rolls back both usage and stock',async()=>{
   assert.equal(state.quantity,8);assert.equal(state.usage,0);assert.equal(state.keys,0);
 });
 test('reused key with changed payload is rejected',async()=>{
-  const state=transactionFixture({existing:true});await assert.rejects(model.recordUsage(10,1,usage,'usage-key-1234'),/different data/);assert.equal(state.quantity,8);
+  const state=transactionFixture({existing:true});await assert.rejects(model.recordUsage(10,1,usage,'usage-key-1234'),/different changes/);assert.equal(state.quantity,8);
 });
 test('identical durable retry does not execute mutation twice',async()=>{
   const digest=crypto.createHash('sha256').update(JSON.stringify(Object.keys(usage).sort().map(k=>[k,usage[k]]))).digest('hex');
@@ -205,9 +205,9 @@ test('request report PDF endpoint is authenticated and sends a genuine PDF respo
 test('inventory and fulfillment report summaries use the complete supplied records',()=>{
   const owner={hospitalName:'Fixture Hospital',hospitalCode:'FIX'};
   const stock=reports.buildHospitalReport(owner,[{reference:'B1',bloodGroup:'O+',quantity:8,availableUnits:6,reservedUnits:2,level:'Usable',expiryDate:'2099-01-01'}],{type:'inventory'});
-  assert.equal(stock.summary['Usable unreserved units'],6);
+  assert.equal(stock.summary['Available units'],6);
   const summary=reports.buildHospitalReport(owner,[{status:'pending'},{status:'fulfilled'}],{type:'fulfillment'});
-  assert.equal(summary.summary['Total requests'],2);assert.equal(summary.summary['Fulfillment rate'],'50.0%');
+  assert.equal(summary.summary['Total requests'],2);assert.equal(summary.summary['Requests with blood issued (%)'],'50.0%');
 });
 
 test('hospital registration hashes passwords and forces pending hospital role',async()=>{

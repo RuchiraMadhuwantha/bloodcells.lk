@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import {sortRecords} from './recordSorting';
+import {SortControl} from './SortControl';
 import {
   Calendar, Clock, MapPin, Users,
   Phone, Image as ImageIcon, FileText, Heart, AlertCircle,
@@ -336,6 +338,7 @@ export const CampaignManagement = ({ nav }) => {
   const [participants,setParticipants]=useState(null);
   const [selected, setSelected] = useState(null);
   const [previewing, setPreviewing] = useState(null);
+  const [sort,setSort]=useState('date');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [district, setDistrict] = useState('');
@@ -347,9 +350,9 @@ export const CampaignManagement = ({ nav }) => {
   };
   const refreshCampaigns=resource.refresh;
   useEffect(()=>{if(view!=='list'||previewing||participants)return;window.addEventListener('focus',refreshCampaigns);const timer=window.setInterval(()=>{if(!document.hidden)refreshCampaigns();},30000);return()=>{window.removeEventListener('focus',refreshCampaigns);window.clearInterval(timer);};},[refreshCampaigns,view,previewing,participants]);
-  const records = (resource.data?.items || []).filter((c) => (!status || c.status === status) && (!district || c.district === district) && c.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const records = sortRecords((resource.data?.items || []).filter((c) => (!status || c.status === status) && (!district || c.district === district) && c.name.toLowerCase().includes(search.trim().toLowerCase())),'campaigns',sort);
   return <BankLayout nav={nav} title={view === 'list' ? 'Campaign Management' : selected ? 'Edit Campaign' : 'Create Campaign'} subtitle="Campaign planning and donor-facing preview">
-    <Notice>Campaigns use the same saved source as donor participation. Only the creator may edit or publish a campaign. Preview changes are unsaved until confirmed with Save.</Notice>
+    <Notice>Campaign details and donor registrations stay connected. Only the person who created a campaign can edit it or make it visible to donors. Previewing does not save changes; select Save to keep them.</Notice>
     {view === 'list' && savedCampaign && <p role="status" className="mb-4 rounded-lg bg-green-50 p-4 text-green-800">Campaign “{savedCampaign.name}” saved successfully{savedCampaign.reference ? ` (${savedCampaign.reference})` : ''}. Status: {savedCampaign.status}. {savedCampaign.status === 'Draft' ? 'This draft is visible to the blood bank. Edit it and select Upcoming or Active to publish it to donors.' : ''}</p>}
     {view !== 'list' ? <CampaignForm initial={selected} onCancel={() => setView('list')} onPreview={setPreviewing} onSaved={onSaved} /> :
       <SectionCard title="Campaigns" action={<div className="flex gap-2"><Button variant="outline" disabled={resource.loading} onClick={resource.refresh}>Refresh campaigns</Button><Button onClick={() => { setSavedCampaign(null); setSelected(null); setView('create'); }}>Create campaign</Button></div>}>
@@ -357,9 +360,10 @@ export const CampaignManagement = ({ nav }) => {
           <SharedField label="Search campaigns"><input className={inputCls} value={search} onChange={(e) => setSearch(e.target.value)} /></SharedField>
           <SharedField label="Campaign district"><select className={inputCls} value={district} onChange={(e) => setDistrict(e.target.value)}><option value="">All districts</option>{DISTRICTS.map((d) => <option key={d}>{d}</option>)}</select></SharedField>
           <SharedField label="Campaign status"><select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All recorded statuses</option>{CAMPAIGN_STATUSES.map((s) => <option key={s}>{s}</option>)}</select></SharedField>
+          <SortControl label="Sort campaigns" profile="campaigns" value={sort} onChange={setSort} className={inputCls}/>
         </Filters>
-        <ResourceState resource={resource} emptyTitle="No campaign records returned">
-          {!records.length ? <EmptyState title="No campaigns match your filters" /> : <Table columns={['Campaign', 'Date / Time', 'Location / District', 'Organizer', 'Status', 'Participants', 'Collected blood', 'Actions']}>{records.map((c) => <tr key={c.id}><td className="p-3 text-sm">{c.name}<p className="text-xs text-gray-500">{c.shortDescription}</p></td><td className="p-3 text-sm">{formatDate(c.date)}<span className="block">{c.startTime} - {c.endTime}</span></td><td className="p-3 text-sm">{c.venueName} / {c.district}</td><td className="p-3 text-sm">{c.organizerName}</td><td className="p-3 text-sm">{c.status}</td><td className="p-3 text-sm">{c.participants ?? 'Not supplied'}</td><td className="p-3 text-sm whitespace-nowrap">{c.completedDonations??0} completed<span className="block">{c.collectedUnits??0} unit(s)</span><span className="block">{c.collectedVolumeMl??0} mL</span>{c.missingCollectionAmounts>0&&<span className="block text-xs text-amber-700">{c.missingCollectionAmounts} missing quantities</span>}</td><td className="p-3"><Button variant="ghost" onClick={() => setPreviewing(c)}>Details</Button><Button variant="ghost" onClick={()=>setParticipants(c.id)}>Participants</Button><Button variant="ghost" onClick={() => { setSelected(c); setView('edit'); }}>Edit campaign</Button></td></tr>)}</Table>}
+        <ResourceState resource={resource} emptyTitle="No campaigns found">
+          {!records.length ? <EmptyState title="No campaigns match your filters" /> : <Table columns={['Campaign', 'Date / Time', 'Location / District', 'Organizer', 'Status', 'Participants', 'Collected blood', 'Actions']}>{records.map((c) => <tr key={c.id}><td className="p-3 text-sm">{c.name}<p className="text-xs text-gray-500">{c.shortDescription}</p></td><td className="p-3 text-sm">{formatDate(c.date)}<span className="block">{c.startTime} - {c.endTime}</span></td><td className="p-3 text-sm">{c.venueName} / {c.district}</td><td className="p-3 text-sm">{c.organizerName}</td><td className="p-3 text-sm">{c.status}</td><td className="p-3 text-sm">{c.participants ?? 'Not recorded'}</td><td className="p-3 text-sm whitespace-nowrap">{c.completedDonations??0} completed<span className="block">{c.collectedUnits??0} unit(s)</span><span className="block">{c.collectedVolumeMl??0} mL</span>{c.missingCollectionAmounts>0&&<span className="block text-xs text-amber-700">{c.missingCollectionAmounts} missing quantities</span>}</td><td className="p-3"><Button variant="ghost" onClick={() => setPreviewing(c)}>Details</Button><Button variant="ghost" onClick={()=>setParticipants(c.id)}>Participants</Button><Button variant="ghost" onClick={() => { setSelected(c); setView('edit'); }}>Edit campaign</Button></td></tr>)}</Table>}
         </ResourceState>
         <div className="flex flex-wrap gap-3 mt-4"><span className="text-sm text-gray-500">Edit a campaign to publish, close or cancel it using its saved status.</span></div>
       </SectionCard>}

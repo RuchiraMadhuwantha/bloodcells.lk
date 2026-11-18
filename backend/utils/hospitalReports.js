@@ -8,25 +8,25 @@ const buildHospitalReport=(hospital,items,filters)=>{
     return {title:collections?'Hospital Donation Collection Report':type==='incoming-transfers'?'Hospital Incoming Blood Transfer Report':'Hospital Outgoing Blood Transfer Report',
       hospital:hospital.hospitalName,hospitalCode:hospital.hospitalCode,generatedAt:new Date().toISOString(),period:(filters.start||'First recorded date')+' to '+(filters.end||'Latest recorded date'),group:filters.bloodGroup||'All groups',status:'All statuses',
       summary:collections?{'Completed donations':items.length,'Collected units':items.reduce((s,r)=>s+Number(r.collectedUnits||0),0),'Recorded collected volume (mL)':items.reduce((s,r)=>s+Number(r.collectedVolumeMl||0),0),'Donations missing quantities':items.filter(r=>r.collectedUnits==null||r.collectedVolumeMl==null).length}:{'Transfers':items.length,'Transferred units':items.reduce((s,r)=>s+r.quantity,0),'Recorded volume (mL)':volumeTotal,'Transfers missing volume':unknownVolume},
-      columns:collections?['Appointment','Donor','Blood group','Donation date','Collected units','Volume (mL)']:['Transfer','Source','Destination','Blood group','Units','Volume (mL)','Created date','Status'],
-      rows:items.map(r=>collections?[r.reference,r.donorName,r.bloodGroup,r.appointmentDate,r.collectedUnits,r.collectedVolumeMl]:[r.reference,r.sourceCentre,r.destinationCentre,r.bloodGroup,r.quantity,r.volumeMl,r.transferDate,r.status]),
-      sourceNote:collections?'Completed donations filtered by appointment date. Missing quantities are not assumed.':'Transfers filtered by creation date. Requested, in-transit and received records are distinguished by status. Missing volumes are not assumed.'};
+      columns:collections?['Appointment','Donor','Blood group','Donation date','Collected units','Volume (mL)']:['Transfer','Source','Destination','Blood group','Units','Volume (mL)','Created date','Status','Blood request'],
+      rows:items.map(r=>collections?[r.reference,r.donorName,r.bloodGroup,r.appointmentDate,r.collectedUnits,r.collectedVolumeMl]:[r.reference,r.sourceCentre,r.destinationCentre,r.bloodGroup,r.quantity,r.volumeMl,r.transferDate,r.status,r.requestReference||'Not linked']),
+      sourceNote:collections?'Completed donations for the appointment dates you selected. Missing amounts are left out of totals.':'Transfers for the dates they were created. Status shows whether blood is waiting for approval, on the way or received. Missing volumes are left out of totals.'};
   }
   const inventory=type==='inventory',usage=type==='usage';
-  const summary=inventory?{'Stock batches':items.length,'Usable unreserved units':items.reduce((s,r)=>s+r.availableUnits,0)}
+  const summary=inventory?{'Stock packets':items.length,'Available units':items.reduce((s,r)=>s+r.availableUnits,0)}
     :usage?{'Usage records':items.length,'Recorded usage units':items.reduce((s,r)=>s+r.quantity,0)}
-    :Object.fromEntries([['Total requests',items.length],...['pending','approved','rejected','fulfilled','cancelled'].map(status=>[status,items.filter(r=>r.status===status).length]),['Fulfillment rate',items.length?(100*items.filter(r=>r.status==='fulfilled').length/items.length).toFixed(1)+'%':'Not applicable']]);
+    :Object.fromEntries([['Total requests',items.length],...['pending','approved','rejected','fulfilled','cancelled'].map(status=>[status,items.filter(r=>r.status===status).length]),['Requests with blood issued (%)',items.length?(100*items.filter(r=>r.status==='fulfilled').length/items.length).toFixed(1)+'%':'Not applicable']]);
   if(inventory||usage){summary['Recorded volume (mL)']=volumeTotal;summary['Records missing volume']=unknownVolume;}
   const columns=inventory?['Reference','Blood group','Recorded units','Volume (mL)','Usable units','Reserved','Expiry','Status']
     :usage?['Reference','Blood group','Quantity used','Volume (mL)','Usage date','Category']
     :['Request ID','Blood group','Requested units','Urgency','Required date','Submission date','Status'];
-  const rows=items.map(r=>inventory?[r.reference,r.bloodGroup,r.quantity,r.volumeMl,r.availableUnits,r.reservedUnits,r.expiryDate,r.level]
+  const rows=items.map(r=>inventory?[r.batchCode||r.reference,r.bloodGroup,r.quantity,r.volumeMl,r.availableUnits,r.reservedUnits,r.expiryDate,r.level]
     :usage?[r.reference,r.bloodGroup,r.quantity,r.volumeMl,r.usageDate,r.category]
     :[r.reference,r.bloodGroup,r.quantity,r.urgency,r.requiredDate,r.createdAt,r.status]);
-  return {title:inventory?'Hospital Inventory Report':usage?'Hospital Blood Usage Report':type==='fulfillment'?'Request Fulfillment Report':'Hospital Blood Request Report',
+  return {title:inventory?'Hospital Inventory Report':usage?'Hospital Blood Usage Report':type==='fulfillment'?'Blood Issued for Requests Report':'Hospital Blood Request Report',
     hospital:hospital.hospitalName,hospitalCode:hospital.hospitalCode,period:(filters.start||'First recorded date')+' to '+(filters.end||'Latest recorded date'),
     generatedAt:new Date().toISOString(),group:filters.bloodGroup||'All groups',status:filters.status||'All statuses',summary,columns,rows,
-    sourceNote:inventory?'Inventory filtered by collection date; quantities are current balances, not historical balances.':'Requests filtered by submission date; usage by usage date. No patient details. Complete matching source.'};
+    sourceNote:inventory?'Stock packets for the collection dates you selected. Amounts show what is in stock now, not what was in stock on those dates.':'Requests use the date they were submitted. Blood usage uses the date blood was used. All matching records are included. Patient details are not included.'};
 };
 const cell=value=>{let s=String(value??'');if(/^[\s]*[=+\-@]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
 const reportCsv=report=>'\uFEFF'+[[report.title],['Hospital',report.hospital],['Period',report.period],['Generated at',report.generatedAt],...Object.entries(report.summary),[],report.columns,...report.rows].map(row=>row.map(cell).join(',')).join('\r\n');

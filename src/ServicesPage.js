@@ -30,7 +30,7 @@ const ServicesPage = ({ onNavigate }) => {
     {
       icon: Database,
       title: "Donor Database Management",
-      description: "Comprehensive donor profiles with eligibility tracking and donation history",
+      description: "Donor profiles with donation dates and past donations",
       features: ["Eligibility tracking", "Donation history", "Health screening", "Follow-up alerts"]
     },
   ];

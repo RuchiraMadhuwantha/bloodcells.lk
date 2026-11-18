@@ -19,8 +19,8 @@ Saves, delivery records, donor inbox entries and audits share one transaction;
 retrying the same submission key does not duplicate an announcement. The existing
 one-announcement-per-minute limit remains in place.
 
-In-app delivery works. SMS/email are disabled in the compose menu until provider
-and consent integrations exist. Older blocked external-channel records remain
+In-app delivery works. Email is available when Gmail SMTP is configured and
+recipients have opted in; see EMAIL_DELIVERY.md. SMS remains unavailable. Older blocked external-channel records remain
 visible as **Not sent**, rather than being presented as delivered. An emergency
 announcement is an inbox message; it does not publish a separate emergency alert.
 

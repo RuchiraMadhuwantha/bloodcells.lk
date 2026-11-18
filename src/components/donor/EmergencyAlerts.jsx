@@ -55,7 +55,7 @@ export const EmergencyAlerts = ({ nav }) => {
         </div>}
       </ResourceState>
     </SectionCard>
-    <p className="text-sm text-gray-500 mt-4">Changing the blood group filter only filters the alerts you are authorized to see; it does not retrieve other groups' alerts. Registering interest is not a medical eligibility decision.</p>
+    <p className="text-sm text-gray-500 mt-4">The blood group filter only changes the alerts already available to you. Staff will check your health before you donate.</p>
     {selected && <Dialog title={`Alert ${selected.reference || selected.id}`} onClose={() => setSelected(null)} busy={busy}>
       <Details entries={[[ 'Blood group', selected.bloodGroup ], ['Title', selected.title], ['District', selected.district],
         ['Urgency', selected.urgencyLabel || selected.urgency], ['Required date', formatDate(selected.requiredDate)], ['Requested quantity', selected.quantity == null ? undefined : `${selected.quantity} unit(s)`],

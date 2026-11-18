@@ -1,3 +1,4 @@
+const {batchCode}=require('../utils/batchCode');
 const s = require('./bankInventoryModel');
 const {moveVolume,deductVolume}=require('../utils/bloodVolume');
 const { toDateString } = require('../utils/date');
@@ -7,7 +8,7 @@ const list = async actor => {
     FROM bank_transfers t JOIN stock_locations src ON src.location_id=t.source_location_id JOIN stock_locations dst ON dst.location_id=t.destination_location_id JOIN stock_batches b ON b.batch_id=t.source_batch_id
     JOIN bank_location_access a ON a.location_id IN (t.source_location_id,t.destination_location_id) WHERE a.user_id=? ORDER BY t.transfer_id DESC LIMIT 10001`,[actor]);
   if(rows.length>10000) throw s.fail(413,'Transfer list exceeds 10000 records.');
-  return rows;
+  return rows.map(r=>({...r,batchCode:batchCode(r.source_batch_id),receivedBatchCode:batchCode(r.destination_batch_id),requestId:r.request_id||null,requestReference:r.request_id?'BR-'+String(r.request_id).padStart(5,'0'):null}));
 };
 const create = (actor,data,key) => s.mutate(actor,'transfer-create',key,data,async c => {
   const b=await s.lockBatch(c,actor,data.batchId);
@@ -24,6 +25,7 @@ const transition = (actor,id,data,key) => s.mutate(actor,'transfer-action',key,{
   const [rows]=await c.query('SELECT * FROM bank_transfers WHERE transfer_id=? FOR UPDATE',[id]);
   if(!rows.length) throw s.fail(404,'Transfer not found.');
   const t=rows[0],action=data.action;
+  if(t.request_id)throw s.fail(409,'This blood was issued from a hospital request. The hospital confirms arrival in Blood Transfers.');
   const allowed={requested:['approve','reject','cancel'],approved:['dispatch','reject','cancel'],dispatched:['receive']};
   if(!(allowed[t.status] || []).includes(action)) throw s.fail(409,'Invalid or already completed transfer transition.');
   const location=action==='receive'?t.destination_location_id:t.source_location_id;
@@ -66,13 +68,13 @@ const transition = (actor,id,data,key) => s.mutate(actor,'transfer-action',key,{
 const allocate = (actor,id,data,key) => s.mutate(actor,'request-allocate',key,{id,...data},async c => {
   const [rows]=await c.query('SELECT * FROM blood_requests WHERE request_id=? FOR UPDATE',[id]);const r=rows[0];
   if(!r) throw s.fail(404,'Request not found.');
-  if(r.status!=='approved') throw s.fail(409,'Approve the request before reserving batches.');
+  if(r.status!=='approved') throw s.fail(409,'Approve the request before reserving packets.');
   const [existing]=await c.query("SELECT allocation_id FROM bank_request_allocations WHERE request_id=? AND status='reserved'",[id]);
   if(existing.length) throw s.fail(409,'This request already has reserved stock.');
   if(data.items.reduce((sum,i)=>sum+i.quantity,0)!==Number(r.quantity)) throw s.fail(400,'Allocation must equal the complete requested quantity.');
   for(const item of [...data.items].sort((a,b)=>a.batchId-b.batchId)) {
     const b=await s.lockBatch(c,actor,item.batchId);s.usable(b,item.quantity);
-    if(b.blood_group!==r.blood_group) throw s.fail(400,'Allocated batch group must match the request.');
+    if(b.blood_group!==r.blood_group) throw s.fail(400,'Allocated packet group must match the request.');
     await c.query('UPDATE stock_batches SET reserved_units=reserved_units+?,version=version+1 WHERE batch_id=?',[item.quantity,b.batch_id]);
     await c.query('INSERT INTO bank_request_allocations (request_id,batch_id,quantity,actor_user_id) VALUES (?,?,?,?)',[id,b.batch_id,item.quantity,actor]);
     await s.audit(c,actor,'request-reserved',b.location_id,b.batch_id,id,{quantity:item.quantity});
@@ -97,7 +99,9 @@ const fulfill = ({requestId,reviewedByUserId:actor,note}) => s.transaction(async
   if(!r) throw s.fail(404,'Request not found.');
   if(r.status!=='approved') throw s.fail(409,'Only an approved request can be fulfilled.');
   const items=await allocations(c,requestId);
-  if(!items.length || items.reduce((sum,a)=>sum+Number(a.quantity),0)!==Number(r.quantity)) throw s.fail(409,'Reserve verified batches for the complete request before fulfillment. Legacy aggregate stock cannot be issued.');
+  if(!items.length || items.reduce((sum,a)=>sum+Number(a.quantity),0)!==Number(r.quantity)) throw s.fail(409,'Choose and set aside enough units from recorded blood packets before issuing blood. Older combined stock totals cannot be used.');
+  const {hospitalDestination,recordIssuedTransfer}=require('./requestTransferModel');
+  const destination=await hospitalDestination(c,r.hospital_id);
   for(const a of items) {
     const b=await s.lockBatch(c,actor,a.batch_id);s.usable(b,a.quantity,true);
     const issuedVolume=moveVolume(b,Number(a.quantity));
@@ -106,6 +110,7 @@ const fulfill = ({requestId,reviewedByUserId:actor,note}) => s.transaction(async
     await deductVolume(c,b,issuedVolume);
     await c.query("UPDATE bank_request_allocations SET status='issued' WHERE allocation_id=?",[a.allocation_id]);
     await s.audit(c,actor,'request-issued',b.location_id,b.batch_id,requestId,{volumeMl:issuedVolume,delta:-a.quantity,after:Number(b.quantity)-a.quantity,hospitalId:r.hospital_id,note});
+    await recordIssuedTransfer(c,{request:r,allocation:a,batch:b,volumeMl:issuedVolume,actor,destination,note});
   }
   await c.query("UPDATE blood_requests SET status='fulfilled',fulfilled_at=NOW(),reviewed_at=NOW(),reviewed_by_user_id=?,decision_note=? WHERE request_id=?",[actor,note || null,requestId]);
   return requestId;

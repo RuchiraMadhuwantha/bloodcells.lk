@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {sortRecords} from '../recordSorting';
+import {SortControl} from '../SortControl';
 import { Calendar, Heart, Eye, CalendarClock, X, RefreshCw } from 'lucide-react';
 import { Button, Badge, SectionCard, Table, StatCard, CompactAction } from '../UIComponents';
 import * as donor from '../../services/donorService';
@@ -61,6 +63,7 @@ export const DonationHistory = ({ nav }) => {
 };
 
 export const MyAppointments = ({ nav }) => {
+  const [sort,setSort]=useState('latest');
   const resource = useDonorResource(donor.getAppointments);
   const [status, setStatus] = useState('');
   const [query, setQuery] = useState('');
@@ -73,9 +76,8 @@ export const MyAppointments = ({ nav }) => {
   const lock = useRef(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const appointments = searchRecords(resource.data?.items || [], query, ['reference', 'hospitalName', 'district'])
-    .filter((a) => !status || a.status === status)
-    .sort((a, b) => (b.appointmentDate + b.timeSlot).localeCompare(a.appointmentDate + a.timeSlot));
+  const appointments = sortRecords(searchRecords(resource.data?.items || [], query, ['reference', 'hospitalName', 'district'])
+    .filter((a) => !status || a.status === status),'myAppointments',sort);
   const cancel = async () => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(null); setSuccess(null);
@@ -103,6 +105,7 @@ export const MyAppointments = ({ nav }) => {
       <Filters>
         <Field label="Search appointments"><input className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Reference, hospital or district" /></Field>
         <Field label="Appointment status"><select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}><option value="">All statuses</option>{['pending', 'approved', 'completed', 'cancelled'].map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></Field>
+        <SortControl label="Sort appointments" profile="myAppointments" value={sort} onChange={setSort} className={inputClass}/>
       </Filters>
       <ResourceState resource={resource} emptyTitle="You have no appointments yet">
         {appointments.length === 0 ? <EmptyState title="No appointments match your filters" /> : <Table columns={['Reference', 'Hospital / District', 'Date / Time', 'Status', 'Actions']}>

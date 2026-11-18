@@ -67,7 +67,7 @@ const verifiedInventory = async actor => {
     for(const row of regional){const prior=map.get(row.bloodGroup)||{bloodGroup:row.bloodGroup,availableUnits:0};prior.availableUnits+=row.availableUnits;map.set(row.bloodGroup,prior);}
     const groups=[...map.values()];
     return {available:true,totalUnits:groups.reduce((n,r)=>n+r.availableUnits,0),availableUnits:groups.reduce((n,r)=>n+r.availableUnits,0),lowStockGroups:regional.filter(r=>r.level==='Low').length,criticalStockGroups:regional.filter(r=>r.level==='Critical').length,byBloodGroup:groups,regional};
-  }catch(e){if(['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code))return {available:false,totalUnits:null,availableUnits:null,lowStockGroups:null,criticalStockGroups:null,byBloodGroup:[],regional:[],reason:'Pending approved bank migrations'};throw e;}
+  }catch(e){if(['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code))return {available:false,totalUnits:null,availableUnits:null,lowStockGroups:null,criticalStockGroups:null,byBloodGroup:[],regional:[],reason:'Blood inventory setup is not complete. Contact your system administrator.'};throw e;}
 };
 const getBloodBankStats = async (actor) => {
   const [inventory, hospitalStats, requestCounts, donorStats, trends] = await Promise.all([

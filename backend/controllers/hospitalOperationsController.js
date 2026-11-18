@@ -7,7 +7,7 @@ const { toFriendlyError } = require('../validators/common');
 const { buildHospitalReport, reportCsv, reportPdf } = require('../utils/hospitalReports');
 const protect = (fn) => async (req,res,next) => {
   try { await fn(req,res); } catch(e) {
-    if (['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code)) return next(model.error(503,'Hospital stock and usage require the approved hospital migration. No changes were saved.'));
+    if (['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code)) return next(model.error(503,'Hospital stock and blood usage are not ready yet. Ask your system administrator to finish setup. No changes were saved.'));
     next(toFriendlyError(e,'Hospital operation could not be completed.'));
   }
 };
@@ -72,7 +72,7 @@ const dashboard = protect(async(req,res)=>{
     usage={available:true,totalUsage:records.reduce((s,r)=>s+r.quantity,0),recent:records.slice(0,5)};
   } catch(e) {
     if(!['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(e.code)) throw e;
-    inventory={available:false,reason:'Pending hospital migration'};usage={available:false,reason:'Pending hospital migration'};
+    inventory={available:false,reason:'Hospital stock setup is not complete. Contact your system administrator.'};usage={available:false,reason:'Hospital stock setup is not complete. Contact your system administrator.'};
   }
   res.json({success:true,summary:{requests:counts,inventory,usage,recentRequests:requests.slice(0,5)}});
 });

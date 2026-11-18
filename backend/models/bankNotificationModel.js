@@ -9,6 +9,7 @@ const recipients=async filters=>{
   if(filters.campaignId)await campaign(s.pool,filters.campaignId);
   if(filters.mode==='selected'&&!filters.donorIds?.length)throw s.fail(400,'Select donors before previewing this audience.');
   const where=["u.role='donor'","u.account_status='active'"],values=[];
+  if(filters.channel==='email'){where.push('d.email_opt_in=1',"u.email REGEXP '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'");}
   if(filters.bloodGroup){where.push('d.blood_group=?');values.push(filters.bloodGroup);}
   if(filters.district){where.push('d.district=?');values.push(filters.district);}
   if(filters.mode==='selected'){where.push('d.donor_id IN (?)');values.push(filters.donorIds);}
@@ -24,7 +25,7 @@ const validateCampaignRecipients=async(c,id,donorIds)=>{
 const details=async(actor,id)=>{
   const [rows]=await s.pool.query('SELECT o.outreach_id AS id,o.type,o.title,o.message,o.channel,o.created_at AS createdAt,o.campaign_id AS campaignId,c.name AS campaignName FROM bank_outreach o LEFT JOIN campaigns c ON c.campaign_id=o.campaign_id WHERE o.outreach_id=? AND o.actor_user_id=?',[id,actor]);
   if(!rows[0])throw s.fail(404,'Announcement not found.');
-  const [deliveries]=await s.pool.query(`SELECT bd.delivery_id AS id,d.full_name AS donorName,d.blood_group AS bloodGroup,d.district,bd.status,bd.error_code AS errorCode,
+  const [deliveries]=await s.pool.query(`SELECT bd.delivery_id AS id,d.full_name AS donorName,d.blood_group AS bloodGroup,d.district,bd.status,bd.error_code AS errorCode,bd.attempts,bd.accepted_at AS acceptedAt,
     (SELECT n.read_at FROM notifications n WHERE n.related_type='bank_outreach' AND n.related_id=bd.outreach_id AND n.user_id=bd.user_id AND n.is_read=1 ORDER BY n.notification_id LIMIT 1) AS readAt
     FROM bank_deliveries bd LEFT JOIN donors d ON d.user_id=bd.user_id WHERE bd.outreach_id=? ORDER BY bd.delivery_id LIMIT 501`,[id]);
   if(deliveries.length>500)throw s.fail(413,'This announcement exceeds the recipient detail limit.');

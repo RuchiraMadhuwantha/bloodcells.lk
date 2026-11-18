@@ -1,5 +1,7 @@
+import {HospitalTransfers} from './HospitalTransfers';
+import {HospitalAppointments} from './HospitalAppointments';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { HospitalDashboard, BloodRequestPage } from '../../Hospital';
 import { HospitalPortal } from './HospitalUI';
 import { MyBloodRequests } from './HospitalRequests';
@@ -97,7 +99,7 @@ test('hospital inventory and usage cannot mutate network stock or imply saved re
   expect(screen.getByText('Total recorded usage: unavailable')).toBeInTheDocument();
 });
 
-test('hospital inventory includes blood availability totals from its own batches',async()=>{
+test('hospital inventory includes blood availability totals from its own packets',async()=>{
  service.getHospitalStock.mockResolvedValue({available:true,items:[{id:1,bloodGroup:'O+',availableUnits:4},{id:2,bloodGroup:'O+',availableUnits:3},{id:3,bloodGroup:'O+',availableUnits:0},{id:4,bloodGroup:'A+',availableUnits:2}]});
  renderPage(<HospitalInventory nav={nav}/>);
  expect(await screen.findByRole('heading',{name:'Blood Availability'})).toBeInTheDocument();
@@ -152,7 +154,7 @@ test('usage recording waits for server confirmation and sends a stable retry key
   service.getHospitalStock.mockResolvedValue({available:true,items:[{id:1,reference:'BATCH-FIX',bloodGroup:'O+',availableUnits:5}]});
   service.saveUsage.mockResolvedValue({item:{id:1},message:'Usage committed by server'});
   renderPage(<HospitalUsage nav={nav}/>);
-  const batch=await screen.findByLabelText('Usable hospital stock batch');
+  const batch=await screen.findByLabelText('Usable hospital stock packet');
   await screen.findByRole('option',{name:'BATCH-FIX - O+ (5 usable)'});
   fireEvent.change(batch,{target:{value:'1'}});
   fireEvent.change(screen.getByLabelText('Quantity used (units)'),{target:{value:'2'}});
@@ -160,4 +162,78 @@ test('usage recording waits for server confirmation and sends a stable retry key
   fireEvent.click(screen.getByRole('button',{name:'Save usage'}));
   expect(await screen.findByText('Usage committed by server')).toBeInTheDocument();
   expect(service.saveUsage).toHaveBeenCalledWith(expect.objectContaining({batchId:1,bloodGroup:'O+',quantity:2}),'fixture-usage-key');
+});
+
+
+test('hospital-owned stock groups blood types and retains individual packet controls',async()=>{
+ service.getHospitalStock.mockResolvedValue({available:true,items:[
+  {id:1,reference:'PACKET-O-1',bloodGroup:'O+',component:'Whole blood',quantity:5,availableUnits:4,reservedUnits:1,volumeMl:2250,expiryDate:'2099-01-01',status:'usable',level:'Usable'},
+  {id:2,reference:'PACKET-O-2',bloodGroup:'O+',component:'Red cells',quantity:3,availableUnits:3,reservedUnits:0,volumeMl:1350,expiryDate:'2030-01-01',status:'usable',level:'Usable'},
+  {id:3,reference:'PACKET-A-1',bloodGroup:'A+',component:'Whole blood',quantity:2,availableUnits:2,reservedUnits:0,volumeMl:null,status:'usable',level:'Usable'},
+ ]});
+ renderPage(<HospitalInventory nav={nav}/>);
+ const table=await screen.findByRole('table');expect(within(table).getAllByRole('row')).toHaveLength(3);
+ const row=screen.getByRole('button',{name:'View O+ packets'}).closest('tr');expect(row).toHaveTextContent('PACKET-O-1');expect(row).toHaveTextContent('PACKET-O-2');expect(row).toHaveTextContent('3600');expect(within(row).getByText('7')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Search hospital stock'),{target:{value:'PACKET-O-2'}});
+ expect(within(table).getAllByRole('row')).toHaveLength(2);expect(within(table).getByText('PACKET-O-1')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'View O+ packets'}));
+ expect(screen.getByRole('dialog')).toHaveTextContent('Whole blood');expect(screen.getByRole('dialog')).toHaveTextContent('Red cells');
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Details PACKET-O-2'}));
+ expect(screen.getAllByRole('dialog')).toHaveLength(1);expect(screen.getByRole('dialog')).toHaveTextContent('PACKET-O-2');
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Update stock'}));
+ expect(screen.getByLabelText('Recorded quantity')).toHaveValue(3);expect(screen.getByLabelText('Recorded volume (mL)')).toHaveValue(1350);
+});
+
+
+test('hospital blood-group rows and packet details identify expiring packets',async()=>{
+ const base={bloodGroup:'O+',quantity:2,availableUnits:2,reservedUnits:0,status:'usable',level:'Usable',asOfDate:'2026-11-17'};
+ service.getHospitalStock.mockResolvedValue({available:true,items:[{...base,id:1,reference:'O-SOON',expiryDate:'2026-11-19'},{...base,id:2,reference:'O-LATER',expiryDate:'2026-12-01'},{...base,id:3,bloodGroup:'A+',reference:'A-EXPIRED',expiryDate:'2026-11-16',availableUnits:0,level:'Expired'}]});
+ renderPage(<HospitalInventory nav={nav}/>);
+ const open=await screen.findByRole('button',{name:'View O+ packets'});expect(open.closest('tr')).toHaveClass('bg-amber-50');expect(screen.getByRole('button',{name:'View A+ packets'}).closest('tr')).toHaveClass('bg-rose-50');
+ fireEvent.click(open);const dialog=screen.getByRole('dialog');const soon=within(dialog).getByText('O-SOON').closest('tr');expect(soon).toHaveClass('bg-amber-50');expect(within(soon).getByText('2 days left')).toBeInTheDocument();expect(within(dialog).getByText('O-LATER').closest('tr')).not.toHaveClass('bg-amber-50');
+});
+
+test('hospital appointment sorting preserves search and status filters',async()=>{
+ service.getAppointments.mockResolvedValue({available:true,items:[{id:1,reference:'AP-SORT-LATE',donorName:'Matching donor',appointmentDate:'2099-02-01',timeSlot:'09:00',status:'pending'},{id:2,reference:'AP-SORT-EARLY',donorName:'Matching donor',appointmentDate:'2099-01-01',timeSlot:'09:00',status:'pending'},{id:3,reference:'AP-SORT-COMPLETED',donorName:'Matching donor',appointmentDate:'2026-01-01',status:'completed'}]});
+ renderPage(<HospitalAppointments nav={nav}/>);await screen.findByText('AP-SORT-LATE');
+ fireEvent.change(screen.getByLabelText('Search appointments'),{target:{value:'Matching'}});fireEvent.change(screen.getByLabelText('Appointment status'),{target:{value:'pending'}});fireEvent.change(screen.getByLabelText('Sort appointments'),{target:{value:'latest'}});
+ const rows=screen.getAllByRole('row').slice(1);expect(rows).toHaveLength(2);expect(rows[0]).toHaveTextContent('AP-SORT-LATE');expect(rows[1]).toHaveTextContent('AP-SORT-EARLY');expect(screen.getByLabelText('Search appointments')).toHaveValue('Matching');expect(service.getAppointments).toHaveBeenCalledTimes(1);
+});
+
+test('hospital inventory sorting retains complete blood-group totals during packet search',async()=>{
+ service.getHospitalStock.mockResolvedValue({available:true,items:[{id:1,reference:'SORT-FIND-O',bloodGroup:'O+',availableUnits:2,quantity:2},{id:2,reference:'SORT-OTHER-O',bloodGroup:'O+',availableUnits:8,quantity:8},{id:3,reference:'SORT-FIND-A',bloodGroup:'A+',availableUnits:3,quantity:3}]});
+ renderPage(<HospitalInventory nav={nav}/>);await screen.findByRole('button',{name:'View O+ packets'});
+ fireEvent.change(screen.getByLabelText('Search hospital stock'),{target:{value:'SORT-FIND'}});fireEvent.change(screen.getByLabelText('Sort inventory'),{target:{value:'high'}});
+ const rows=screen.getAllByRole('row').slice(1);expect(rows).toHaveLength(2);expect(rows[0]).toHaveTextContent('SORT-OTHER-O');expect(rows[0]).toHaveTextContent('10');expect(rows[1]).toHaveTextContent('SORT-FIND-A');expect(service.getHospitalStock).toHaveBeenCalledTimes(1);
+});
+
+test('short packet IDs remain searchable alongside original packet references',async()=>{
+ service.getHospitalStock.mockResolvedValue({available:true,items:[{id:42,batchCode:'B-0042',reference:'ORIGINAL-LONG-PACKET-REFERENCE',bloodGroup:'O+',quantity:2,availableUnits:2,status:'usable'}]});
+ renderPage(<HospitalInventory nav={nav}/>);await screen.findByRole('button',{name:'View packet B-0042'});
+ expect(screen.queryByText('ORIGINAL-LONG-PACKET-REFERENCE')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Search hospital stock'),{target:{value:'B-0042'}});expect(screen.getByRole('button',{name:'View packet B-0042'})).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Search hospital stock'),{target:{value:'ORIGINAL-LONG'}});fireEvent.click(screen.getByRole('button',{name:'View packet B-0042'}));
+ expect(within(screen.getByRole('dialog')).getByText('ORIGINAL-LONG-PACKET-REFERENCE')).toBeInTheDocument();
+ expect(within(screen.getByRole('dialog')).getByText('B-0042')).toBeInTheDocument();
+});
+
+test('hospital sends to the main blood bank without choosing a district destination',async()=>{
+ service.getHospital.mockResolvedValue({hospitalName:'Test Hospital',accountStatus:'active',district:'Colombo'});
+ service.getHospitalStock.mockResolvedValue({available:true,items:[{id:42,batchCode:'B-0042',reference:'Packet-42',bloodGroup:'A+',quantity:2,availableUnits:2,reservedUnits:0,status:'usable'}]});
+ service.getTransfers.mockResolvedValue({available:true,items:[]});
+ service.getTransferDestinations.mockResolvedValue({available:true,items:[{id:2,name:'Main Blood Bank',district:'Galle',isMain:true}]});
+ service.sendTransfer.mockResolvedValue({id:10});
+ renderPage(<HospitalTransfers nav={nav}/>);
+ const send=await screen.findByRole('button',{name:'Transfer B-0042'});await waitFor(()=>expect(send).toBeEnabled());fireEvent.click(send);
+ expect(screen.queryByLabelText('Receiving blood bank')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Units to transfer'),{target:{value:'1'}});fireEvent.change(screen.getByLabelText('Transfer reason'),{target:{value:'Return spare stock'}});
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Confirm and save'}));
+ await waitFor(()=>expect(service.sendTransfer).toHaveBeenCalledWith({batchId:42,quantity:1,reason:'Return spare stock'},expect.any(String)));
+});
+
+test('issued request blood appears as incoming transfer and arrival confirmation is saved once',async()=>{
+ service.getHospitalStock.mockResolvedValue({available:true,items:[]});service.getTransferDestinations.mockResolvedValue({available:true,items:[{id:3,name:'Main Blood Bank'}]});service.getTransfers.mockResolvedValue({available:true,items:[{id:49,reference:'TR-49',requestId:54,requestReference:'BR-00054',direction:'incoming',sourceCentre:'Main Blood Bank',batchCode:'B-0003',bloodGroup:'A+',quantity:12,status:'dispatched'}]});service.receiveTransfer.mockResolvedValue({id:49});
+ renderPage(<HospitalTransfers nav={nav}/>);expect(await screen.findByText('BR-00054')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Confirm receipt TR-49'}));
+ fireEvent.change(screen.getByLabelText('Receiving checks / note'),{target:{value:'Packets arrived and checked'}});fireEvent.change(screen.getByLabelText('Receiving decision'),{target:{value:'accepted'}});fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Confirm and save'}));
+ await waitFor(()=>expect(service.receiveTransfer).toHaveBeenCalledWith(49,{accepted:true,note:'Packets arrived and checked'},expect.any(String)));
 });

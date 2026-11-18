@@ -73,3 +73,13 @@ test.each(['donor-history', 'donor-appointments', 'donor-campaigns', 'donor-my-c
   for (const role of [null, 'hospital', 'blood_bank', 'admin']) expect(canAccess(role, route)).toBe(false);
 });
 
+
+
+test('donors explicitly opt in to email announcements through their own profile',async()=>{
+ api.updateProfile.mockResolvedValue({user:donorUser,profile:{...profile,email_opt_in:1}});await login();
+ fireEvent.click(screen.getByRole('button',{name:'My Profile'}));fireEvent.click(await screen.findByRole('button',{name:'Edit Profile'}));
+ const choice=screen.getByRole('checkbox',{name:'Receive blood bank announcements by email'});expect(choice).not.toBeChecked();fireEvent.click(choice);
+ fireEvent.click(screen.getByRole('button',{name:'Save Changes'}));
+ await waitFor(()=>expect(api.updateProfile).toHaveBeenCalledWith(expect.objectContaining({email_opt_in:true})));
+ expect(await screen.findByText('Email announcements: Enabled')).toBeInTheDocument();
+});

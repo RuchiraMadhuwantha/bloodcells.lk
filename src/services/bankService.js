@@ -37,10 +37,13 @@ export const getInbox=async(filters={})=>{
 export const markInboxRead=id=>apiPut('/notifications/'+id+'/read',{});
 export const markAllInboxRead=()=>apiPut('/notifications/read-all',{});
 export const getNotificationDetails=async id=>{const response=await apiGet('/bank/notifications/'+id);return {...response,items:response.item?[response.item]:[]};};
-export const getNotificationRecipients=async({mode='filters',bloodGroup,district,campaignId,donorIds=[]})=>{
+export const getNotificationChannels=()=>apiGet('/bank/notification-channels');
+export const verifyEmailConnection=()=>apiPost('/bank/email/verify',{});
+export const retryNotificationEmail=(id,key)=>apiPut('/bank/notifications/'+id+'/retry-email',{}, {idempotencyKey:key});
+export const getNotificationRecipients=async({mode='filters',bloodGroup,district,campaignId,channel,donorIds=[]})=>{
  if(mode==='selected'&&!donorIds.length)return {available:true,items:[],complete:true,recipientCount:0};
  if(mode==='selected'&&donorIds.length>500)return {available:true,items:[],complete:false,overLimit:true};
- const query=new URLSearchParams({mode,...(bloodGroup?{bloodGroup}:{}),...(district?{district}:{}),...(campaignId?{campaignId}:{}),...(mode==='selected'?{donorIds:donorIds.join(',')}:{})});
+ const query=new URLSearchParams({mode,...(channel?{channel}:{}),...(bloodGroup?{bloodGroup}:{}),...(district?{district}:{}),...(campaignId?{campaignId}:{}),...(mode==='selected'?{donorIds:donorIds.join(',')}:{})});
  return apiGet('/bank/notification-recipients?'+query);
 };
 const save=async run=>{try{return await run();}catch(e){if(e.body?.errors?.length)e.message=e.body.errors.map(r=>r.message).join(' ');throw e;}};

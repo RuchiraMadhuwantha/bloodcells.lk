@@ -232,3 +232,17 @@ test('alerts filter authorized alerts and details exclude sensitive information'
   expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Register interest' })).toBeEnabled();
 });
 
+
+test('appointment sorting keeps donor search and status filters applied',async()=>{
+ donor.getAppointments.mockResolvedValue({available:true,items:[{...record,id:1,reference:'AP-EARLY',status:'pending',appointmentDate:'2099-01-01'},{...record,id:2,reference:'AP-LATE',status:'pending',appointmentDate:'2099-02-01'},{...record,id:3,reference:'AP-DONE',status:'completed'}]});
+ render(<MyAppointments nav={nav}/>);await screen.findByText('AP-EARLY');
+ fireEvent.change(screen.getByLabelText('Search appointments'),{target:{value:'Test centre'}});fireEvent.change(screen.getByLabelText('Appointment status'),{target:{value:'pending'}});fireEvent.change(screen.getByLabelText('Sort appointments'),{target:{value:'date'}});
+ const rows=screen.getAllByRole('row').slice(1);expect(rows).toHaveLength(2);expect(rows[0]).toHaveTextContent('AP-EARLY');expect(rows[1]).toHaveTextContent('AP-LATE');expect(donor.getAppointments).toHaveBeenCalledTimes(1);
+});
+
+test('campaign sorting preserves district and period filters',async()=>{
+ donor.getCampaigns.mockResolvedValue({available:true,items:[{id:1,name:'Zulu Drive',date:'2099-01-01',district:'Colombo',status:'Upcoming'},{id:2,name:'Alpha Drive',date:'2099-02-01',district:'Colombo',status:'Upcoming'},{id:3,name:'Other District Drive',date:'2099-03-01',district:'Kandy',status:'Upcoming'}]});
+ render(<DonorCampaigns nav={nav}/>);await screen.findByText('Zulu Drive');
+ fireEvent.change(screen.getByLabelText('Campaign district'),{target:{value:'Colombo'}});fireEvent.change(screen.getByLabelText('Sort campaigns'),{target:{value:'name'}});
+ const cards=screen.getAllByText(/^(Alpha Drive|Zulu Drive)$/);expect(cards.map(c=>c.textContent)).toEqual(['Alpha Drive','Zulu Drive']);expect(screen.queryByText('Other District Drive')).not.toBeInTheDocument();expect(screen.getByLabelText('Campaign period')).toHaveValue('upcoming');expect(donor.getCampaigns).toHaveBeenCalledTimes(1);
+});

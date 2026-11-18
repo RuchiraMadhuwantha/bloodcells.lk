@@ -9,7 +9,8 @@ export { titleCase, statusColor } from '../hospital/hospitalUtils';
 const Selection = createContext(null);
 export const BankSelectionProvider = ({ children }) => {
   const [recipients, setRecipients] = useState([]);
-  return <Selection.Provider value={{ recipients, setRecipients }}>{children}</Selection.Provider>;
+  const [notificationTab, setNotificationTab] = useState(null);
+  return <Selection.Provider value={{ recipients, setRecipients, notificationTab, setNotificationTab }}>{children}</Selection.Provider>;
 };
 export const useBankSelection = () => useContext(Selection);
 export const BankLayout = ({ nav, children, ...props }) => {

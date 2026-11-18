@@ -1,3 +1,4 @@
+import {batchLabel} from '../batchLabel';
 import {Eye} from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { Button, CompactAction, SectionCard, Table } from '../UIComponents';
@@ -30,17 +31,17 @@ export const HospitalUsage = ({ nav }) => {
     }catch(e){setSaveError(e.message);}finally{lock.current=false;setSaving(false);}
   };
   return <HospitalLayout nav={nav} title="Blood Usage" subtitle="Monitor hospital blood usage">
-    <Notice>Usage is saved with an atomic deduction from your selected usable, unreserved batch. No patient identity is required. If the hospital migration is pending, saving remains unavailable.</Notice>
+    <Notice>Saving a blood usage record reduces the available units in the selected packet. Patient names and personal details are not needed. Blood stock must be set up before you can save usage.</Notice>
     <div className="grid xl:grid-cols-3 gap-6">
       <SectionCard title="Record Blood Usage">
         <form aria-label="Record hospital usage" onSubmit={submit} className="space-y-4">
           {saveError&&<p role="alert" className="text-red-700">{saveError}</p>}{saved&&<p role="status" className="text-green-700">{saved}</p>}
           <fieldset disabled={saving} className="space-y-4">
           <Field label="Usage blood group"><select className={inputClass} value={form.bloodGroup} onChange={(e) => set('bloodGroup', e.target.value)}><option value="">Select group</option>{BLOOD_GROUPS.map((g) => <option key={g}>{g}</option>)}</select></Field>
-          <Field label="Usable hospital stock batch"><select required className={inputClass} value={form.batchId} onChange={e=>{const batch=stock.data.items.find(b=>String(b.id)===e.target.value);setForm(f=>({...f,batchId:e.target.value,bloodGroup:batch?.bloodGroup||f.bloodGroup}));}}><option value="">Select stock batch</option>{(stock.data?.items||[]).filter(b=>b.availableUnits>0&&(!form.bloodGroup||b.bloodGroup===form.bloodGroup)).map(b=><option key={b.id} value={b.id}>{b.reference} - {b.bloodGroup} ({b.availableUnits} usable)</option>)}</select></Field>
+          <Field label="Usable hospital stock packet"><select required className={inputClass} value={form.batchId} onChange={e=>{const batch=stock.data.items.find(b=>String(b.id)===e.target.value);setForm(f=>({...f,batchId:e.target.value,bloodGroup:batch?.bloodGroup||f.bloodGroup}));}}><option value="">Select stock packet</option>{(stock.data?.items||[]).filter(b=>b.availableUnits>0&&(!form.bloodGroup||b.bloodGroup===form.bloodGroup)).map(b=><option key={b.id} value={b.id}>{batchLabel(b)} - {b.bloodGroup} ({b.availableUnits} usable)</option>)}</select></Field>
           <Field label="Quantity used (units)"><input required type="number" min="1" max="100000" step="1" className={inputClass} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} /></Field>
           <Field label="Volume used (mL)"><input type="number" min="0.01" step="0.01" className={inputClass} value={form.volumeMl} onChange={e=>set('volumeMl',e.target.value)}/></Field>
-          <p className="text-xs text-gray-500">Enter the actual volume used. If blank, a recorded batch volume is split in proportion to units; unknown volume remains unrecorded.</p>
+          <p className="text-xs text-gray-500">Enter the actual volume used. If blank, a recorded packet volume is split in proportion to units; unknown volume remains unrecorded.</p>
           <Field label="Usage date"><input required type="date" max={todayStr()} className={inputClass} value={form.date} onChange={(e) => set('date', e.target.value)} /></Field>
           <Field label="Usage category / reason"><input required maxLength={100} className={inputClass} value={form.category} onChange={(e) => set('category', e.target.value)} /></Field>
           <Field label="Related blood request (optional)"><select className={inputClass} value={form.requestId} onChange={(e) => set('requestId', e.target.value)} disabled={requests.loading || !!requests.error}><option value="">No related request</option>{(requests.data?.items || []).map((r) => <option key={r.id} value={r.id}>{r.reference} | {r.bloodGroup}</option>)}</select></Field>

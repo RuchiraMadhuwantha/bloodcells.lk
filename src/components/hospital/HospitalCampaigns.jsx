@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {sortRecords} from '../recordSorting';
+import {SortControl} from '../SortControl';
 import { Check, Eye, Megaphone, RefreshCw } from 'lucide-react';
 import { Badge, Button, CompactAction, SectionCard } from '../UIComponents';
 import * as service from '../../services/hospitalService';
@@ -17,16 +19,18 @@ const useUpdates = refresh => {
 export const HospitalCampaigns = ({ nav }) => {
   const resource = useHospitalResource(service.getCampaigns);
   useUpdates(resource.refresh);
+  const [sort,setSort]=useState('date');
   const [query, setQuery] = useState('');
   const [district, setDistrict] = useState('');
   const [selected, setSelected] = useState(null);
   const records = resource.data?.items || [];
-  const items = records.filter(c => (!district || c.district === district) && [c.name,c.venueName,c.organizerName,c.district].some(v => String(v || '').toLowerCase().includes(query.trim().toLowerCase())));
+  const items = sortRecords(records.filter(c => (!district || c.district === district) && [c.name,c.venueName,c.organizerName,c.district].some(v => String(v || '').toLowerCase().includes(query.trim().toLowerCase()))),'campaigns',sort);
   return <HospitalLayout nav={nav} title="Blood Donation Campaigns" subtitle="Published campaigns from the blood bank">
     <SectionCard title="Upcoming and active campaigns" action={<Button icon={RefreshCw} disabled={resource.loading} onClick={resource.refresh}>Refresh campaigns</Button>}>
       <Filters>
         <Field label="Search campaigns"><input className={inputClass} value={query} onChange={e => setQuery(e.target.value)} placeholder="Campaign, venue or organizer" /></Field>
         <Field label="Campaign district"><select className={inputClass} value={district} onChange={e => setDistrict(e.target.value)}><option value="">All districts</option>{[...new Set(records.map(c => c.district).filter(Boolean))].sort().map(d => <option key={d}>{d}</option>)}</select></Field>
+        <SortControl label="Sort campaigns" profile="campaigns" value={sort} onChange={setSort} className={inputClass}/>
       </Filters>
       <ResourceState resource={resource} emptyTitle="No published campaigns">
         {!items.length ? <EmptyState title="No campaigns match your filters" /> : <div className="grid md:grid-cols-2 gap-4">{items.map(c => <article key={c.id} className="rounded-lg border border-gray-200 p-4">

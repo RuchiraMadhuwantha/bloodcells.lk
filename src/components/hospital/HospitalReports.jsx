@@ -22,8 +22,8 @@ export const HospitalReports=({nav})=>{
     if(lock.current)return;lock.current=true;setBusy(true);setError(null);
     try{await service.downloadReport(snapshot,format);}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}
   };
-  return <HospitalLayout nav={nav} title="Hospital Reports" subtitle="Hospital-scoped reports from MySQL">
-    <Notice>Reports use complete matching hospital records and server-calculated totals. Request dates filter submission dates; usage dates filter recorded usage; inventory dates filter batch collection dates. Inventory balances are current, not historical.</Notice>
+  return <HospitalLayout nav={nav} title="Hospital Reports" subtitle="Reports for your hospital">
+    <Notice>Reports use complete matching hospital records and server-calculated totals. Request dates filter submission dates; usage dates filter recorded usage; inventory dates filter packet collection dates. Inventory balances are current, not historical.</Notice>
     <SectionCard title="Report filters">
       <form aria-label="Hospital report filters" onSubmit={preview}>
         <fieldset disabled={busy} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -48,7 +48,7 @@ export const HospitalReports=({nav})=>{
       {report&&!busy?<SectionCard title={report.title}>
         <Details entries={[[ 'Hospital',report.hospital ],['Reporting period',report.period],['Generated at',report.generatedAt],['Blood group / status',report.group+' / '+report.status]]}/>
         <div className="my-5"><Details entries={Object.entries(report.summary)}/></div>
-        {report.rows.length?<Table columns={report.columns}>{report.rows.map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j} className="p-3 text-sm">{value??'Not supplied'}</td>)}</tr>)}</Table>:<EmptyState title="No records match these filters"/>}
+        {report.rows.length?<Table columns={report.columns}>{report.rows.map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j} className="p-3 text-sm">{value??'Not recorded'}</td>)}</tr>)}</Table>:<EmptyState title="No records match these filters"/>}
         <p className="text-xs text-gray-500 mt-4">{report.sourceNote}</p>
       </SectionCard>:!busy&&!error&&<EmptyState title="Choose filters and preview a report"/>}
     </div>

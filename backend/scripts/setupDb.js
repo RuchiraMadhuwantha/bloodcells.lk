@@ -28,6 +28,10 @@ const connectionConfig = {
 
 // Columns added after the original release. `{ table, column, definition }`.
 const ADDED_COLUMNS = [
+  {table:'bank_transfers',column:'request_id',definition:'INT UNSIGNED NULL, ADD CONSTRAINT fk_transfer_request FOREIGN KEY (request_id) REFERENCES blood_requests(request_id)'},
+  {table:'bank_transfers',column:'request_allocation_id',definition:'INT UNSIGNED NULL, ADD UNIQUE KEY uq_transfer_request_allocation (request_allocation_id), ADD CONSTRAINT fk_transfer_request_allocation FOREIGN KEY (request_allocation_id) REFERENCES bank_request_allocations(allocation_id)'},
+  {table:'donors',column:'email_opt_in',definition:'TINYINT(1) NOT NULL DEFAULT 1'},
+  {table:'donors',column:'email_consent_updated_at',definition:'DATETIME NULL'},
   {table:'appointments',column:'campaign_id',definition:'INT UNSIGNED NULL, ADD KEY idx_appointment_campaign_status (campaign_id,status), ADD CONSTRAINT fk_appointment_campaign FOREIGN KEY (campaign_id) REFERENCES campaigns(campaign_id)'},
   { table: 'campaigns', column: 'hospital_id', definition: 'INT UNSIGNED NULL, ADD CONSTRAINT fk_campaign_hospital FOREIGN KEY (hospital_id) REFERENCES hospitals(hospital_id)' },
   { table: 'appointments', column: 'booking_nic', definition: 'VARCHAR(20) NULL' },

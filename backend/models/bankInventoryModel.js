@@ -31,12 +31,12 @@ const authorize = async (c, actor, location) => {
 const selectBatch = 'SELECT b.*,CURDATE() AS database_today,l.name AS location_name,l.district FROM stock_batches b JOIN stock_locations l ON l.location_id=b.location_id';
 const lockBatch = async (c, actor, id) => {
   const [found] = await c.query(selectBatch + " JOIN bank_location_access a ON a.location_id=l.location_id WHERE b.batch_id=? AND a.user_id=? AND l.kind='blood_bank' AND l.active=1 FOR UPDATE", [id, actor]);
-  if (!found.length) throw fail(404, 'Assigned blood centre batch not found.');
+  if (!found.length) throw fail(404, 'Assigned blood centre packet not found.');
   return found[0];
 };
 const usable = (batch, quantity, reserved = false) => {
-  if (batch.status !== 'usable' || toDateString(batch.expiry_date) < (batch.database_today || toDateString(new Date()))) throw fail(409, 'Batch is expired or unavailable.');
-  if (Number(batch.quantity) - (reserved ? 0 : Number(batch.reserved_units)) < quantity) throw fail(409, 'Insufficient usable unreserved stock.');
+  if (batch.status !== 'usable' || toDateString(batch.expiry_date) < (batch.database_today || toDateString(new Date()))) throw fail(409, 'Packet is expired or unavailable.');
+  if (Number(batch.quantity) - (reserved ? 0 : Number(batch.reserved_units)) < quantity) throw fail(409, 'There are not enough available blood units for this action.');
 };
 const centres = async (actor, directory = false) => {
   if(directory){
@@ -61,7 +61,7 @@ const batches = async (actor, filters = {}, c = pool) => {
   if (filters.start) { where.push((filters.dateField==='expiry'?'b.expiry_date':'b.collection_date')+'>=?'); values.push(filters.start); }
   if (filters.end) { where.push((filters.dateField==='expiry'?'b.expiry_date':'b.collection_date')+'<=?'); values.push(filters.end); }
   const [rows] = await c.query(selectBatch + ' JOIN bank_location_access a ON a.location_id=l.location_id WHERE '+where.join(' AND ')+' ORDER BY b.expiry_date,b.batch_id LIMIT 10001',values);
-  if (rows.length > 10000) throw fail(413,'More than 10000 batches. Narrow the filters.');
+  if (rows.length > 10000) throw fail(413,'More than 10000 packets. Narrow the filters.');
   return rows.map(r => {const today=r.database_today || toDateString(new Date());const end=new Date(today+'T12:00:00');end.setDate(end.getDate()+7);return {...mapBatch(r),availableUnits:r.status==='usable'&&toDateString(r.expiry_date)>=today?Math.max(0,Number(r.quantity)-Number(r.reserved_units)):0,storageLocation:r.location_name,level:toDateString(r.expiry_date)<today?'Expired':r.status==='usable'?'Usable':r.status,expiryStatus:toDateString(r.expiry_date)<today?'expired':toDateString(r.expiry_date)<=toDateString(end)?'expiring':'current'};});
 };
 const createBatch = (actor, data, key) => mutate(actor,'batch-create',key,data,async c => {
@@ -74,8 +74,8 @@ const createBatch = (actor, data, key) => mutate(actor,'batch-create',key,data,a
 });
 const updateBatch = (actor,id,data,key) => mutate(actor,'batch-update',key,{id,...data},async c => {
   const b = await lockBatch(c,actor,id);
-  if (b.version !== data.version) throw fail(409,'Batch changed. Refresh first.');
-  if (b.status === 'discarded') throw fail(409,'Discarded batch is immutable.');
+  if (b.version !== data.version) throw fail(409,'Packet changed. Refresh first.');
+  if (b.status === 'discarded') throw fail(409,'Discarded packet is immutable.');
   if (data.quantity < Number(b.reserved_units)) throw fail(409,'Quantity is below committed reservations.');
   if (Number(b.reserved_units)>0 && data.status!=='usable') throw fail(409,'Release reservations before quarantine or disposal.');
   if (data.status==='usable' && toDateString(b.expiry_date)<(b.database_today || toDateString(new Date()))) throw fail(409,'Expired stock cannot be marked usable.');

@@ -1,18 +1,20 @@
+const {batchCode}=require('../utils/batchCode');
 const crypto = require('crypto');
 const {moveVolume,deductVolume}=require('../utils/bloodVolume');
 const pool = require('../config/db');
 const { toDateString } = require('../utils/date');
 const error = (code, message) => Object.assign(new Error(message), { statusCode: code });
 const mapBatch = (r) => ({
+  asOfDate:r.database_today||toDateString(new Date()),
   volumeMl:r.volume_ml == null ? null : Number(r.volume_ml), appointmentId:r.appointment_id || null,
-  id: r.batch_id, reference: r.reference, bloodGroup: r.blood_group, component: r.component,
+  id: r.batch_id, batchCode:batchCode(r.batch_id), reference: r.reference, bloodGroup: r.blood_group, component: r.component,
   quantity: Number(r.quantity), reservedUnits: Number(r.reserved_units),
-  availableUnits: r.status === 'usable' && toDateString(r.expiry_date) >= toDateString(new Date()) ? Math.max(0, Number(r.quantity) - Number(r.reserved_units)) : 0,
+  availableUnits: r.status === 'usable' && toDateString(r.expiry_date) >= (r.database_today||toDateString(new Date())) ? Math.max(0, Number(r.quantity) - Number(r.reserved_units)) : 0,
   collectionDate: toDateString(r.collection_date), expiryDate: toDateString(r.expiry_date),
-  status: r.status, level: toDateString(r.expiry_date) < toDateString(new Date()) ? 'Expired' : r.status === 'usable' ? 'Usable' : r.status,
+  status: r.status, level: toDateString(r.expiry_date) < (r.database_today||toDateString(new Date())) ? 'Expired' : r.status === 'usable' ? 'Usable' : r.status,
   updatedAt: r.updated_at, version: r.version, locationId: r.location_id, locationName: r.location_name, district: r.district,
 });
-const batchSelect = 'SELECT b.*, l.name AS location_name, l.district FROM stock_batches b JOIN stock_locations l ON l.location_id=b.location_id';
+const batchSelect = 'SELECT b.*,CURDATE() AS database_today, l.name AS location_name, l.district FROM stock_batches b JOIN stock_locations l ON l.location_id=b.location_id';
 const scopeFilters = (hospitalId,filters,dateColumn) => {
   const where=['l.hospital_id=?'];const values=[hospitalId];
   if(filters.bloodGroup){where.push('b.blood_group=?');values.push(filters.bloodGroup);}
@@ -31,7 +33,7 @@ const getBatch = async (hospitalId, id, executor = pool) => {
   return rows[0] ? mapBatch(rows[0]) : null;
 };
 const usageSelect = `SELECT u.*, b.blood_group, b.reference AS batch_reference FROM hospital_blood_usage u JOIN stock_batches b ON b.batch_id=u.batch_id`;
-const mapUsage = (r) => ({ id: r.usage_id, reference: 'HU-' + r.usage_id, batchId: r.batch_id, batchReference: r.batch_reference,
+const mapUsage = (r) => ({ id: r.usage_id, reference: 'HU-' + r.usage_id, batchId: r.batch_id, batchCode:batchCode(r.batch_id), batchReference: r.batch_reference,
   volumeMl:r.volume_ml == null ? null : Number(r.volume_ml), bloodGroup: r.blood_group, quantity: Number(r.quantity), usageDate: toDateString(r.usage_date),
   category: r.category, notes: r.notes, requestId: r.request_id, requestReference: r.request_id ? 'BR-' + String(r.request_id).padStart(5,'0') : null, createdAt: r.created_at });
 const getUsage = async (hospitalId, executor = pool, filters = {}) => {
@@ -55,7 +57,7 @@ const runOperation = async ({ hospitalId, operation, key, payload }, work) => {
     const digest = hashPayload(payload);
     const [existing] = await conn.query('SELECT payload_hash,result_id FROM hospital_operation_keys WHERE hospital_id=? AND operation=? AND idempotency_key=?', [hospitalId,operation,key]);
     if (existing.length) {
-      if (existing[0].payload_hash !== digest) throw error(409, 'This submission key was already used with different data.');
+      if (existing[0].payload_hash !== digest) throw error(409, 'This request was already used for different changes. Refresh the page before trying again.');
       await conn.commit();
       return { id: existing[0].result_id, replayed: true };
     }
@@ -97,9 +99,9 @@ const recordUsage = (hospitalId, actor, data, key) => runOperation({ hospitalId,
   const [rows] = await c.query(batchSelect + ' WHERE l.hospital_id=? AND b.batch_id=? FOR UPDATE', [hospitalId,data.batchId]);
   if (!rows.length) throw error(404,'Hospital stock record not found.');
   const b = rows[0];
-  if (b.blood_group !== data.bloodGroup) throw error(400,'Blood group must match the selected stock batch.');
-  if (b.status !== 'usable' || toDateString(b.expiry_date) < toDateString(new Date()) || data.usageDate > toDateString(b.expiry_date) || data.usageDate < toDateString(b.collection_date)) throw error(409,'The batch is not usable for this usage date.');
-  if (Number(b.quantity)-Number(b.reserved_units) < data.quantity) throw error(409,'Insufficient unreserved hospital stock.');
+  if (b.blood_group !== data.bloodGroup) throw error(400,'Blood group must match the selected stock packet.');
+  if (b.status !== 'usable' || toDateString(b.expiry_date) < toDateString(new Date()) || data.usageDate > toDateString(b.expiry_date) || data.usageDate < toDateString(b.collection_date)) throw error(409,'The packet is not usable for this usage date.');
+  if (Number(b.quantity)-Number(b.reserved_units) < data.quantity) throw error(409,'There are not enough available blood units in this hospital.');
   if (data.requestId) {
     const [requests] = await c.query('SELECT request_id,blood_group FROM blood_requests WHERE request_id=? AND hospital_id=?', [data.requestId,hospitalId]);
     if (!requests.length) throw error(404,'Related hospital request not found.');

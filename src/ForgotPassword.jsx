@@ -91,10 +91,9 @@ export const ForgotPassword = ({ onNavigate }) => {
 
                 {resetLink && (
                   <div className="mt-5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-4 text-sm">
-                    <p className="font-semibold mb-1">Development mode — email is not configured</p>
+                    <p className="font-semibold mb-1">Password reset email is not available</p>
                     <p className="text-xs mb-3">
-                      No SMTP provider is set up in this build, so the backend returned the single-use
-                      reset token instead of sending an email. It expires in 60 minutes.
+                      Use the link below to reset your password. It works once and expires in 60 minutes. No password reset email was sent.
                     </p>
                     <button
                       onClick={copyLink}

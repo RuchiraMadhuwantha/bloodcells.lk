@@ -41,7 +41,7 @@ export const DonorDashboard = ({ nav }) => {
         <StatCard icon={Heart} value={s?.totalDonations ?? 'Unavailable'} label="Completed Donations" accent="red" />
         <StatCard icon={Droplet} value={s?.bloodGroup || 'Unavailable'} label="Blood Group" accent="pink" />
         <StatCard icon={Calendar} value={s?.upcomingAppointments ?? 'Unavailable'} label="Upcoming Appointments" accent="green" />
-        <StatCard icon={Clock} value={s?.eligibleNow ? 'Screening due' : formatDate(s?.nextEligibleDate)} label="Donation interval" accent="amber" />
+        <StatCard icon={Clock} value={s?.eligibleNow ? 'Health check needed' : formatDate(s?.nextEligibleDate)} label="Donation waiting period" accent="amber" />
         <StatCard icon={Droplets} value={collectionValue(totalUnits)} label="Recorded collected units" accent="red" />
         <StatCard icon={Droplets} value={collectionValue(totalVolumeMl)} label="Recorded collected volume (mL)" accent="blue" />
       </div>

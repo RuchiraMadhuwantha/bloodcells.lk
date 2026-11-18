@@ -33,6 +33,7 @@ const loginValidation = [
 ];
 
 const profileUpdateValidation = [
+  body('email_opt_in').optional().custom(v=>typeof v==='boolean').withMessage('Email preference must be true or false.'),
   body('email').optional().isEmail().withMessage('Please enter a valid email address.'),
   body('blood_group').optional().isIn(BLOOD_GROUPS).withMessage('Invalid blood group.'),
   body('weight').optional({ values: 'falsy' }).isFloat({ min: 30, max: 300 }).withMessage('Please enter a valid weight.'),

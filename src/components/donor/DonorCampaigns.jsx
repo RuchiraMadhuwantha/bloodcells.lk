@@ -1,4 +1,6 @@
 import React, { useRef, useState } from 'react';
+import {sortRecords} from '../recordSorting';
+import {SortControl} from '../SortControl';
 import { Button, Badge, SectionCard } from '../UIComponents';
 import CampaignCard from '../CampaignCard';
 import * as donor from '../../services/donorService';
@@ -8,6 +10,7 @@ import { todayStr, formatDate } from './donorUtils';
 
 export const DonorCampaigns = ({ nav, mine = false }) => {
   const resource = useDonorResource(mine ? donor.getMyCampaigns : donor.getCampaigns);
+  const [sort,setSort]=useState('date');
   const [district, setDistrict] = useState('');
   const [period, setPeriod] = useState('upcoming');
   const [date, setDate] = useState('');
@@ -18,11 +21,11 @@ export const DonorCampaigns = ({ nav, mine = false }) => {
   const lock = useRef(false);
   const records = resource.data?.items || [];
   // Registered records have { id, status, campaign }; published records are campaigns.
-  const campaigns = records.filter((r) => {
+  const campaigns = sortRecords(records.filter((r) => {
     const c = mine ? r.campaign : r;
     return (!district || c.district === district) && (!date || c.date === date) &&
       (period === 'all' || (period === 'upcoming' ? c.date >= todayStr() : c.date < todayStr()));
-  }).sort((a, b) => (mine ? a.campaign.date : a.date).localeCompare(mine ? b.campaign.date : b.date));
+  }),'campaigns',sort,r=>mine?r.campaign:r);
   const campaign = selected && (mine ? selected.campaign : selected);
   const runAction = async (action) => {
     if (lock.current) return;
@@ -49,6 +52,7 @@ export const DonorCampaigns = ({ nav, mine = false }) => {
         <Field label="Campaign district"><select value={district} onChange={(e) => setDistrict(e.target.value)} className={inputClass}><option value="">All districts</option>{DISTRICTS.map((d) => <option key={d}>{d}</option>)}</select></Field>
         <Field label="Campaign period"><select value={period} onChange={(e) => setPeriod(e.target.value)} className={inputClass}><option value="upcoming">Upcoming</option><option value="past">Past</option><option value="all">All dates</option></select></Field>
         <Field label="Campaign date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} /></Field>
+        <SortControl label="Sort campaigns" profile="campaigns" value={sort} onChange={setSort} className={inputClass}/>
       </Filters>
       <ResourceState resource={resource} emptyTitle={mine ? 'No campaign registrations' : 'No published campaigns'}>
         {campaigns.length === 0 ? <EmptyState title="No campaigns match your filters" /> : <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">

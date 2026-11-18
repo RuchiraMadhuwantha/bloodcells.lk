@@ -1,3 +1,4 @@
+const {batchCode}=require('../utils/batchCode');
 const pool = require('../config/db');
 const { toDateString } = require('../utils/date');
 
@@ -29,7 +30,7 @@ const mapAppointmentRow = (r) => ({
   collectedUnits: r.collected_units == null ? null : Number(r.collected_units),
   collectedVolumeMl: r.collected_volume_ml == null ? null : Number(r.collected_volume_ml),
   campaignId:r.campaign_id || null,campaignName:r.campaign_name || null,
-  collectionBatchId:r.collection_batch_id || null,
+  collectionBatchCode:batchCode(r.collection_batch_id),collectionBatchId:r.collection_batch_id || null,
   collectionRecordedAt: r.collection_recorded_at || null,
   createdAt: toDateString(r.created_at),
 });

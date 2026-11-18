@@ -105,7 +105,7 @@ export const AppointmentBooking = ({ nav }) => {
                 <input type="radio" name="time-slot" value={s} checked={slot === s} disabled={disabled} onChange={() => setSlot(s)} className="mr-2 accent-red-600" />{s}{taken && <span className="block text-xs">Booked</span>}
               </label>;
             })}</div>
-            <p className="text-xs text-gray-500 mt-3">Existing appointment times are checked against booked slots. Hospital-specific schedules are not supplied by the service.</p>
+            <p className="text-xs text-gray-500 mt-3">Booked times cannot be selected. The times shown may not include every hospital opening time.</p>
           </fieldset>}
         </SectionCard>
       </fieldset>
@@ -113,7 +113,7 @@ export const AppointmentBooking = ({ nav }) => {
         <Details entries={[[ 'Centre', selected?.name ], ...(nic.trim() ? [['NIC', nic.trim()]] : []), ['District', district || undefined], ['Date', formatDate(date)], ['Time', slot || undefined]]} />
         <div className="mt-5"><Field label="Note to the centre (optional)"><textarea disabled={submitting} rows={3} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} /></Field></div>
         <Button type="submit" icon={Calendar} disabled={!district || !canBook || submitting} className={`w-full mt-5 ${disabledClass}`}>{submitting ? 'Booking…' : 'Confirm booking'}</Button>
-        <p className="text-xs text-gray-500 mt-3">Manage or cancel your booking in My Appointments. Hospital screening determines donation eligibility.</p>
+        <p className="text-xs text-gray-500 mt-3">Manage or cancel your booking in My Appointments. Hospital staff will check whether you can safely donate.</p>
       </SectionCard></div>
     </form>
   </DonorLayout>;

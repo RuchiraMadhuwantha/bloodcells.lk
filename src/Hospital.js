@@ -33,7 +33,7 @@ export const HospitalDashboard = ({ nav }) => {
     <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
       {[[ClipboardList, 'Total Blood Requests', counts.total, 'red'], [Clock, 'Pending Requests', counts.pending, 'amber'],
         [AlertCircle, 'Emergency Open', counts.emergency, 'red'], [CheckCircle, 'Approved Requests', counts.approved, 'blue'],
-        [CheckCircle, 'Fulfilled Requests', counts.fulfilled, 'green']].map(([icon, label, value, accent]) =>
+        [CheckCircle, 'Requests with Blood Issued', counts.fulfilled, 'green']].map(([icon, label, value, accent]) =>
         <StatCard key={label} icon={icon} label={label} value={requests.loading ? 'Loading...' : requests.error ? 'Unavailable' : value} accent={accent} />)}
       <StatCard icon={Database} label="Hospital usable units" value={dashboard.loading ? 'Loading...' : dashboard.data?.summary.inventory.available ? dashboard.data.summary.inventory.totalAvailable : 'Unavailable'} accent="green" />
     </div>
@@ -48,8 +48,8 @@ export const HospitalDashboard = ({ nav }) => {
       {requests.loading ? <Loading /> : requests.error ? <ErrorPanel message={requests.error} onRetry={requests.refresh} /> : !items.length ? <EmptyState title="No blood requests recorded" /> : <RequestTable items={filterRequests(items).slice(0, 6)} onView={actions.view} onCancel={actions.askCancel} busy={actions.busy} />}
     </SectionCard>
     <div className="grid md:grid-cols-2 gap-6 mt-6">
-      <SectionCard title="Hospital Inventory" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-inventory')}>View inventory</Button>}><p className="text-sm text-gray-500">{dashboard.data?.summary.inventory.available ? dashboard.data.summary.inventory.totalAvailable+' usable, unreserved units in owned hospital batches.' : 'Hospital stock requires the approved hospital migration.'}</p></SectionCard>
-      <SectionCard title="Recent Blood Usage" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-usage')}>Blood usage</Button>}><p className="text-sm text-gray-500">{dashboard.data?.summary.usage.available ? dashboard.data.summary.usage.totalUsage+' recorded units used. Open Blood Usage for records and details.' : 'Hospital usage requires the approved hospital migration.'}</p></SectionCard>
+      <SectionCard title="Hospital Inventory" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-inventory')}>View inventory</Button>}><p className="text-sm text-gray-500">{dashboard.data?.summary.inventory.available ? dashboard.data.summary.inventory.totalAvailable+' units available in this hospital?s stock.' : 'Hospital stock is not ready yet. Ask your system administrator to finish setup.'}</p></SectionCard>
+      <SectionCard title="Recent Blood Usage" action={<Button variant="ghost" onClick={() => nav.onNavigate('hospital-usage')}>Blood usage</Button>}><p className="text-sm text-gray-500">{dashboard.data?.summary.usage.available ? dashboard.data.summary.usage.totalUsage+' recorded units used. Open Blood Usage for records and details.' : 'Blood usage records are not ready yet. Ask your system administrator to finish setup.'}</p></SectionCard>
     </div>
   </HospitalLayout>;
 };

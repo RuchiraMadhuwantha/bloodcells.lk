@@ -1,4 +1,6 @@
 import React, { useRef, useState } from 'react';
+import {sortRecords} from '../recordSorting';
+import {SortControl} from '../SortControl';
 import { Eye, Check, Droplets, CalendarCheck, CalendarClock, X, Megaphone } from 'lucide-react';
 import { Badge, Button, CompactAction, SectionCard, StatCard, Table } from '../UIComponents';
 import * as service from '../../services/hospitalService';
@@ -10,6 +12,7 @@ import {CollectionCampaignField,HospitalDonationCampaign} from './HospitalDonati
 import {HospitalAppointmentAction} from './HospitalAppointmentAction';
 export const HospitalAppointments = ({ nav }) => {
   const resource = useHospitalResource(service.getAppointments);
+  const [sort,setSort]=useState('date');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [date, setDate] = useState('');
@@ -25,8 +28,8 @@ export const HospitalAppointments = ({ nav }) => {
   const [message, setMessage] = useState('');
   const lock = useRef(false);
   const records = resource.data?.items || [];
-  const filtered = records.filter(a => (!status || a.status === status) && (!date || a.appointmentDate === date) &&
-    [a.reference, a.donorName, a.nic, a.bloodGroup].some(v => String(v || '').toLowerCase().includes(search.trim().toLowerCase())));
+  const filtered = sortRecords(records.filter(a => (!status || a.status === status) && (!date || a.appointmentDate === date) &&
+    [a.reference, a.donorName, a.nic, a.bloodGroup].some(v => String(v || '').toLowerCase().includes(search.trim().toLowerCase()))),'appointments',sort);
   const completed = filtered.filter(a => a.status === 'completed');
   const save = async (appointment, payload) => {
     if (lock.current) return;
@@ -53,6 +56,7 @@ export const HospitalAppointments = ({ nav }) => {
         <Field label="Search appointments"><input className={inputClass} value={search} onChange={e => setSearch(e.target.value)} placeholder="Reference, donor, NIC or blood group" /></Field>
         <Field label="Appointment status"><select className={inputClass} value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{['pending','approved','completed','cancelled'].map(s => <option key={s} value={s}>{titleCase(s)}</option>)}</select></Field>
         <Field label="Appointment date"><input className={inputClass} type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
+        <SortControl label="Sort appointments" profile="appointments" value={sort} onChange={setSort} className={inputClass}/>
       </Filters>
       <ResourceState resource={resource} emptyTitle="No donor appointments">
         {!filtered.length ? <EmptyState title="No appointments match your filters" /> : <Table columns={['Reference / Donor', 'NIC', 'Blood group', 'Date / Time', 'Status', 'Collected blood', 'Actions']}>
@@ -62,7 +66,7 @@ export const HospitalAppointments = ({ nav }) => {
             <td className="p-3 text-sm">{a.bloodGroup}</td>
             <td className="p-3 text-sm whitespace-nowrap">{formatDate(a.appointmentDate)}<span className="block text-gray-500">{a.timeSlot}</span></td>
             <td className="p-3"><Badge color={statusColor(a.status)}>{a.statusLabel || titleCase(a.status)}</Badge></td>
-            <td className="p-3 text-sm">{a.collectedUnits != null ? <>{a.collectedUnits} unit(s)<span className="block text-gray-500">{a.collectedVolumeMl} mL</span>{a.campaignName&&<span className="block text-xs text-gray-500">{a.campaignName}</span>}{a.collectionBatchId&&<span className="block text-xs text-gray-500">Inventory batch #{a.collectionBatchId}</span>}</> : a.status === 'completed' ? 'Not recorded' : '—'}</td>
+            <td className="p-3 text-sm">{a.collectedUnits != null ? <>{a.collectedUnits} unit(s)<span className="block text-gray-500">{a.collectedVolumeMl} mL</span>{a.campaignName&&<span className="block text-xs text-gray-500">{a.campaignName}</span>}{a.collectionBatchId&&<span className="block text-xs text-gray-500">Inventory packet {a.collectionBatchCode||'B-'+String(a.collectionBatchId).padStart(4,'0')}</span>}</> : a.status === 'completed' ? 'Not recorded' : '—'}</td>
             <td className="p-3"><div className="flex flex-wrap gap-1.5">
               <CompactAction icon={Eye} onClick={() => setSelected(a)}>Details</CompactAction>
               {['pending','approved'].includes(a.status)&&<><CompactAction icon={CalendarClock} tone="schedule" disabled={busy} onClick={()=>setAction({appointment:a,action:'reschedule'})}>Reschedule</CompactAction><CompactAction icon={X} tone="danger" disabled={busy} onClick={()=>setAction({appointment:a,action:'cancel'})}>Cancel</CompactAction></>}
@@ -84,9 +88,9 @@ export const HospitalAppointments = ({ nav }) => {
         <Field label="Collected units"><input required type="number" min="1" max="1000" step="1" className={inputClass} value={units} onChange={e => setUnits(e.target.value)} /></Field>
         <Field label="Collected volume (mL)"><input required type="number" min="1" max="100000" step="1" className={inputClass} value={volume} onChange={e => setVolume(e.target.value)} /></Field>
         <Field label="Collected blood component"><input required maxLength={100} className={inputClass} value={component} onChange={e=>setComponent(e.target.value)} /></Field>
-        <Field label="Actual batch expiry date"><input required type="date" min={collection.appointmentDate} className={inputClass} value={expiry} onChange={e=>setExpiry(e.target.value)} /></Field>
+        <Field label="Actual packet expiry date"><input required type="date" min={collection.appointmentDate} className={inputClass} value={expiry} onChange={e=>setExpiry(e.target.value)} /></Field>
         <CollectionCampaignField appointment={collection} value={campaignId} onChange={setCampaignId} disabled={busy}/>
-        <p className="text-xs text-gray-500">A linked inventory batch will be created in quarantine pending checks.</p>
+        <p className="text-xs text-gray-500">The collected blood will be added to stock and kept separate until staff complete the required checks.</p>
         <Button type="submit" icon={Check} disabled={busy}>{busy ? 'Saving...' : 'Save collection and complete'}</Button>
       </form>
     </Dialog>}

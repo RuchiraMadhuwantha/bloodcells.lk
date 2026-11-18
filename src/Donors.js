@@ -31,6 +31,7 @@ export const DonorProfile = ({ nav }) => {
       setForm({
         full_name: data.profile?.full_name || '',
         email: data.user?.email || '',
+        email_opt_in:Boolean(data.profile?.email_opt_in),
         phone: data.profile?.phone || '',
         district: data.profile?.district || '',
         gender: data.profile?.gender || '',
@@ -56,6 +57,7 @@ export const DonorProfile = ({ nav }) => {
     try {
       const data = await api.updateProfile({
         email: form.email,
+        email_opt_in:form.email_opt_in===true,
         full_name: form.full_name,
         phone: form.phone,
         district: form.district,
@@ -190,6 +192,10 @@ export const DonorProfile = ({ nav }) => {
             )}
           </SectionCard>
 
+          <SectionCard title="Email preferences">
+            {editing?<label className="flex items-start gap-3 text-sm text-gray-700"><input type="checkbox" checked={!!form.email_opt_in} disabled={saving} onChange={e=>setForm(f=>({...f,email_opt_in:e.target.checked}))}/><span>Receive blood bank announcements by email</span></label>:<p className="text-sm text-gray-600">Email announcements: {profile?.email_opt_in?'Enabled':'Disabled'}</p>}
+            <p className="text-xs text-gray-500 mt-2">You can turn this preference off at any time. In-app notifications remain available.</p>
+          </SectionCard>
           <SectionCard title="Contact Details">
             {editing ? (
               <div className="grid sm:grid-cols-2 gap-4 text-sm">

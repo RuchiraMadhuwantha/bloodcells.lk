@@ -39,8 +39,8 @@ const profile = [
   body().custom(value=>Object.keys(value).length>0 && Object.keys(value).every(k=>['hospitalName','hospitalType','district','address','contactNumber','contactPersonName','contactPersonDesignation','contactPersonPhone','contactPersonEmail'].includes(k))).withMessage('Only hospital contact/profile fields can be updated.'),
 ];
 const createTransfer = [...key,...volume,
-  body('batchId').isInt({min:1}).toInt().withMessage('Select a hospital blood batch.'),
-  body('destinationId').isInt({min:1}).toInt().withMessage('Select a blood bank destination.'),
+  body('batchId').isInt({min:1}).toInt().withMessage('Select a hospital blood packet.'),
+  body('destinationId').optional().isInt({min:1}).toInt().withMessage('The blood bank destination is invalid.'),
   body('quantity').isInt({min:1,max:100000}).toInt().withMessage('Enter a positive whole number of units.'),
   body('reason').isString().trim().isLength({min:1,max:500}).withMessage('Enter the transfer reason.'),
 ];

@@ -77,10 +77,8 @@ const BANK_NAV = [
   { route: 'bank-hospitals', label: 'Hospital Management', icon: Building2, group: 'Operations' },
   { route: 'bank-inventory', label: 'Blood Inventory', icon: Database, group: 'Operations' },
   { route: 'bank-expiry', label: 'Blood Expiry', icon: Calendar, group: 'Operations' },
-  { route: 'bank-shortages', label: 'Blood Shortages', icon: Siren, group: 'Operations' },
   { route: 'bank-requests', label: 'Blood Requests', icon: ClipboardList, group: 'Operations' },
   { route: 'bank-donors', label: 'Donor Management', icon: Users, group: 'Donors and collections' },
-  { route: 'bank-eligible', label: 'Eligible Donor Search', icon: User, group: 'Donors and collections' },
   { route: 'bank-appointments', label: 'Appointment Management', icon: Calendar, group: 'Donors and collections' },
   { route: 'bank-campaigns', label: 'Campaign Management', icon: Megaphone, group: 'Donors and collections' },
   { route: 'bank-notifications', label: 'Notification Management', icon: Bell, group: 'Donors and collections' },
@@ -190,7 +188,7 @@ const App = () => (
   </AuthProvider>
 );
 
-const normalizePortalRoute=route=>route==='bank-regional-stock'?'bank-inventory':route;
+const normalizePortalRoute=route=>({'bank-shortages':'bank-inventory','bank-regional-stock':'bank-inventory','bank-eligible':'bank-donors'}[route]||route);
 const AppInner = () => {
   const { pendingCount, loading: hospitalCountLoading, error: hospitalCountError } = useHospitals();
   const { role, isAuthenticated, booting, signOut, verificationError, retrySession } = useAuth();
@@ -270,8 +268,6 @@ const AppInner = () => {
     'hospital-profile': <HospitalProfile nav={navFor('Hospital Portal', HOSPITAL_NAV)} />,
     'bank-dashboard': <BankDashboard nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-expiry': <BloodExpiry nav={navFor('Blood Bank Portal', bankNav)} />,
-    'bank-shortages': <InventoryManagement key="shortages" shortages nav={navFor('Blood Bank Portal', bankNav)} />,
-    'bank-eligible': <DonorManagement key="candidates" candidates nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-appointments': <BankAppointments nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-notifications': <BankNotifications nav={navFor('Blood Bank Portal', bankNav)} />,
     'bank-transfers': <BloodTransfers nav={navFor('Blood Bank Portal', bankNav)} />,
